@@ -6,6 +6,19 @@
 <title>hass-omnibus-card test fixture</title>
 
 <style>
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    src: url('/tests/fonts/inter-400.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 700;
+    src: url('/tests/fonts/inter-700.woff2') format('woff2');
+  }
+
   /* Disable all animations/transitions for deterministic snapshots */
   *, *::before, *::after {
     animation-duration: 0s !important;
@@ -30,7 +43,7 @@
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #111318; padding: 16px; }
+  body { background: #111318; padding: 16px; font-family: 'Inter', sans-serif; }
   #mount { width: 320px; }
 </style>
 
