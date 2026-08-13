@@ -141,7 +141,7 @@ card-ha/
 ├─ dev.html                    # interactive dev harness (Iconify icons, scenario buttons)
 ├─ playwright.config.js        # Playwright: Chromium, Vite web server, snapshot paths
 ├─ vite.config.js              # Vite lib mode: src/index.js → dist/hass-omnibus-card.js
-└─ package.json                # scripts: dev, build, test, test:update, test:ui
+└─ package.json                # scripts: dev, build, test, test:update, test:update-ci, test:ui
 ```
 
 ---
@@ -508,9 +508,10 @@ HACS downloads from the release asset. The committed `dist/` file is the fallbac
 ### Run the tests
 
 ```bash
-npm test                 # compare against committed baselines — 28 tests
-npm run test:update      # regenerate baselines after intentional visual changes
-npm run test:ui          # open Playwright interactive UI for debugging failures
+npm test                    # compare against committed baselines — 28 tests
+npm run test:update         # regenerate baselines after intentional visual changes (local OS)
+npm run test:update-ci      # regenerate baselines inside Docker (matches CI/Ubuntu environment)
+npm run test:ui             # open Playwright interactive UI for debugging failures
 ```
 
 Tests start the Vite dev server automatically (reuses an existing one locally, always starts fresh in CI).
@@ -521,6 +522,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 
 - **Baselines are committed** — they are the ground truth. A failing test means the rendering changed unexpectedly.
 - **`--update-snapshots`** — run after intentional visual changes to accept the new output as the new baseline. Always review the diff before committing.
+- **Baselines must match CI environment** — font rendering differs between macOS and Linux. If CI fails with pixel-diff errors on unchanged code, regenerate baselines with `npm run test:update-ci` (runs Docker matching `ubuntu-latest`) and commit the result.
 - **Animations and transitions are disabled** in `tests/fixture.html` for deterministic screenshots.
 - **Icons use a box stub** (not Iconify CDN) — a solid-color rectangle per icon. Snapshots show layout and color, not specific icon glyphs. No CDN dependency, no flaky rendering.
 

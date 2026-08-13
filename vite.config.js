@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  server: {
+    watch: process.env.CI ? null : undefined,
+  },
   build: {
     lib: {
       entry:    'src/index.js',
