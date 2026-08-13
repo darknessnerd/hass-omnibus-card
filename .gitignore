@@ -1,0 +1,11 @@
+node_modules/
+.vite/
+.DS_Store
+.idea/
+*.local
+
+# Playwright
+test-results/
+playwright-report/
+# snapshots are committed — they are the baseline truth
+# only /tests/e2e/snapshots/ goes into git

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>room-summary-card dev</title>
+
+<!-- MDI icons via Iconify -->
+<script src="https://cdn.jsdelivr.net/npm/iconify-icon@2/dist/iconify-icon.min.js"></script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #111318;
+    color: #e0e0e0;
+    font-family: sans-serif;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  h2 { color: #aaa; font-size: 13px; font-weight: 500; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .08em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .section { margin-bottom: 32px; }
+  #controls { margin-bottom: 24px; display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    background: #2a2d36; color: #ccc; border: 1px solid #3a3d46;
+    border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px;
+  }
+  button:hover { background: #3a3d46; }
+  #log { font-size: 12px; color: #666; margin-top: 24px; white-space: pre-wrap; }
+</style>
+
+<!-- ── HA stub elements ──────────────────────────────────────────────────── -->
+<script>
+  // ha-card: styled container with slot
+  customElements.define('ha-card', class extends HTMLElement {
+    connectedCallback() {
+      Object.assign(this.style, {
+        display: 'block',
+        borderRadius: '12px',
+        background: 'var(--ha-card-background, #1c1c1e)',
+        boxShadow: '0 2px 12px rgba(0,0,0,.4)',
+        overflow: 'hidden',
+        position: 'relative',
+      });
+    }
+  });
+
+  // ha-icon: delegate to iconify-icon
+  customElements.define('ha-icon', class extends HTMLElement {
+    static get observedAttributes() { return ['icon']; }
+    connectedCallback() { this._sync(); }
+    attributeChangedCallback() { this._sync(); }
+    _sync() {
+      const raw = this.getAttribute('icon') || '';
+      // mdi:foo → iconify mdi:foo
+      const iconName = raw.startsWith('mdi:') ? raw : raw.replace(':', ':');
+      this.innerHTML = `<iconify-icon icon="${iconName}" style="font-size:inherit;--iconify-font-size:inherit"></iconify-icon>`;
+    }
+  });
+</script>
+
+<!-- ── CSS variables (minimal HA theme) ────────────────────────────────── -->
+<style>
+  :root {
+    --ha-card-background: #1c1c1e;
+    --card-background-color: #1c1c1e;
+    --primary-color: #03a9f4;
+    --primary-text-color: #e1e1e1;
+    --secondary-text-color: #9e9e9e;
+    --disabled-text-color: #5e5e5e;
+    --divider-color: rgba(255,255,255,.08);
+    --mdc-icon-size: 20px;
+  }
+</style>
+
+<!-- ── Mock hass data ────────────────────────────────────────────────────── -->
+<script>
+const MOCK_HASS = {
+  areas: {
+    living_room: { area_id: 'living_room', name: 'Living Room', icon: 'mdi:sofa' },
+    bedroom:     { area_id: 'bedroom',     name: 'Bedroom',     icon: 'mdi:bed' },
+    kitchen:     { area_id: 'kitchen',     name: 'Kitchen',     icon: 'mdi:chef-hat' },
+    bathroom:    { area_id: 'bathroom',    name: 'Bathroom',    icon: 'mdi:shower' },
+  },
+
+  devices: {
+    dev_lr_lamp:   { area_id: 'living_room' },
+    dev_lr_sensor: { area_id: 'living_room' },
+    dev_bed_lamp:  { area_id: 'bedroom' },
+    dev_kit_sensor:{ area_id: 'kitchen' },
+  },
+
+  entities: {
+    // living_room — via device
+    'light.ceiling':           { area_id: null, device_id: 'dev_lr_lamp',   hidden_by: null },
+    'light.floor_lamp':        { area_id: null, device_id: 'dev_lr_lamp',   hidden_by: null },
+    'sensor.temperature':      { area_id: null, device_id: 'dev_lr_sensor', hidden_by: null },
+    'sensor.humidity':         { area_id: null, device_id: 'dev_lr_sensor', hidden_by: null },
+    'binary_sensor.motion':    { area_id: 'living_room', device_id: null,   hidden_by: null },
+    'binary_sensor.window':    { area_id: 'living_room', device_id: null,   hidden_by: null },
+    'media_player.tv':         { area_id: 'living_room', device_id: null,   hidden_by: null },
+    // bedroom — direct area
+    'light.bedside':           { area_id: 'bedroom', device_id: null,        hidden_by: null },
+    'sensor.bed_temperature':  { area_id: 'bedroom', device_id: null,        hidden_by: null },
+    'sensor.bed_humidity':     { area_id: 'bedroom', device_id: null,        hidden_by: null },
+    'binary_sensor.smoke_det': { area_id: 'bedroom', device_id: null,        hidden_by: null },
+    // kitchen
+    'sensor.kit_temperature':  { area_id: null, device_id: 'dev_kit_sensor', hidden_by: null },
+    'sensor.kit_humidity':     { area_id: null, device_id: 'dev_kit_sensor', hidden_by: null },
+    'binary_sensor.gas_det':   { area_id: 'kitchen', device_id: null,        hidden_by: null },
+    'light.kit_ceiling':       { area_id: 'kitchen', device_id: null,        hidden_by: null },
+    // bathroom
+    'sensor.bath_humidity':    { area_id: 'bathroom', device_id: null,       hidden_by: null },
+    'light.bath_mirror':       { area_id: 'bathroom', device_id: null,       hidden_by: null },
+  },
+
+  states: {
+    // living_room
+    'light.ceiling': {
+      state: 'on',
+      attributes: { friendly_name: 'Ceiling', rgb_color: [255, 200, 100], brightness: 200 },
+    },
+    'light.floor_lamp': {
+      state: 'off',
+      attributes: { friendly_name: 'Floor Lamp' },
+    },
+    'sensor.temperature': {
+      state: '21.5',
+      attributes: { friendly_name: 'Temperature', device_class: 'temperature', unit_of_measurement: '°C' },
+    },
+    'sensor.humidity': {
+      state: '52',
+      attributes: { friendly_name: 'Humidity', device_class: 'humidity', unit_of_measurement: '%' },
+    },
+    'binary_sensor.motion': {
+      state: 'on',
+      attributes: { friendly_name: 'Motion', device_class: 'motion' },
+    },
+    'binary_sensor.window': {
+      state: 'off',
+      attributes: { friendly_name: 'Window', device_class: 'window' },
+    },
+    'media_player.tv': {
+      state: 'playing',
+      attributes: { friendly_name: 'TV', media_title: 'Netflix' },
+    },
+    // bedroom
+    'light.bedside': {
+      state: 'off',
+      attributes: { friendly_name: 'Bedside' },
+    },
+    'sensor.bed_temperature': {
+      state: '19.2',
+      attributes: { friendly_name: 'Bedroom Temp', device_class: 'temperature', unit_of_measurement: '°C' },
+    },
+    'sensor.bed_humidity': {
+      state: '65',
+      attributes: { friendly_name: 'Bedroom Humidity', device_class: 'humidity', unit_of_measurement: '%' },
+    },
+    'binary_sensor.smoke_det': {
+      state: 'off',
+      attributes: { friendly_name: 'Smoke Detector', device_class: 'smoke' },
+    },
+    // kitchen
+    'sensor.kit_temperature': {
+      state: '23.8',
+      attributes: { friendly_name: 'Kitchen Temp', device_class: 'temperature', unit_of_measurement: '°C' },
+    },
+    'sensor.kit_humidity': {
+      state: '48',
+      attributes: { friendly_name: 'Kitchen Humidity', device_class: 'humidity', unit_of_measurement: '%' },
+    },
+    'binary_sensor.gas_det': {
+      state: 'off',
+      attributes: { friendly_name: 'Gas Detector', device_class: 'gas' },
+    },
+    'light.kit_ceiling': {
+      state: 'on',
+      attributes: { friendly_name: 'Kitchen Light' },
+    },
+    // bathroom
+    'sensor.bath_humidity': {
+      state: '78',
+      attributes: { friendly_name: 'Bath Humidity', device_class: 'humidity', unit_of_measurement: '%' },
+    },
+    'light.bath_mirror': {
+      state: 'off',
+      attributes: { friendly_name: 'Mirror Light' },
+    },
+  },
+
+  // stub methods the card might call
+  callService: (domain, service, data) => {
+    log(`callService: ${domain}.${service}`, data);
+  },
+  fireEvent: (el, type, detail) => {
+    el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+  },
+};
+
+
+// ── Scenario toggles ───────────────────────────────────────────────────────
+
+const SCENARIOS = {
+  normal: () => {
+    MOCK_HASS.states['binary_sensor.smoke_det'].state = 'off';
+    MOCK_HASS.states['binary_sensor.gas_det'].state = 'off';
+    MOCK_HASS.states['binary_sensor.motion'].state = 'on';
+    MOCK_HASS.states['sensor.bath_humidity'].state = '78';
+    MOCK_HASS.states['light.ceiling'].state = 'on';
+  },
+  alarm: () => {
+    MOCK_HASS.states['binary_sensor.smoke_det'].state = 'on';
+  },
+  gas: () => {
+    MOCK_HASS.states['binary_sensor.gas_det'].state = 'on';
+  },
+  no_motion: () => {
+    MOCK_HASS.states['binary_sensor.motion'].state = 'off';
+  },
+  mold: () => {
+    MOCK_HASS.states['sensor.bath_humidity'].state = '85';
+  },
+  lights_off: () => {
+    MOCK_HASS.states['light.ceiling'].state = 'off';
+  },
+};
+
+function applyScenario(name) {
+  SCENARIOS.normal();
+  if (name !== 'normal') SCENARIOS[name]?.();
+  refreshAll();
+  log(`scenario: ${name}`);
+}
+
+function refreshAll() {
+  document.querySelectorAll('room-summary-card').forEach(el => {
+    el.hass = { ...MOCK_HASS };
+  });
+}
+</script>
+
+<!-- ── Card script ───────────────────────────────────────────────────────── -->
+<script type="module" src="./src/index.js"></script>
+
+</head>
+<body>
+
+<div id="controls">
+  <button onclick="applyScenario('normal')">Normal</button>
+  <button onclick="applyScenario('alarm')">Smoke alarm</button>
+  <button onclick="applyScenario('gas')">Gas alarm</button>
+  <button onclick="applyScenario('no_motion')">No motion</button>
+  <button onclick="applyScenario('mold')">Mold risk (bath)</button>
+  <button onclick="applyScenario('lights_off')">Lights off</button>
+</div>
+
+<div class="section">
+  <h2>Rooms</h2>
+  <div class="grid" id="cards"></div>
+</div>
+
+<div id="log"></div>
+
+<script>
+function log(...args) {
+  const el = document.getElementById('log');
+  el.textContent = `[${new Date().toLocaleTimeString()}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}\n` + el.textContent;
+}
+
+// Intercept more-info events
+window.addEventListener('hass-more-info', e => log('more-info:', e.detail?.entityId));
+window.addEventListener('location-changed', e => log('navigate:', e.detail?.replace));
+
+// Build cards after module loads
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const CARDS = [
+      { area: 'living_room' },
+      { area: 'bedroom', mold_threshold: 60 },
+      { area: 'kitchen' },
+      { area: 'bathroom', mold_threshold: 65 },
+      { area: 'nonexistent_area' },  // error state
+    ];
+
+    const container = document.getElementById('cards');
+    CARDS.forEach(config => {
+      const el = document.createElement('room-summary-card');
+      el.setConfig(config);
+      el.hass = { ...MOCK_HASS };
+      container.appendChild(el);
+    });
+
+    log('cards mounted');
+  }, 100);
+});
+</script>
+
+</body>
+</html>

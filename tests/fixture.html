@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>room-summary-card test fixture</title>
+
+<style>
+  /* Disable all animations/transitions for deterministic snapshots */
+  *, *::before, *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
+
+  :root {
+    --ha-card-background: #1c1c1e;
+    --card-background-color: #1c1c1e;
+    --primary-color: #03a9f4;
+    --primary-text-color: #e1e1e1;
+    --secondary-text-color: #9e9e9e;
+    --secondary-background-color: rgba(255,255,255,.06);
+    --disabled-text-color: #5e5e5e;
+    --divider-color: rgba(255,255,255,.08);
+    --error-color: #f44336;
+    --success-color: #4caf50;
+    --warning-color: #ff9800;
+    --mdc-icon-size: 20px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #111318; padding: 16px; }
+  #mount { width: 320px; }
+</style>
+
+<!-- ha-card: styled container -->
+<script>
+  customElements.define('ha-card', class extends HTMLElement {
+    connectedCallback() {
+      Object.assign(this.style, {
+        display: 'block',
+        borderRadius: '12px',
+        background: 'var(--ha-card-background, #1c1c1e)',
+        boxShadow: '0 2px 12px rgba(0,0,0,.4)',
+        overflow: 'hidden',
+        position: 'relative',
+      });
+    }
+  });
+
+  // ha-icon: deterministic box stub — no CDN, no flaky icon glyphs
+  customElements.define('ha-icon', class extends HTMLElement {
+    static get observedAttributes() { return ['icon']; }
+    connectedCallback() { this._sync(); }
+    attributeChangedCallback() { this._sync(); }
+    _sync() {
+      const icon = this.getAttribute('icon') || '';
+      const name = icon.split(':')[1] ?? icon;
+      this.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:1em;height:1em;font-size:inherit;';
+      this.innerHTML = `<span style="display:block;width:.75em;height:.75em;background:currentColor;border-radius:2px;" title="${icon}" data-icon="${name}"></span>`;
+    }
+  });
+</script>
+
+<script type="module" src="/src/index.js"></script>
+</head>
+<body>
+<div id="mount"></div>
+
+<script>
+// ── Base mock hass ────────────────────────────────────────────────────────────
+window.BASE_HASS = {
+  areas: {
+    living_room: { area_id: 'living_room', name: 'Living Room', icon: 'mdi:sofa' },
+    bedroom:     { area_id: 'bedroom',     name: 'Bedroom',     icon: 'mdi:bed' },
+  },
+  devices: {
+    dev_lr: { area_id: 'living_room' },
+  },
+  entities: {
+    'light.ceiling':          { area_id: null,          device_id: 'dev_lr', hidden_by: null },
+    'light.floor_lamp':       { area_id: null,          device_id: 'dev_lr', hidden_by: null },
+    'sensor.temperature':     { area_id: 'living_room', device_id: null,     hidden_by: null },
+    'sensor.humidity':        { area_id: 'living_room', device_id: null,     hidden_by: null },
+    'binary_sensor.motion':   { area_id: 'living_room', device_id: null,     hidden_by: null },
+    'binary_sensor.smoke':    { area_id: 'living_room', device_id: null,     hidden_by: null },
+    'binary_sensor.gas':      { area_id: 'living_room', device_id: null,     hidden_by: null },
+    'binary_sensor.water':    { area_id: 'living_room', device_id: null,     hidden_by: null },
+    'binary_sensor.problem':  { area_id: 'living_room', device_id: null,     hidden_by: null },
+    'climate.hvac':           { area_id: 'living_room', device_id: null,     hidden_by: null },
+    'media_player.tv':        { area_id: 'living_room', device_id: null,     hidden_by: null },
+    'switch.outlet':          { area_id: 'living_room', device_id: null,     hidden_by: null },
+    'light.bed_light':        { area_id: 'bedroom',     device_id: null,     hidden_by: null },
+    'sensor.bed_humidity':    { area_id: 'bedroom',     device_id: null,     hidden_by: null },
+  },
+  states: {
+    'light.ceiling':          { state: 'on',     attributes: { friendly_name: 'Ceiling', rgb_color: [255, 200, 100], brightness: 200 } },
+    'light.floor_lamp':       { state: 'on',     attributes: { friendly_name: 'Floor Lamp' } },
+    'sensor.temperature':     { state: '21.5',   attributes: { friendly_name: 'Temperature', device_class: 'temperature', unit_of_measurement: '°C' } },
+    'sensor.humidity':        { state: '52',     attributes: { friendly_name: 'Humidity', device_class: 'humidity', unit_of_measurement: '%' } },
+    'binary_sensor.motion':   { state: 'on',     attributes: { friendly_name: 'Motion', device_class: 'motion' } },
+    'binary_sensor.smoke':    { state: 'off',    attributes: { friendly_name: 'Smoke', device_class: 'smoke' } },
+    'binary_sensor.gas':      { state: 'off',    attributes: { friendly_name: 'Gas', device_class: 'gas' } },
+    'binary_sensor.water':    { state: 'off',    attributes: { friendly_name: 'Water', device_class: 'moisture' } },
+    'binary_sensor.problem':  { state: 'off',    attributes: { friendly_name: 'Problem sensor', device_class: 'problem' } },
+    'climate.hvac':           { state: 'heat',   attributes: { friendly_name: 'HVAC', current_temperature: 20.5 } },
+    'media_player.tv':        { state: 'playing',attributes: { friendly_name: 'TV' } },
+    'switch.outlet':          { state: 'off',    attributes: { friendly_name: 'Outlet' } },
+    'light.bed_light':        { state: 'off',    attributes: { friendly_name: 'Bed Light' } },
+    'sensor.bed_humidity':    { state: '72',     attributes: { friendly_name: 'Humidity', device_class: 'humidity', unit_of_measurement: '%' } },
+  },
+};
+
+/**
+ * Mount a card with a shallow state override.
+ * stateOverrides: { 'entity.id': { state: '...', attributes: {...} } }
+ */
+window.mountCard = function(config, stateOverrides) {
+  document.getElementById('mount').innerHTML = '';
+
+  const hass = JSON.parse(JSON.stringify(window.BASE_HASS));
+  if (stateOverrides) {
+    for (const [id, patch] of Object.entries(stateOverrides)) {
+      if (hass.states[id]) {
+        hass.states[id] = { ...hass.states[id], ...patch };
+      } else {
+        hass.states[id] = patch;
+      }
+    }
+  }
+
+  const el = document.createElement('room-summary-card');
+  el.setConfig(config);
+  el.hass = hass;
+  document.getElementById('mount').appendChild(el);
+};
+</script>
+</body>
+</html>
