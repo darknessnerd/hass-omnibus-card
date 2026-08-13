@@ -1,0 +1,29 @@
+#!/bin/sh
+
+echo "[pre-push] Building dist..."
+if ! npm run build; then
+  echo "[pre-push] Build failed. Push blocked."
+  exit 1
+fi
+
+echo "[pre-push] Checking dist is committed..."
+DIST_STATUS="$(git status --porcelain -- dist/hass-omnibus-card.js)"
+if [ -n "$DIST_STATUS" ]; then
+  echo ""
+  echo "  ERROR: dist/hass-omnibus-card.js is not committed."
+  echo "  The build output is out of sync with what will be pushed."
+  echo ""
+  echo "  Fix: run these commands, then push again:"
+  echo "    git add dist/hass-omnibus-card.js"
+  echo "    git commit -m 'chore: rebuild dist'"
+  echo ""
+  exit 1
+fi
+
+echo "[pre-push] Running E2E tests..."
+if ! npm test; then
+  echo "[pre-push] Tests failed. Push blocked."
+  exit 1
+fi
+
+echo "[pre-push] All checks passed."

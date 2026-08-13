@@ -1,6 +1,6 @@
 {
-  "name": "Room Summary Card",
-  "filename": "dist/room-summary-card.js",
+  "name": "Hass Omnibus Card",
+  "filename": "dist/hass-omnibus-card.js",
   "homeassistant": "2023.4.0",
   "render_readme": true
 }

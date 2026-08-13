@@ -1,8 +1,22 @@
 node_modules/
 .vite/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Editors
 .idea/
+.vscode/
+
+# Env / local overrides
 *.local
+.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
 
 # Playwright
 test-results/

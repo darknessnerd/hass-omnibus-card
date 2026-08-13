@@ -10,7 +10,7 @@ async function mount(page, config, stateOverrides) {
     { cfg: config, overrides: stateOverrides ?? null },
   );
   // card renders synchronously; one rAF ensures Shadow DOM is painted
-  await page.waitForFunction(() => !!document.querySelector('room-summary-card')?.shadowRoot?.querySelector('ha-card'));
+  await page.waitForFunction(() => !!document.querySelector('hass-omnibus-card')?.shadowRoot?.querySelector('ha-card'));
 }
 
 test.beforeEach(async ({ page }) => {

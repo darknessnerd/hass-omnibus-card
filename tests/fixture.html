@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>room-summary-card test fixture</title>
+<title>hass-omnibus-card test fixture</title>
 
 <style>
   /* Disable all animations/transitions for deterministic snapshots */
@@ -130,7 +130,7 @@ window.mountCard = function(config, stateOverrides) {
     }
   }
 
-  const el = document.createElement('room-summary-card');
+  const el = document.createElement('hass-omnibus-card');
   el.setConfig(config);
   el.hass = hass;
   document.getElementById('mount').appendChild(el);

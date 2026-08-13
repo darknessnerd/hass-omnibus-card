@@ -1,8 +1,8 @@
-# Room Summary Card — Home Assistant
+# Hass Omnibus Card — Home Assistant
 
 ## Purpose
 
-`room-summary-card` is a custom Home Assistant Lovelace card designed to provide a compact, intelligent summary of a Home Assistant Area/Room.
+`hass-omnibus-card` is a custom Home Assistant Lovelace card designed to provide a compact, intelligent summary of a Home Assistant Area/Room.
 
 The card automatically discovers entities associated with an Area and presents the most relevant information in a compact room-level representation.
 
@@ -22,7 +22,7 @@ The main input is a Home Assistant Area.
 
 Example:
 
-`type: custom:room-summary-card`
+`type: custom:hass-omnibus-card`
 `area: living_room`
 
 The card automatically discovers relevant entities belonging to that Area.
@@ -592,7 +592,7 @@ The purpose is to make abnormal conditions immediately visible while keeping nor
 
 # Key Product Characteristics
 
-The most important characteristics of `room-summary-card` are:
+The most important characteristics of `hass-omnibus-card` are:
 
 * Area-centric
 * Automatic entity discovery

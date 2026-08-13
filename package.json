@@ -1,5 +1,5 @@
 {
-  "name": "room-summary-card",
+  "name": "hass-omnibus-card",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -9,11 +9,10 @@
     "test": "playwright test",
     "test:update": "playwright test --update-snapshots",
     "test:ui": "playwright test --ui",
-    "prepare": "husky"
+    "prepare": "cp scripts/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
-    "husky": "^9.1.7",
     "vite": "^5.4.0"
   }
 }

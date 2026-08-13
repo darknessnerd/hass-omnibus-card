@@ -1,5 +1,5 @@
-export const CARD_TAG     = 'room-summary-card';
-export const CARD_VERSION = '1.0.0';
+export const CARD_TAG     = 'hass-omnibus-card';
+export const CARD_VERSION = '9.9.9';
 
 export const ACTIVE_STATES = new Set(['on', 'open', 'playing', 'home', 'unlocked']);
 

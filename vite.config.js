@@ -5,8 +5,8 @@ export default defineConfig({
     lib: {
       entry:    'src/index.js',
       formats:  ['iife'],
-      name:     'RoomSummaryCard',
-      fileName: () => 'room-summary-card.js',
+      name:     'HassOmnibusCard',
+      fileName: () => 'hass-omnibus-card.js',
     },
     outDir:     'dist',
     emptyOutDir: false,   // don't wipe other files that may live in dist/

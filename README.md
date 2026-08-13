@@ -1,12 +1,12 @@
 
-# room-summary-card
+# hass-omnibus-card
 
 A compact, intelligent Home Assistant Lovelace card that summarizes an entire room from a single `area:` ID — no manual entity lists required.
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](src/constants.js)
-[![CI](https://github.com/yourusername/room-summary-card/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/room-summary-card/actions/workflows/ci.yml)
+[![CI](https://github.com/yourusername/hass-omnibus-card/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/hass-omnibus-card/actions/workflows/ci.yml)
 
 > **Development:** `npm install && npm run dev` — opens a live-reload test harness in the browser. No Home Assistant required. See [DEVELOPMENT.md](DEVELOPMENT.md).
 
@@ -63,23 +63,23 @@ area: living_room
 
 1. Open HACS → **Frontend** → **Custom repositories**
 2. Add the GitHub repo URL as type **Lovelace**
-3. Install **Room Summary Card**
+3. Install **Hass Omnibus Card**
 4. Hard-refresh the browser (`Ctrl + Shift + R`)
 
 ### Manual
 
-1. Download `dist/room-summary-card.js`
-2. Copy to `<config>/www/room-summary-card.js`
+1. Download `dist/hass-omnibus-card.js`
+2. Copy to `<config>/www/hass-omnibus-card.js`
 3. Add the resource:
 
 **Via UI:** Settings → Dashboards → top-right menu → Resources → Add  
-`/local/room-summary-card.js` — type: **JavaScript module**
+`/local/hass-omnibus-card.js` — type: **JavaScript module**
 
 **Or via YAML:**
 ```yaml
 lovelace:
   resources:
-    - url: /local/room-summary-card.js
+    - url: /local/hass-omnibus-card.js
       type: module
 ```
 
@@ -90,7 +90,7 @@ lovelace:
 ## Quick start
 
 ```yaml
-type: custom:room-summary-card
+type: custom:hass-omnibus-card
 area: living_room
 ```
 
@@ -101,7 +101,7 @@ That's it. The card discovers every entity in the area automatically.
 ## Configuration reference
 
 ```yaml
-type: custom:room-summary-card
+type: custom:hass-omnibus-card
 
 # ── Required ──────────────────────────────────────────────────────────
 area: living_room          # Home Assistant area_id (not the display name)
@@ -152,14 +152,14 @@ mold_threshold: 70         # Humidity % above which mold risk badge appears (def
 ### Minimal — living room
 
 ```yaml
-type: custom:room-summary-card
+type: custom:hass-omnibus-card
 area: living_room
 ```
 
 ### Custom name and icon + navigation
 
 ```yaml
-type: custom:room-summary-card
+type: custom:hass-omnibus-card
 area: living_room
 name: Soggiorno
 icon: mdi:sofa
@@ -169,7 +169,7 @@ navigate_to: /lovelace/soggiorno
 ### Bedroom with strict mold threshold
 
 ```yaml
-type: custom:room-summary-card
+type: custom:hass-omnibus-card
 area: bedroom
 icon: mdi:bed
 mold_threshold: 60
@@ -182,22 +182,22 @@ type: grid
 columns: 2
 square: false
 cards:
-  - type: custom:room-summary-card
+  - type: custom:hass-omnibus-card
     area: living_room
     icon: mdi:sofa
     navigate_to: /lovelace/living
 
-  - type: custom:room-summary-card
+  - type: custom:hass-omnibus-card
     area: kitchen
     icon: mdi:chef-hat
     navigate_to: /lovelace/kitchen
 
-  - type: custom:room-summary-card
+  - type: custom:hass-omnibus-card
     area: bedroom
     icon: mdi:bed
     navigate_to: /lovelace/bedroom
 
-  - type: custom:room-summary-card
+  - type: custom:hass-omnibus-card
     area: bathroom
     icon: mdi:shower
     mold_threshold: 65
@@ -223,7 +223,7 @@ cards:
 ```bash
 npm install          # install dependencies (Vite + Playwright)
 npm run dev          # start live-reload dev server → http://localhost:5173/dev.html
-npm run build        # bundle src/ → dist/room-summary-card.js
+npm run build        # bundle src/ → dist/hass-omnibus-card.js
 npm test             # run 28 E2E snapshot tests (Playwright + Chromium)
 npm run test:update  # regenerate baselines after intentional visual changes
 npm run test:ui      # Playwright visual UI for debugging test failures

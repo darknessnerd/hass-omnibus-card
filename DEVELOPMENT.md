@@ -1,4 +1,4 @@
-# Development Guide — room-summary-card
+# Development Guide — hass-omnibus-card
 
 Technical reference for contributors and developers who want to understand, extend, or fork the card.
 
@@ -6,7 +6,7 @@ Technical reference for contributors and developers who want to understand, exte
 
 ## Architecture overview
 
-The source is split into single-responsibility modules under `src/`. Vite bundles them into a single IIFE at `dist/room-summary-card.js` for HACS distribution.
+The source is split into single-responsibility modules under `src/`. Vite bundles them into a single IIFE at `dist/hass-omnibus-card.js` for HACS distribution.
 
 ### Module dependency graph
 
@@ -87,7 +87,7 @@ sequenceDiagram
 flowchart TD
   src["src/*.js\n9 ES modules"]
   vite["Vite\nlib mode · IIFE"]
-  dist["dist/room-summary-card.js\n~15 kB"]
+  dist["dist/hass-omnibus-card.js\n~15 kB"]
   commit["git commit dist/\ngit tag v*.*.*"]
   rel_wf["release.yml\nbuild + attach asset"]
   release["GitHub Release\nwith JS asset"]
@@ -95,7 +95,7 @@ flowchart TD
   ha["User's HA instance"]
 
   pr["pull request / push to main"]
-  ci_wf["ci.yml\nnpm test"]
+  ci_wf["ci.yml\nbuild · check dist · npm test"]
   tests["28 Playwright\nsnapshot tests"]
   pass["✅ pass"]
 
@@ -113,7 +113,7 @@ No framework. Pure functions throughout except the web component class and the f
 card-ha/
 ├─ src/                        # source modules — edit these
 │  ├─ index.js                 # entry: registration + customElements.define
-│  ├─ card.js                  # RoomSummaryCard — HA lifecycle only
+│  ├─ card.js                  # HassOmnibusCard — HA lifecycle only
 │  ├─ constants.js             # CARD_TAG, CARD_VERSION, icon maps
 │  ├─ styles.js                # CSS string (Shadow DOM)
 │  ├─ discovery.js             # getAreaEntities() + classify()
@@ -122,7 +122,7 @@ card-ha/
 │  ├─ events.js                # fireMoreInfo(), navigate()
 │  └─ renderer.js              # buildViewModel() + templates + render()
 ├─ dist/
-│  └─ room-summary-card.js     # built IIFE — commit before tagging
+│  └─ hass-omnibus-card.js     # built IIFE — commit before tagging
 ├─ tests/
 │  ├─ fixture.html             # test harness: box-stub icons, animations off, mountCard()
 │  └─ e2e/
@@ -140,7 +140,7 @@ card-ha/
 ├─ IDEA.md                     # original product specification
 ├─ dev.html                    # interactive dev harness (Iconify icons, scenario buttons)
 ├─ playwright.config.js        # Playwright: Chromium, Vite web server, snapshot paths
-├─ vite.config.js              # Vite lib mode: src/index.js → dist/room-summary-card.js
+├─ vite.config.js              # Vite lib mode: src/index.js → dist/hass-omnibus-card.js
 └─ package.json                # scripts: dev, build, test, test:update, test:ui
 ```
 
@@ -154,7 +154,7 @@ HA loads the JS file as a standard ES module via `<script type="module">`. The f
 
 ### Card lifecycle
 
-HA creates one instance of `RoomSummaryCard` per card on the dashboard.
+HA creates one instance of `HassOmnibusCard` per card on the dashboard.
 
 | HA call | When | What to do |
 |---|---|---|
@@ -419,15 +419,15 @@ To add a GUI config editor in the dashboard card picker:
 ```javascript
 // Add to the class:
 static getConfigElement() {
-  return document.createElement('room-summary-card-editor');
+  return document.createElement('hass-omnibus-card-editor');
 }
 
 // Define a separate editor element:
-class RoomSummaryCardEditor extends HTMLElement {
+class HassOmnibusCardEditor extends HTMLElement {
   setConfig(config) { /* populate form */ }
   get value() { return this._config; }  // HA reads this for the updated config
 }
-customElements.define('room-summary-card-editor', RoomSummaryCardEditor);
+customElements.define('hass-omnibus-card-editor', HassOmnibusCardEditor);
 ```
 
 The editor element renders inside the card editor panel. HA calls `setConfig` with the current config and reads `value` whenever the user changes something.
@@ -455,18 +455,32 @@ static getConfigElement() {
 
 ```bash
 npm run build
-# → dist/room-summary-card.js (~15 kB IIFE bundle, ready for HACS)
+# → dist/hass-omnibus-card.js (~15 kB IIFE bundle, ready for HACS)
 ```
 
-Commit `dist/room-summary-card.js` before pushing a release tag — HACS scans the default branch when no release exists yet.
+Commit `dist/hass-omnibus-card.js` before pushing a release tag — HACS scans the default branch when no release exists yet.
+
+### Git pre-push hook
+
+`scripts/hooks/pre-push` is a native git hook (no Husky) that runs on every `git push`:
+
+1. `npm run build` — rebuilds dist
+2. Checks `dist/hass-omnibus-card.js` is committed — blocks push if out of sync
+3. `npm test` — runs 28 Playwright snapshot tests
+
+`npm install` / `npm run prepare` installs the hook into `.git/hooks/` automatically. New contributors get it on first install.
 
 ### CI — tests on every push / PR
 
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request:
 
 1. `npm ci` — clean install
-2. `npx playwright install chromium` — install browser
-3. `npm test` — run 28 snapshot tests against committed baselines
+2. `npm run build` — Vite bundles `src/` → `dist/hass-omnibus-card.js`
+3. `git diff --exit-code dist/hass-omnibus-card.js` — fails if built output differs from committed file
+4. `npx playwright install chromium` — install browser
+5. `npm test` — run 28 snapshot tests against committed baselines
+
+Step 3 enforces that `dist/` is always in sync with `src/`. If you change source and forget to build+commit before pushing, CI catches it.
 
 If a test fails, the Playwright HTML report is uploaded as a GitHub Actions artifact (7-day retention).
 
@@ -474,7 +488,7 @@ If a test fails, the Playwright HTML report is uploaded as a GitHub Actions arti
 
 ```bash
 npm run build
-git add dist/room-summary-card.js
+git add dist/hass-omnibus-card.js
 git commit -m "chore: build v1.x.x"
 git tag v1.x.x
 git push && git push --tags
@@ -482,7 +496,7 @@ git push && git push --tags
 
 `.github/workflows/release.yml` triggers on the tag push:
 1. `npm ci` — clean install
-2. `npm run build` — Vite bundles `src/` → `dist/room-summary-card.js`
+2. `npm run build` — Vite bundles `src/` → `dist/hass-omnibus-card.js`
 3. Creates a GitHub release with auto-generated notes and attaches the JS file
 
 HACS downloads from the release asset. The committed `dist/` file is the fallback for users who add the repo before any release exists.
@@ -564,7 +578,7 @@ Required repo files:
 
 | File | Status | Notes |
 |---|---|---|
-| `dist/room-summary-card.js` | ✅ | The card itself (HACS searches `dist/` first) |
+| `dist/hass-omnibus-card.js` | ✅ | The card itself (HACS searches `dist/` first) |
 | `hacs.json` | ✅ | HACS metadata (`filename`, `homeassistant`, `render_readme`) |
 | `README.md` | ✅ | Shown in HACS UI (`render_readme: true`) |
 | `LICENSE` | ✅ | MIT |
@@ -573,7 +587,7 @@ Required repo files:
 Remaining steps before HACS listing:
 1. Push to a **public** GitHub repo
 2. Create a GitHub **release** (tag e.g. `v1.0.0`) — HACS requires at least one release
-3. Attach `room-summary-card.js` to the release assets, **or** confirm `content_in_root` is satisfied (file is in repo root — it is)
+3. Attach `hass-omnibus-card.js` to the release assets, **or** confirm `content_in_root` is satisfied (file is in repo root — it is)
 4. Submit via HACS → Frontend → Custom repositories, or open a PR to the [HACS default store](https://github.com/hacs/default)
 
 ---

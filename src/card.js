@@ -1,5 +1,5 @@
 /**
- * RoomSummaryCard — HA web component lifecycle only.
+ * HassOmnibusCard — HA web component lifecycle only.
  * Delegates all data and rendering to dedicated modules.
  * Single Responsibility: manage the HA interface contract.
  */
@@ -7,7 +7,7 @@
 import { getAreaEntities }     from './discovery.js';
 import { buildViewModel, render } from './renderer.js';
 
-export class RoomSummaryCard extends HTMLElement {
+export class HassOmnibusCard extends HTMLElement {
 
   constructor() {
     super();
@@ -19,7 +19,7 @@ export class RoomSummaryCard extends HTMLElement {
 
   /** Called by HA when the YAML config is parsed or changed. */
   setConfig(config) {
-    if (!config?.area) throw new Error('[room-summary-card] Missing required field: "area"');
+    if (!config?.area) throw new Error('[hass-omnibus-card] Missing required field: "area"');
     this._config    = { ...config };
     this._stateHash = null;   // force re-render with new config
     if (this._hass) this._update();

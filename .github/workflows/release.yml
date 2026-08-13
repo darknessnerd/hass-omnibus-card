@@ -28,5 +28,5 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/room-summary-card.js
+          files: dist/hass-omnibus-card.js
           generate_release_notes: true
