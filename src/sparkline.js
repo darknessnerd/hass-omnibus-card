@@ -42,12 +42,18 @@ export function sparklineSvg(points, color, hc = null) {
     if (yH > 0) {
       body += `<rect x="0" y="0" width="${W}" height="${yH.toFixed(1)}" fill="${colorHigh}" clip-path="url(#sg-cp)"/>`;
     }
+    if (yH > 0 && yH < H) {
+      body += `<line x1="0" y1="${yH.toFixed(1)}" x2="${W}" y2="${yH.toFixed(1)}" stroke="${colorHigh}" stroke-width="0.8" stroke-dasharray="4,4" opacity="0.6"/>`;
+    }
   }
 
   if (hc.threshold_low != null) {
     const yL = toY(hc.threshold_low);
     if (yL < H) {
       body += `<rect x="0" y="${yL.toFixed(1)}" width="${W}" height="${(H - yL).toFixed(1)}" fill="${colorLow}" clip-path="url(#sg-cp)"/>`;
+    }
+    if (yL > 0 && yL < H) {
+      body += `<line x1="0" y1="${yL.toFixed(1)}" x2="${W}" y2="${yL.toFixed(1)}" stroke="${colorLow}" stroke-width="0.8" stroke-dasharray="4,4" opacity="0.6"/>`;
     }
   }
 

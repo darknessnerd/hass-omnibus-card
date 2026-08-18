@@ -74,6 +74,10 @@ export function buildViewModel(hass, config, historyPoints = null) {
     historyPoints: hc?.entity_id ? historyPoints : null,
     historyColor:  hc?.color ?? 'rgba(3, 169, 244, 0.12)',
     historyChart:  hc,
+    historyMin:    (hc?.entity_id && historyPoints?.length >= 2) ? Math.min(...historyPoints) : null,
+    historyMax:    (hc?.entity_id && historyPoints?.length >= 2) ? Math.max(...historyPoints) : null,
+    historyUnit:   hass.states?.[hc?.entity_id]?.attributes?.unit_of_measurement ?? '',
+    historyHours:  hc?.hours ?? 24,
 
     // pre-computed chip data keeps template functions free of utility imports
     chipItems: config.show_entities !== false
@@ -191,6 +195,16 @@ function renderErrorCard(areaId) {
     </ha-card>`;
 }
 
+function renderChartOverlay({ historyMin, historyMax, historyUnit: u, historyHours }) {
+  if (historyMin === null) return '';
+  return `
+    <div class="chart-overlay">
+      <span class="chart-stat stat-max">${historyMax.toFixed(1)}${u}</span>
+      <span class="chart-stat stat-period">${historyHours}h</span>
+      <span class="chart-stat stat-min">${historyMin.toFixed(1)}${u}</span>
+    </div>`;
+}
+
 function renderCard(vm) {
   const hasAlarm  = vm.smokeOn || vm.gasOn || vm.waterOn;
   const bgStyle   = vm.lightColor
@@ -205,6 +219,7 @@ function renderCard(vm) {
       aria-label="${vm.areaName}"
     >
       ${vm.historyPoints ? sparklineSvg(vm.historyPoints, vm.historyColor, vm.historyChart) : ''}
+      ${renderChartOverlay(vm)}
       <div class="card-content">
         ${renderHeader(vm)}
         ${renderEnvRow(vm)}

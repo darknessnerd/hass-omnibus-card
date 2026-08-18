@@ -42,6 +42,27 @@ export const CARD_STYLES = `
     pointer-events: none;
   }
 
+  .chart-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .chart-stat {
+    position: absolute;
+    font-size: 9px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.28);
+    line-height: 1;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  .stat-max    { top: 5px;    right: 7px; }
+  .stat-min    { bottom: 5px; right: 7px; }
+  .stat-period { bottom: 5px; left:  7px; }
+
   .card-content {
     position: relative;
     z-index: 1;

@@ -50,9 +50,29 @@ export class HassOmnibusCard extends HTMLElement {
 
   _buildHash() {
     if (!this._hass || !this._config) return '';
-    const base = this._config.entities?.length
-      ? this._config.entities.map(id => ({ entityId: id, state: this._hass.states?.[id] })).filter(e => e.state)
-      : getAreaEntities(this._hass, this._config.area);
+
+    let base;
+    if (this._config.entities?.length) {
+      base = this._config.entities
+        .map(id => ({ entityId: id, state: this._hass.states?.[id] }))
+        .filter(e => e.state);
+    } else {
+      base = getAreaEntities(this._hass, this._config.area);
+      for (const id of this._config.add_entities ?? []) {
+        if (!base.some(e => e.entityId === id)) {
+          const state = this._hass.states?.[id];
+          if (state) base.push({ entityId: id, state });
+        }
+      }
+    }
+
+    // include history entity so its state changes trigger re-renders and TTL refresh
+    const hcId = this._config.history_chart?.entity_id;
+    if (hcId && !base.some(e => e.entityId === hcId)) {
+      const state = this._hass.states?.[hcId];
+      if (state) base.push({ entityId: hcId, state });
+    }
+
     return base
       .map(({ entityId, state }) =>
         `${entityId}=${state.state}|${state.attributes?.rgb_color ?? ''}|${state.attributes?.current_temperature ?? ''}`)

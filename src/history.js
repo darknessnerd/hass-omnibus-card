@@ -29,8 +29,8 @@ export function getHistory(hass, entityId, hours, onDone) {
     minimal_response: true,
     no_attributes:    true,
   }).then(data => {
-    const raw    = data?.[entityId] ?? [];
-    const points = raw.map(p => parseFloat(p.s)).filter(v => !isNaN(v));
+    const raw    = Array.isArray(data?.[entityId]) ? data[entityId] : [];
+    const points = raw.map(p => parseFloat(p.s ?? p.state)).filter(v => !isNaN(v));
     _cache.set(key, points);
     _pending.delete(key);
     const cbs = _callbacks.get(key);
