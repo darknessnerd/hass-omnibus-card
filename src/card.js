@@ -87,6 +87,13 @@ export class HassOmnibusCard extends HTMLElement {
       historyPoints = getHistory(this._hass, hc.entity_id, hc.hours ?? 24, () => this._update());
     }
     const vm = buildViewModel(this._hass, this._config, historyPoints);
+    if (this._config?.debug) {
+      console.debug('[hass-omnibus-card] update', {
+        area:      this._config.area,
+        hash:      this._stateHash,
+        viewModel: vm,
+      });
+    }
     render(this.shadowRoot, this, vm);
   }
 }

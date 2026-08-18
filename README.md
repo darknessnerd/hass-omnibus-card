@@ -62,6 +62,8 @@ area: living_room          entities: [light.x, sensor.y]
 | Entity filtering | Whitelist mode (`entities`), additive pinning (`add_entities`), exclusion (`exclude_entities`) |
 | Performance | Hash diff guard: DOM only rebuilds when area state actually changes |
 | History chart | Background sparkline with min/max/period labels; fill zones colored by threshold (clipPath, not gradient) |
+| History Y axis | `y_min` / `y_max` pin the sparkline scale floor/ceiling — data never clips, scale expands to fit |
+| Debug logging | `debug: true` emits console.debug on every render with entity states and view-model snapshot |
 
 ---
 
@@ -153,6 +155,11 @@ history_chart:
   color_high: 'rgba(244,67,54,0.18)'   # default: red tint
   threshold_low: 18               # below this → color_low (optional)
   color_low: 'rgba(33,150,243,0.18)'   # default: blue tint
+  y_min: 0                        # pin Y axis floor — prevents baseline from floating up to data min (optional)
+  y_max: 40                       # pin Y axis ceiling (optional)
+
+# ── Debug ──────────────────────────────────────────────────────────────
+debug: false                   # true → console.debug on every render with entity states + view-model
 ```
 
 ---
@@ -250,6 +257,16 @@ history_chart:
   threshold_low: 18
 ```
 
+Pinned Y axis — sparkline always starts at 0, never floats up to the data minimum:
+
+```yaml
+type: custom:hass-omnibus-card
+area: living_room
+history_chart:
+  entity_id: sensor.temperature
+  y_min: 0
+```
+
 Custom baseline color:
 
 ```yaml
@@ -259,6 +276,16 @@ history_chart:
   entity_id: sensor.temperature
   color: 'rgba(255,152,0,0.18)'
 ```
+
+### Debug logging
+
+```yaml
+type: custom:hass-omnibus-card
+area: living_room
+debug: true
+```
+
+Opens browser DevTools → Console to see `[hass-omnibus-card] update { area, hash, viewModel }` on every render. `viewModel` includes `tempVal`, `humVal`, full entity lists — useful for diagnosing sensor value errors. Silent in production (`debug` absent or `false`).
 
 The sparkline overlays three small labels on the card: max value (top-right), min value (bottom-right), and time window (bottom-left). Threshold zones use SVG `clipPath` — only the portion of the fill that actually exceeds/dips below a threshold is colored, so zone coloring tracks the real data.
 
@@ -312,6 +339,7 @@ cards:
 | Mold risk | Green mold badge in alarm bar |
 | History value above `threshold_high` | Fill area above threshold line turns `color_high` (red by default); dashed marker line drawn |
 | History value below `threshold_low` | Fill area below threshold line turns `color_low` (blue by default); dashed marker line drawn |
+| `y_min` / `y_max` set | Sparkline Y axis anchored to fixed floor/ceiling; data never clips, scale expands if data exceeds bounds |
 | Area not found | Dashed red error card with explanation |
 
 ---

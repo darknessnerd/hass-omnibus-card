@@ -373,6 +373,10 @@ window.addEventListener('load', () => {
       { area: 'living_room', name: 'Gradient thresholds', history_chart: { entity_id: 'sensor.temperature', threshold_high: 22, threshold_low: 19 } },
       // single high threshold only
       { area: 'living_room', name: 'High threshold only', history_chart: { entity_id: 'sensor.temperature', threshold_high: 22 } },
+      // y_min: 0 — scale floor pinned at 0, baseline never floats
+      { area: 'living_room', name: 'y_min: 0',            history_chart: { entity_id: 'sensor.temperature', y_min: 0 } },
+      // y_min + y_max — fixed scale 0–40
+      { area: 'living_room', name: 'y_min: 0, y_max: 40', history_chart: { entity_id: 'sensor.temperature', y_min: 0, y_max: 40 } },
     ];
 
     const historyContainer = document.getElementById('history-cards');
@@ -447,6 +451,36 @@ window.addEventListener('load', () => {
     // Occupancy idle — grey dot
     mountStatic(gallery, { area: 'living_room', name: 'Not occupied (grey dot)' }, {
       'binary_sensor.motion': { state: 'off', attributes: { friendly_name: 'Motion', device_class: 'motion' } },
+    });
+
+    // Debug mode — check browser console for [hass-omnibus-card] update logs
+    mountStatic(gallery, { area: 'living_room', name: 'Debug mode (check console)', debug: true }, {});
+
+    // Real sensors — soggiorno THS + Bresser (normal values)
+    mountStatic(gallery, {
+      name: 'Soggiorno + Bresser (normal)',
+      entities: ['sensor.soggiorno_ths_temperature', 'sensor.bresser_7in1_65351_temperature'],
+    }, {
+      'sensor.soggiorno_ths_temperature':      { state: '29.5', attributes: { friendly_name: 'Soggiorno THS', device_class: 'temperature', unit_of_measurement: '°C' } },
+      'sensor.bresser_7in1_65351_temperature': { state: '27.5', attributes: { friendly_name: 'Bresser Temp',  device_class: 'temperature', unit_of_measurement: '°C' } },
+    });
+
+    // Real sensors — error states
+    mountStatic(gallery, {
+      name: 'Soggiorno + Bresser (unavailable)',
+      entities: ['sensor.soggiorno_ths_temperature', 'sensor.bresser_7in1_65351_temperature'],
+    }, {
+      'sensor.soggiorno_ths_temperature':      { state: 'unavailable', attributes: { friendly_name: 'Soggiorno THS', device_class: 'temperature', unit_of_measurement: '°C' } },
+      'sensor.bresser_7in1_65351_temperature': { state: 'unavailable', attributes: { friendly_name: 'Bresser Temp',  device_class: 'temperature', unit_of_measurement: '°C' } },
+    });
+
+    // Real sensors — one valid, one unavailable
+    mountStatic(gallery, {
+      name: 'Soggiorno + Bresser (partial)',
+      entities: ['sensor.soggiorno_ths_temperature', 'sensor.bresser_7in1_65351_temperature'],
+    }, {
+      'sensor.soggiorno_ths_temperature':      { state: '29.5',        attributes: { friendly_name: 'Soggiorno THS', device_class: 'temperature', unit_of_measurement: '°C' } },
+      'sensor.bresser_7in1_65351_temperature': { state: 'unavailable', attributes: { friendly_name: 'Bresser Temp',  device_class: 'temperature', unit_of_measurement: '°C' } },
     });
 
     log('cards mounted');

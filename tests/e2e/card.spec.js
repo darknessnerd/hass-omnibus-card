@@ -300,6 +300,42 @@ test('history chart — high threshold only', async ({ page }) => {
   await expect(page.locator('#mount')).toHaveScreenshot('history-high-threshold.png', SNAP);
 });
 
+// ── History chart — Y axis bounds ────────────────────────────────────────────
+
+test('history chart — y_min: 0 anchors scale floor', async ({ page }) => {
+  await mount(page, {
+    area: 'living_room',
+    history_chart: { entity_id: 'sensor.temperature', y_min: 0 },
+  });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('#mount')).toHaveScreenshot('history-y-min-0.png', SNAP);
+});
+
+test('history chart — y_min and y_max both set', async ({ page }) => {
+  await mount(page, {
+    area: 'living_room',
+    history_chart: { entity_id: 'sensor.temperature', y_min: 0, y_max: 40 },
+  });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('#mount')).toHaveScreenshot('history-y-min-max.png', SNAP);
+});
+
+// ── Debug mode ────────────────────────────────────────────────────────────────
+
+test('debug: true — console.debug fires on render', async ({ page }) => {
+  const debugMessages = [];
+  page.on('console', msg => { if (msg.type() === 'debug') debugMessages.push(msg.text()); });
+  await mount(page, { area: 'living_room', debug: true });
+  expect(debugMessages.some(m => m.includes('[hass-omnibus-card]'))).toBe(true);
+});
+
+test('debug: false (default) — no console.debug', async ({ page }) => {
+  const debugMessages = [];
+  page.on('console', msg => { if (msg.type() === 'debug') debugMessages.push(msg.text()); });
+  await mount(page, CARD);
+  expect(debugMessages.filter(m => m.includes('[hass-omnibus-card]'))).toHaveLength(0);
+});
+
 // ── Light badge enhancements ───────────────────────────────────────────────
 
 test('lights off — badge has .off class', async ({ page }) => {

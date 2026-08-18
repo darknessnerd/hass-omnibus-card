@@ -12,8 +12,10 @@ export function sparklineSvg(points, color, hc = null) {
   if (!points?.length || points.length < 2) return '';
 
   const W = 300, H = 60;
-  const min   = Math.min(...points);
-  const max   = Math.max(...points);
+  const dataMin = Math.min(...points);
+  const dataMax = Math.max(...points);
+  const min   = hc?.y_min != null ? Math.min(hc.y_min, dataMin) : dataMin;
+  const max   = hc?.y_max != null ? Math.max(hc.y_max, dataMax) : dataMax;
   const range = max - min || 1;
 
   const xs = points.map((_, i) => (i / (points.length - 1)) * W);

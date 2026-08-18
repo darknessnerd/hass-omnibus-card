@@ -152,6 +152,15 @@ or:
 
 Threshold values can themselves be dynamically obtained from another entity.
 
+### History chart Y axis thresholds
+
+The sparkline supports pinned Y axis bounds via `y_min` and `y_max`:
+
+* `y_min` — pins the scale floor (e.g. `0`); prevents the chart baseline from floating up to the data minimum, which makes small value changes appear as dramatic swings
+* `y_max` — pins the scale ceiling
+
+Data is never clipped: if actual values fall below `y_min` or above `y_max`, the scale expands to fit. The overlay min/max labels always show actual data values, not the scale bounds.
+
 ---
 
 ## State-Based Styling
@@ -461,6 +470,7 @@ Examples of configurable behavior include:
 * backgrounds
 * labels
 * other visual enhancements
+* `debug: true` — per-card console.debug on every render (entity states + view-model snapshot; silent in production)
 
 ---
 
@@ -499,21 +509,38 @@ This is important for large dashboards with many Areas.
 Technology characteristics:
 
 * Home Assistant custom Lovelace card
-* TypeScript
-* LitElement
+* Vanilla JavaScript (ES modules, no framework)
+* Native custom elements (HTMLElement + Shadow DOM) — no LitElement
+* Vite build — bundles `src/` → `dist/hass-omnibus-card.js`
+* Playwright E2E tests with screenshot baselines
 * HACS-compatible
 * MIT licensed
-* browser-side rendering
+* Browser-side rendering
 * Home Assistant entity/state model
 * Area-based entity discovery
 
+Module responsibilities (`src/`):
+
+```
+index.js        — registers custom element, emits HACS init log
+card.js         — HA lifecycle (setConfig / set hass), hash-diff guard, _update()
+renderer.js     — buildViewModel() + render() + template functions (pure)
+discovery.js    — getAreaEntities(), classify(), filterEntities()
+aggregators.js  — average(), anyOn(), activeLights(), rgbColor() (pure)
+sparkline.js    — sparklineSvg() — SVG string generator, y_min/y_max/thresholds
+history.js      — callWS history fetch, TTL cache, async callback
+events.js       — fireMoreInfo(), navigate()
+utils.js        — friendlyLabel(), entityIcon()
+constants.js    — CARD_TAG, CARD_VERSION, ACTIVE_STATES, icon maps, CLIMATE_MAP
+styles.js       — CARD_STYLES CSS string
+```
+
 The repository contains:
 
-* `src/` — implementation
-* `docs/` — documentation
-* `examples/dashboards/` — dashboard examples
-* `e2e/` — end-to-end tests
-* `test/` — tests
+* `src/` — implementation (modular ES6)
+* `tests/` — Playwright E2E tests + snapshot baselines + test fixture
+* `dist/` — bundled output (committed for HACS)
+* `scripts/` — version sync helper
 * configuration/build files
 
 ---
