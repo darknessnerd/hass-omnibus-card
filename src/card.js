@@ -19,7 +19,9 @@ export class HassOmnibusCard extends HTMLElement {
 
   /** Called by HA when the YAML config is parsed or changed. */
   setConfig(config) {
-    if (!config?.area) throw new Error('[hass-omnibus-card] Missing required field: "area"');
+    if (!config?.area && !config?.entities?.length) {
+      throw new Error('[hass-omnibus-card] Missing required field: "area" or "entities"');
+    }
     this._config    = { ...config };
     this._stateHash = null;   // force re-render with new config
     if (this._hass) this._update();
@@ -47,7 +49,10 @@ export class HassOmnibusCard extends HTMLElement {
 
   _buildHash() {
     if (!this._hass || !this._config) return '';
-    return getAreaEntities(this._hass, this._config.area)
+    const base = this._config.entities?.length
+      ? this._config.entities.map(id => ({ entityId: id, state: this._hass.states?.[id] })).filter(e => e.state)
+      : getAreaEntities(this._hass, this._config.area);
+    return base
       .map(({ entityId, state }) =>
         `${entityId}=${state.state}|${state.attributes?.rgb_color ?? ''}|${state.attributes?.current_temperature ?? ''}`)
       .sort()

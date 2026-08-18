@@ -252,9 +252,18 @@ test('exclude_entities — chip-strip entity removed', async ({ page }) => {
   await expect(page.locator('#mount')).toHaveScreenshot('exclude-chip.png', SNAP);
 });
 
-test('include_entities — entity from outside area pinned', async ({ page }) => {
+test('add_entities — entity from outside area pinned', async ({ page }) => {
   // sensor.bed_humidity (bedroom, 72%) + sensor.humidity (living_room, 52%) → avg 62%
-  await mount(page, { area: 'living_room', include_entities: ['sensor.bed_humidity'] });
+  await mount(page, { area: 'living_room', add_entities: ['sensor.bed_humidity'] });
   await expect(page.locator('#mount').locator('.env-chip.hum > span')).toHaveText('62%');
-  await expect(page.locator('#mount')).toHaveScreenshot('include-entity.png', SNAP);
+  await expect(page.locator('#mount')).toHaveScreenshot('add-entity.png', SNAP);
+});
+
+test('entities — whitelist overrides area discovery', async ({ page }) => {
+  // living_room has lights, motion, climate, etc — whitelist to only temp sensor
+  await mount(page, { area: 'living_room', entities: ['sensor.temperature'] });
+  await expect(page.locator('#mount').locator('.badge-lights')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.occupancy-dot')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.env-chip.temp')).toBeVisible();
+  await expect(page.locator('#mount')).toHaveScreenshot('entities-whitelist.png', SNAP);
 });

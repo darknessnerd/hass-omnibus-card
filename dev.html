@@ -300,14 +300,20 @@ window.addEventListener('load', () => {
       // exclude motion + TV from living room — no occupancy dot, fewer chips
       {
         area: 'living_room',
-        name: 'Living Room (excluded)',
+        name: 'Living Room (exclude)',
         exclude_entities: ['binary_sensor.motion', 'media_player.tv'],
       },
       // pin bedroom humidity into living room — humidity avg includes bed sensor
       {
         area: 'living_room',
-        name: 'Living Room (included)',
-        include_entities: ['sensor.bed_humidity'],
+        name: 'Living Room (add)',
+        add_entities: ['sensor.bed_humidity'],
+      },
+      // whitelist: only temp + humidity, skip everything else in living room
+      {
+        area: 'living_room',
+        name: 'Living Room (whitelist)',
+        entities: ['sensor.temperature', 'sensor.humidity'],
       },
     ];
 

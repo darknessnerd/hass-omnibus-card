@@ -78,13 +78,17 @@ sequenceDiagram
   HA->>C: setConfig(config)
   HA->>C: set hass(hass)  ← fires on every HA state change
 
-  C->>D: getAreaEntities(hass, areaId)
-  D-->>C: [{entityId, state}, ...]
-  C->>C: _buildHash() — diff guard
+  alt whitelist mode (config.entities set)
+    C->>C: _buildHash() from config.entities states
+  else area mode
+    C->>D: getAreaEntities(hass, areaId)
+    D-->>C: [{entityId, state}, ...]
+    C->>C: _buildHash() — diff guard
+  end
 
   alt hash changed
     C->>R: buildViewModel(hass, config)
-    note over R: filterEntities → classify → aggregate → pre-compute chip data
+    note over R: filterEntities (whitelist or exclude/add) → classify → aggregate → pre-compute chip data
     R-->>C: view model (plain object, no DOM)
     C->>R: render(shadowRoot, host, vm)
     R->>DOM: shadowRoot.innerHTML = renderCard(vm)
@@ -109,7 +113,7 @@ flowchart TD
 
   pr["pull request / push to main"]
   ci_wf["ci.yml\nbuild · check dist · npm test"]
-  tests["28 Playwright\nsnapshot tests"]
+  tests["32 Playwright\nsnapshot tests"]
   pass["✅ pass"]
 
   src --> vite --> dist --> commit --> rel_wf --> release --> hacs --> ha
@@ -117,6 +121,18 @@ flowchart TD
 ```
 
 No framework. Pure functions throughout except the web component class and the final DOM write.
+
+### Entity filtering decision tree
+
+```
+config.entities set?
+  YES → whitelist mode: return exactly those IDs from hass.states
+         (area discovery skipped; exclude_entities / add_entities ignored)
+  NO  → normal mode:
+         1. getAreaEntities(hass, areaId) → discovered list
+         2. drop IDs in exclude_entities
+         3. append IDs in add_entities not already present
+```
 
 ---
 
@@ -139,7 +155,7 @@ card-ha/
 ├─ tests/
 │  ├─ fixture.html             # test harness: box-stub icons, animations off, mountCard()
 │  └─ e2e/
-│     ├─ card.spec.js          # 28 Playwright snapshot tests (one per feature/state)
+│     ├─ card.spec.js          # 32 Playwright snapshot tests (one per feature/state)
 │     └─ snapshots/            # committed baseline PNGs — ground truth for CI
 │        └─ chromium/
 ├─ .github/
@@ -231,20 +247,29 @@ This covers two assignment paths:
 
 Entities assigned only via labels or floors are not discovered (HA doesn't expose these in the frontend `hass` object).
 
-### Entity filtering (exclude / include)
+### Entity filtering
 
-After discovery, `filterEntities()` applies config-driven adjustments:
+`filterEntities()` runs after area discovery and supports two modes:
 
+**Whitelist mode** — triggered when `config.entities` is set:
+```
+entities: [entity_id, ...]
+  → ignore area discovery entirely
+  → return exactly these IDs (looked up from hass.states, missing ones skipped)
+  → area: is still used for name + icon if present
+```
+
+**Normal mode** — when `config.entities` is absent:
 ```
 exclude_entities: [...]
   → remove matching IDs from the discovered list
 
-include_entities: [...]
+add_entities: [...]
   → for each ID not already in the list, look up hass.states and append
      (entity may be from a different area or have no area assignment)
 ```
 
-Both lists are optional. `include_entities` bypasses the `hidden_by` check and area boundary — it's an explicit user override. The resulting list is then classified normally by `classify()`.
+All three keys are optional and independent. `entities` wins over both `exclude_entities` and `add_entities` (they are ignored in whitelist mode). The resulting list is classified normally by `classify()`.
 
 ---
 
@@ -493,7 +518,7 @@ npm run build
 
 1. `npm run build` — rebuilds dist
 2. Checks `dist/hass-omnibus-card.js` is committed — blocks push if out of sync
-3. `npm test` — runs 28 Playwright snapshot tests
+3. `npm test` — runs 32 Playwright snapshot tests
 
 `npm install` / `npm run prepare` installs the hook into `.git/hooks/` automatically. New contributors get it on first install.
 
@@ -505,7 +530,7 @@ npm run build
 2. `npm run build` — Vite bundles `src/` → `dist/hass-omnibus-card.js`
 3. `git diff --exit-code dist/hass-omnibus-card.js` — fails if built output differs from committed file
 4. `npx playwright install chromium` — install browser
-5. `npm test` — run 28 snapshot tests against committed baselines
+5. `npm test` — run 32 snapshot tests against committed baselines
 
 Step 3 enforces that `dist/` is always in sync with `src/`. If you change source and forget to build+commit before pushing, CI catches it.
 
@@ -519,7 +544,7 @@ If a test fails, the Playwright HTML report is uploaded as a GitHub Actions arti
 ### Run the tests
 
 ```bash
-npm test                    # compare against committed baselines — 28 tests
+npm test                    # compare against committed baselines — 32 tests
 npm run test:update         # regenerate baselines after intentional visual changes (local OS)
 npm run test:update-ci      # regenerate baselines inside Docker (matches CI/Ubuntu environment)
 npm run test:ui             # open Playwright interactive UI for debugging failures
@@ -537,7 +562,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 - **Animations and transitions are disabled** in `tests/fixture.html` for deterministic screenshots.
 - **Icons use a box stub** (not Iconify CDN) — a solid-color rectangle per icon. Snapshots show layout and color, not specific icon glyphs. No CDN dependency, no flaky rendering.
 
-### What is covered (31 tests)
+### What is covered (32 tests)
 
 | Category | Tests |
 |---|---|
@@ -553,7 +578,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 | Navigation | Navigable card (`clickable` class), non-navigable |
 | Error state | Area not found, area not found with name override |
 | Config | Custom icon, custom name, `max_entities` limit |
-| Entity filtering | `exclude_entities` on classified entity, on chip-strip entity; `include_entities` from outside area |
+| Entity filtering | `exclude_entities` on classified entity, on chip-strip entity; `add_entities` from outside area; `entities` whitelist overrides area discovery |
 
 ### Adding a new test
 

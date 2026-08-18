@@ -26,17 +26,31 @@ export function getAreaEntities(hass, areaId) {
 }
 
 /**
- * Applies exclude_entities / include_entities config lists to a discovered entity list.
- * - exclude_entities: entity IDs to drop
- * - include_entities: entity IDs to force-add from hass.states (even from outside the area)
+ * Applies entity filtering config to a discovered entity list.
+ *
+ * Whitelist mode — triggered when config.entities is set:
+ *   Returns exactly those entity IDs from hass.states, in order. Area discovery is ignored.
+ *
+ * Normal mode (config.entities absent):
+ *   - exclude_entities: entity IDs to drop from area discovery
+ *   - add_entities:     entity IDs to force-add (even from outside the area)
  */
-export function filterEntities(entities, config, hass) {
+export function filterEntities(areaEntities, config, hass) {
+  if (config.entities?.length) {
+    return config.entities
+      .map(entityId => {
+        const state = hass.states?.[entityId];
+        return state ? { entityId, state } : null;
+      })
+      .filter(Boolean);
+  }
+
   const exclude = new Set(config.exclude_entities ?? []);
-  const include = config.include_entities ?? [];
+  const add     = config.add_entities ?? [];
 
-  const filtered = entities.filter(e => !exclude.has(e.entityId));
+  const filtered = areaEntities.filter(e => !exclude.has(e.entityId));
 
-  for (const entityId of include) {
+  for (const entityId of add) {
     if (filtered.some(e => e.entityId === entityId)) continue;
     const state = hass.states?.[entityId];
     if (state) filtered.push({ entityId, state });

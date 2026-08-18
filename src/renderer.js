@@ -27,10 +27,10 @@ export function buildViewModel(hass, config) {
   const areaId = config.area;
   const area   = hass.areas?.[areaId];
 
-  if (!area && !config.name) return { error: areaId };
+  if (!area && !config.name && !config.entities?.length) return { error: areaId ?? '(no area)' };
 
-  const raw        = getAreaEntities(hass, areaId);
-  const entities   = filterEntities(raw, config, hass);
+  const raw      = config.entities?.length ? [] : getAreaEntities(hass, areaId);
+  const entities = filterEntities(raw, config, hass);
   const c          = classify(entities);
   const onLights   = activeLights(c.lights);
   const lightColor = rgbColor(onLights);
@@ -42,7 +42,7 @@ export function buildViewModel(hass, config) {
   const navPath    = config.navigate_to || config.tap_action?.navigation_path || null;
 
   return {
-    areaName:     config.name || area?.name || areaId,
+    areaName:     config.name || area?.name || areaId || '',
     cardIcon:     config.icon || area?.icon || 'mdi:home',
     navPath,
 

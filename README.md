@@ -15,15 +15,18 @@ A compact, intelligent Home Assistant Lovelace card that summarizes an entire ro
 ## How it works
 
 ```
-area: living_room
-      │
-      ▼
-  Discover all entities assigned to the area (direct or via device)
-      │
-      ▼
-  Apply entity filters (exclude_entities / include_entities)
-      │
-      ▼
+area: living_room          entities: [light.x, sensor.y]
+      │                               │
+      ▼                               ▼
+  Discover all entities         Use explicit list
+  assigned to the area          (whitelist mode — area ignored)
+      │                               │
+      ▼                               │
+  Apply filters                       │
+  (exclude_entities / add_entities)   │
+      │                               │
+      └───────────────┬───────────────┘
+                      ▼
   Classify by domain / device_class
       │
       ├─ lights ──────────► count of active lights, RGB tint
@@ -56,7 +59,7 @@ area: living_room
 | Room navigation | Tap card → navigate to any dashboard path |
 | Error handling | Clear error card when area ID is wrong or not found |
 | Shadow DOM CSS | Styles fully isolated — won't break your theme |
-| Entity filtering | Exclude noisy entities or pin external ones via `exclude_entities` / `include_entities` |
+| Entity filtering | Whitelist mode (`entities`), additive pinning (`add_entities`), exclusion (`exclude_entities`) |
 | Performance | Hash diff guard: DOM only rebuilds when area state actually changes |
 
 ---
@@ -123,11 +126,15 @@ tap_action:
   navigation_path: /lovelace/1
 
 # ── Entity filtering ──────────────────────────────────────────────────
-exclude_entities:          # Entity IDs to remove from auto-discovery (optional)
+entities:                  # Explicit whitelist — skips area discovery entirely (optional)
+  - light.ceiling
+  - sensor.temperature     # only these entities appear; area: is still used for name/icon
+
+exclude_entities:          # Entity IDs to remove from area discovery (optional)
   - light.ceiling_old
   - sensor.broken_sensor
-include_entities:          # Entity IDs to force-add, even from outside this area (optional)
-  - sensor.outside_temp
+add_entities:              # Entity IDs to force-add on top of area discovery (optional)
+  - sensor.outside_temp    # may be from a different area or unassigned
 
 # ── Entity chips ──────────────────────────────────────────────────────
 show_entities: true        # Show the entity chip strip (default: true)
@@ -186,19 +193,30 @@ icon: mdi:bed
 mold_threshold: 60
 ```
 
-### Entity filtering — exclude noisy entities, pin external ones
+### Entity filtering — whitelist, exclude, or pin external entities
 
+**Whitelist** — show only specific entities, skip area discovery:
+```yaml
+type: custom:hass-omnibus-card
+area: living_room            # still used for name and icon
+entities:
+  - light.ceiling
+  - sensor.temperature
+  - climate.hvac
+```
+
+**Exclude + pin** — area discovery minus noisy entities, plus cross-area additions:
 ```yaml
 type: custom:hass-omnibus-card
 area: living_room
 exclude_entities:
   - sensor.humidity_old      # broken sensor — drop from discovery
   - light.hidden_lamp        # redundant light — hide from card
-include_entities:
-  - sensor.outside_temp      # entity in a different area, pinned here
+add_entities:
+  - sensor.outside_temp      # entity from a different area, pinned here
 ```
 
-`include_entities` accepts any entity ID known to Home Assistant — not just entities assigned to the configured area.
+`add_entities` accepts any entity ID known to Home Assistant.
 
 ### Multiple rooms in a grid
 
