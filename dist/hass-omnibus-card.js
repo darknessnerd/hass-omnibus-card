@@ -1,4 +1,4 @@
-(function(){"use strict";const x="hass-omnibus-card",L="1.1.0",y=new Set(["on","open","playing","home","unlocked"]),I={heat:["mdi:fire","#ef6c00"],cool:["mdi:snowflake","#0288d1"],auto:["mdi:thermostat-auto","#43a047"],dry:["mdi:water-off-outline","#f9a825"],fan_only:["mdi:fan","#546e7a"],heat_cool:["mdi:fire-circle","#e64a19"],off:["mdi:thermostat-off","var(--secondary-text-color)"]},w={motion:"mdi:motion-sensor",door:{on:"mdi:door-open",off:"mdi:door-closed"},window:{on:"mdi:window-open",off:"mdi:window-closed"},lock:{on:"mdi:lock-open",off:"mdi:lock"},vibration:"mdi:vibrate",plug:"mdi:power-plug",presence:"mdi:home-account",power:"mdi:flash",energy:"mdi:lightning-bolt",battery:"mdi:battery",connectivity:"mdi:wifi"},_={switch:{on:"mdi:toggle-switch",off:"mdi:toggle-switch-off-outline"},cover:{on:"mdi:blinds-open",off:"mdi:blinds"},fan:{on:"mdi:fan",off:"mdi:fan-off"},media_player:{on:"mdi:play-circle",off:"mdi:multimedia"},input_boolean:{on:"mdi:check-circle-outline",off:"mdi:close-circle-outline"},binary_sensor:{on:"mdi:radiobox-marked",off:"mdi:radiobox-blank"},automation:"mdi:robot",script:"mdi:script-text",person:"mdi:account",device_tracker:"mdi:map-marker",sensor:"mdi:eye",input_select:"mdi:format-list-bulleted"};function $(a,e){const{entities:t={},devices:i={},states:o={}}=a;return Object.keys(o).reduce((r,n)=>{var l;const s=t[n];if(!s||s.hidden_by)return r;const c=s.area_id===e,d=s.device_id&&((l=i[s.device_id])==null?void 0:l.area_id)===e;return(c||d)&&r.push({entityId:n,state:o[n]}),r},[])}function M(a){var t;const e={lights:[],climate:[],temperatures:[],humidities:[],motions:[],occupancy:[],smokes:[],gases:[],moistures:[],problems:[],others:[]};for(const i of a){const{entityId:o,state:r}=i,n=o.split(".")[0],s=((t=r.attributes)==null?void 0:t.device_class)??"",c=r.state;n==="light"?e.lights.push(i):n==="climate"?e.climate.push(i):n==="sensor"&&s==="temperature"?e.temperatures.push(i):n==="sensor"&&s==="humidity"?e.humidities.push(i):n==="binary_sensor"&&s==="motion"?e.motions.push(i):n==="binary_sensor"&&s==="occupancy"?e.occupancy.push(i):n==="binary_sensor"&&s==="smoke"?e.smokes.push(i):n==="binary_sensor"&&s==="gas"?e.gases.push(i):n==="binary_sensor"&&s==="moisture"?e.moistures.push(i):c==="unavailable"||n==="binary_sensor"&&["problem","tamper","safety"].includes(s)&&c==="on"?e.problems.push(i):e.others.push(i)}return e}const k=`
+(function(){"use strict";const x="hass-omnibus-card",L="1.2.0",y=new Set(["on","open","playing","home","unlocked"]),M={heat:["mdi:fire","#ef6c00"],cool:["mdi:snowflake","#0288d1"],auto:["mdi:thermostat-auto","#43a047"],dry:["mdi:water-off-outline","#f9a825"],fan_only:["mdi:fan","#546e7a"],heat_cool:["mdi:fire-circle","#e64a19"],off:["mdi:thermostat-off","var(--secondary-text-color)"]},w={motion:"mdi:motion-sensor",door:{on:"mdi:door-open",off:"mdi:door-closed"},window:{on:"mdi:window-open",off:"mdi:window-closed"},lock:{on:"mdi:lock-open",off:"mdi:lock"},vibration:"mdi:vibrate",plug:"mdi:power-plug",presence:"mdi:home-account",power:"mdi:flash",energy:"mdi:lightning-bolt",battery:"mdi:battery",connectivity:"mdi:wifi"},_={switch:{on:"mdi:toggle-switch",off:"mdi:toggle-switch-off-outline"},cover:{on:"mdi:blinds-open",off:"mdi:blinds"},fan:{on:"mdi:fan",off:"mdi:fan-off"},media_player:{on:"mdi:play-circle",off:"mdi:multimedia"},input_boolean:{on:"mdi:check-circle-outline",off:"mdi:close-circle-outline"},binary_sensor:{on:"mdi:radiobox-marked",off:"mdi:radiobox-blank"},automation:"mdi:robot",script:"mdi:script-text",person:"mdi:account",device_tracker:"mdi:map-marker",sensor:"mdi:eye",input_select:"mdi:format-list-bulleted"};function $(t,e){const{entities:a={},devices:i={},states:o={}}=t;return Object.keys(o).reduce((n,r)=>{var l;const s=a[r];if(!s||s.hidden_by)return n;const c=s.area_id===e,d=s.device_id&&((l=i[s.device_id])==null?void 0:l.area_id)===e;return(c||d)&&n.push({entityId:r,state:o[r]}),n},[])}function N(t,e,a){var r;const i=new Set(e.exclude_entities??[]),o=e.include_entities??[],n=t.filter(s=>!i.has(s.entityId));for(const s of o){if(n.some(d=>d.entityId===s))continue;const c=(r=a.states)==null?void 0:r[s];c&&n.push({entityId:s,state:c})}return n}function T(t){var a;const e={lights:[],climate:[],temperatures:[],humidities:[],motions:[],occupancy:[],smokes:[],gases:[],moistures:[],problems:[],others:[]};for(const i of t){const{entityId:o,state:n}=i,r=o.split(".")[0],s=((a=n.attributes)==null?void 0:a.device_class)??"",c=n.state;r==="light"?e.lights.push(i):r==="climate"?e.climate.push(i):r==="sensor"&&s==="temperature"?e.temperatures.push(i):r==="sensor"&&s==="humidity"?e.humidities.push(i):r==="binary_sensor"&&s==="motion"?e.motions.push(i):r==="binary_sensor"&&s==="occupancy"?e.occupancy.push(i):r==="binary_sensor"&&s==="smoke"?e.smokes.push(i):r==="binary_sensor"&&s==="gas"?e.gases.push(i):r==="binary_sensor"&&s==="moisture"?e.moistures.push(i):c==="unavailable"||r==="binary_sensor"&&["problem","tamper","safety"].includes(s)&&c==="on"?e.problems.push(i):e.others.push(i)}return e}const k=`
   :host {
     display: block;
   }
@@ -243,18 +243,18 @@
     --mdc-icon-size: 20px;
     flex-shrink: 0;
   }
-`;function C(a){const e=a.map(t=>parseFloat(t.state.state)).filter(t=>!isNaN(t));return e.length?e.reduce((t,i)=>t+i,0)/e.length:null}function p(a){return a.some(e=>e.state.state==="on")}function N(a){return a.filter(e=>e.state.state==="on")}function T(a){var e;for(const t of a){const i=(e=t.state.attributes)==null?void 0:e.rgb_color;if(i)return`rgb(${i.join(",")})`}return null}function D(a,e){var i;return(((i=e.attributes)==null?void 0:i.friendly_name)??a.split(".")[1]).split(" ").pop()}function j(a,e){var n,s;if((n=e.attributes)!=null&&n.icon)return e.attributes.icon;const t=a.split(".")[0],i=((s=e.attributes)==null?void 0:s.device_class)??"",o=y.has(e.state),r=c=>typeof c=="string"?c:o?c.on:c.off;return i&&w[i]?r(w[i]):_[t]?r(_[t]):"mdi:help-circle-outline"}function A(a,e){a.dispatchEvent(new CustomEvent("hass-more-info",{bubbles:!0,composed:!0,detail:{entityId:e}}))}function P(a){history.pushState(null,"",a),window.dispatchEvent(new CustomEvent("location-changed",{bubbles:!0,composed:!0,detail:{replace:!1}}))}function Y(a,e){var u,E,S,H,O;const t=e.area,i=(u=a.areas)==null?void 0:u[t];if(!i&&!e.name)return{error:t};const o=$(a,t),r=M(o),n=N(r.lights),s=T(n),c=C(r.temperatures),d=C(r.humidities),l=r.climate[0]??null,[m,f]=I[(E=l==null?void 0:l.state)==null?void 0:E.state]??[null,null],b=e.mold_threshold??70,g=e.navigate_to||((S=e.tap_action)==null?void 0:S.navigation_path)||null;return{areaName:e.name||(i==null?void 0:i.name)||t,cardIcon:e.icon||(i==null?void 0:i.icon)||"mdi:home",navPath:g,lightCount:n.length,lightColor:s,occupied:p(r.motions)||p(r.occupancy),problemCount:r.problems.length,tempVal:c,humVal:d,tempUnit:((O=(H=r.temperatures[0])==null?void 0:H.state.attributes)==null?void 0:O.unit_of_measurement)??"°C",tempEntities:r.temperatures,humEntities:r.humidities,climate:l,climIcon:m,climColor:f,smokeOn:p(r.smokes),gasOn:p(r.gases),waterOn:p(r.moistures),moldRisk:d!==null&&d>=b,chipItems:e.show_entities!==!1?r.others.slice(0,e.max_entities??6).map(({entityId:v,state:h})=>{var z;return{entityId:v,isActive:y.has(h.state),icon:j(v,h),label:D(v,h),title:`${((z=h.attributes)==null?void 0:z.friendly_name)??v} — ${h.state}`}}):[]}}function q({areaName:a,cardIcon:e,lightCount:t,occupied:i,problemCount:o}){return`
+`;function C(t){const e=t.map(a=>parseFloat(a.state.state)).filter(a=>!isNaN(a));return e.length?e.reduce((a,i)=>a+i,0)/e.length:null}function u(t){return t.some(e=>e.state.state==="on")}function D(t){return t.filter(e=>e.state.state==="on")}function j(t){var e;for(const a of t){const i=(e=a.state.attributes)==null?void 0:e.rgb_color;if(i)return`rgb(${i.join(",")})`}return null}function P(t,e){var i;return(((i=e.attributes)==null?void 0:i.friendly_name)??t.split(".")[1]).split(" ").pop()}function Y(t,e){var r,s;if((r=e.attributes)!=null&&r.icon)return e.attributes.icon;const a=t.split(".")[0],i=((s=e.attributes)==null?void 0:s.device_class)??"",o=y.has(e.state),n=c=>typeof c=="string"?c:o?c.on:c.off;return i&&w[i]?n(w[i]):_[a]?n(_[a]):"mdi:help-circle-outline"}function A(t,e){t.dispatchEvent(new CustomEvent("hass-more-info",{bubbles:!0,composed:!0,detail:{entityId:e}}))}function q(t){history.pushState(null,"",t),window.dispatchEvent(new CustomEvent("location-changed",{bubbles:!0,composed:!0,detail:{replace:!1}}))}function B(t,e){var E,S,H,O,z;const a=e.area,i=(E=t.areas)==null?void 0:E[a];if(!i&&!e.name)return{error:a};const o=$(t,a),n=N(o,e,t),r=T(n),s=D(r.lights),c=j(s),d=C(r.temperatures),l=C(r.humidities),p=r.climate[0]??null,[m,f]=M[(S=p==null?void 0:p.state)==null?void 0:S.state]??[null,null],b=e.mold_threshold??70,g=e.navigate_to||((H=e.tap_action)==null?void 0:H.navigation_path)||null;return{areaName:e.name||(i==null?void 0:i.name)||a,cardIcon:e.icon||(i==null?void 0:i.icon)||"mdi:home",navPath:g,lightCount:s.length,lightColor:c,occupied:u(r.motions)||u(r.occupancy),problemCount:r.problems.length,tempVal:d,humVal:l,tempUnit:((z=(O=r.temperatures[0])==null?void 0:O.state.attributes)==null?void 0:z.unit_of_measurement)??"°C",tempEntities:r.temperatures,humEntities:r.humidities,climate:p,climIcon:m,climColor:f,smokeOn:u(r.smokes),gasOn:u(r.gases),waterOn:u(r.moistures),moldRisk:l!==null&&l>=b,chipItems:e.show_entities!==!1?r.others.slice(0,e.max_entities??6).map(({entityId:v,state:h})=>{var I;return{entityId:v,isActive:y.has(h.state),icon:Y(v,h),label:P(v,h),title:`${((I=h.attributes)==null?void 0:I.friendly_name)??v} — ${h.state}`}}):[]}}function R({areaName:t,cardIcon:e,lightCount:a,occupied:i,problemCount:o}){return`
     <div class="header">
       <div class="header-left">
         <ha-icon class="room-icon" icon="${e}"></ha-icon>
-        <span class="room-name">${a}</span>
+        <span class="room-name">${t}</span>
       </div>
       <div class="header-right">
-        ${t>0?`
+        ${a>0?`
           <div class="badge badge-lights"
-               title="${t} light${t!==1?"s":""} on">
+               title="${a} light${a!==1?"s":""} on">
             <ha-icon icon="mdi:lightbulb"></ha-icon>
-            ${t>1?`<span>${t}</span>`:""}
+            ${a>1?`<span>${a}</span>`:""}
           </div>`:""}
         ${i?'<div class="occupancy-dot" title="Occupied"></div>':""}
         ${o>0?`
@@ -264,63 +264,63 @@
             ${o>1?`<span>${o}</span>`:""}
           </div>`:""}
       </div>
-    </div>`}function B({tempVal:a,humVal:e,tempUnit:t,tempEntities:i,humEntities:o,climate:r,climIcon:n,climColor:s}){var c,d,l,m,f,b,g,u;return a===null&&e===null&&!n?"":`
+    </div>`}function F({tempVal:t,humVal:e,tempUnit:a,tempEntities:i,humEntities:o,climate:n,climIcon:r,climColor:s}){var c,d,l,p,m,f,b,g;return t===null&&e===null&&!r?"":`
     <div class="env-row">
-      ${a!==null?`
+      ${t!==null?`
         <div class="env-chip temp"
              data-entity="${((c=i[0])==null?void 0:c.entityId)??""}"
              title="${i.length>1?`Avg of ${i.length} sensors`:((l=(d=i[0])==null?void 0:d.state.attributes)==null?void 0:l.friendly_name)??""}">
           <ha-icon icon="mdi:thermometer"></ha-icon>
-          <span>${a.toFixed(1)}${t}</span>
+          <span>${t.toFixed(1)}${a}</span>
         </div>`:""}
       ${e!==null?`
         <div class="env-chip hum"
-             data-entity="${((m=o[0])==null?void 0:m.entityId)??""}"
-             title="${o.length>1?`Avg of ${o.length} sensors`:((b=(f=o[0])==null?void 0:f.state.attributes)==null?void 0:b.friendly_name)??""}">
+             data-entity="${((p=o[0])==null?void 0:p.entityId)??""}"
+             title="${o.length>1?`Avg of ${o.length} sensors`:((f=(m=o[0])==null?void 0:m.state.attributes)==null?void 0:f.friendly_name)??""}">
           <ha-icon icon="mdi:water-percent"></ha-icon>
           <span>${e.toFixed(0)}%</span>
         </div>`:""}
-      ${n?`
+      ${r?`
         <div class="env-chip climate"
              style="--climate-color: ${s}"
-             data-entity="${r.entityId}"
-             title="${((g=r.state.attributes)==null?void 0:g.friendly_name)??r.entityId}">
-          <ha-icon icon="${n}"></ha-icon>
-          <span>${((u=r.state.attributes)==null?void 0:u.current_temperature)!=null?`${r.state.attributes.current_temperature}°`:r.state.state}</span>
+             data-entity="${n.entityId}"
+             title="${((b=n.state.attributes)==null?void 0:b.friendly_name)??n.entityId}">
+          <ha-icon icon="${r}"></ha-icon>
+          <span>${((g=n.state.attributes)==null?void 0:g.current_temperature)!=null?`${n.state.attributes.current_temperature}°`:n.state.state}</span>
         </div>`:""}
-    </div>`}function R({chipItems:a}){return a.length?`
+    </div>`}function G({chipItems:t}){return t.length?`
     <div class="entity-chips">
-      ${a.map(({entityId:e,isActive:t,icon:i,label:o,title:r})=>`
-        <div class="chip ${t?"on":""}" data-entity="${e}" title="${r}">
+      ${t.map(({entityId:e,isActive:a,icon:i,label:o,title:n})=>`
+        <div class="chip ${a?"on":""}" data-entity="${e}" title="${n}">
           <ha-icon icon="${i}"></ha-icon>
           <span class="chip-label">${o}</span>
         </div>`).join("")}
-    </div>`:""}function F({smokeOn:a,gasOn:e,waterOn:t,moldRisk:i}){return!a&&!e&&!t&&!i?"":`
+    </div>`:""}function U({smokeOn:t,gasOn:e,waterOn:a,moldRisk:i}){return!t&&!e&&!a&&!i?"":`
     <div class="alarm-bar">
-      ${a?'<span class="alarm-badge alarm-smoke"><ha-icon icon="mdi:smoke-detector-alert"></ha-icon> Smoke</span>':""}
+      ${t?'<span class="alarm-badge alarm-smoke"><ha-icon icon="mdi:smoke-detector-alert"></ha-icon> Smoke</span>':""}
       ${e?'<span class="alarm-badge alarm-gas"><ha-icon icon="mdi:molecule-co"></ha-icon> Gas</span>':""}
-      ${t?'<span class="alarm-badge alarm-water"><ha-icon icon="mdi:water-alert"></ha-icon> Water</span>':""}
+      ${a?'<span class="alarm-badge alarm-water"><ha-icon icon="mdi:water-alert"></ha-icon> Water</span>':""}
       ${i?'<span class="alarm-badge alarm-mold"><ha-icon icon="mdi:mold"></ha-icon> Mold risk</span>':""}
-    </div>`}function G(a){return`
+    </div>`}function V(t){return`
     <style>${k}</style>
     <ha-card class="error-card">
       <div class="error-content">
         <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-        <span>Area <strong>${a}</strong> not found.
+        <span>Area <strong>${t}</strong> not found.
           Check the <code>area:</code> value or add a <code>name:</code> override.</span>
       </div>
-    </ha-card>`}function U(a){const e=a.smokeOn||a.gasOn||a.waterOn,t=a.lightColor?`background: linear-gradient(135deg, ${a.lightColor}1a 0%, var(--ha-card-background, var(--card-background-color, #fff)) 60%);`:"";return`
+    </ha-card>`}function W(t){const e=t.smokeOn||t.gasOn||t.waterOn,a=t.lightColor?`background: linear-gradient(135deg, ${t.lightColor}1a 0%, var(--ha-card-background, var(--card-background-color, #fff)) 60%);`:"";return`
     <style>${k}</style>
     <ha-card
-      class="${a.navPath?"clickable":""} ${e?"alarm-active":""}"
-      style="${t}"
-      ${a.navPath?'role="button" tabindex="0"':""}
-      aria-label="${a.areaName}"
+      class="${t.navPath?"clickable":""} ${e?"alarm-active":""}"
+      style="${a}"
+      ${t.navPath?'role="button" tabindex="0"':""}
+      aria-label="${t.areaName}"
     >
       <div class="card-content">
-        ${q(a)}
-        ${B(a)}
-        ${R(a)}
-        ${F(a)}
+        ${R(t)}
+        ${F(t)}
+        ${G(t)}
+        ${U(t)}
       </div>
-    </ha-card>`}function V(a,e,t){a.innerHTML=t.error?G(t.error):U(t),t.error||W(a,e,t)}function W(a,e,{navPath:t,chipItems:i}){t&&a.querySelector("ha-card").addEventListener("click",o=>{!o.target.closest(".chip")&&!o.target.closest(".env-chip")&&P(t)}),a.querySelectorAll(".env-chip[data-entity]").forEach(o=>{const r=o.dataset.entity;r&&o.addEventListener("click",n=>{n.stopPropagation(),A(e,r)})}),a.querySelectorAll(".chip[data-entity]").forEach(o=>{o.addEventListener("click",r=>{r.stopPropagation(),A(e,o.dataset.entity)})})}class J extends HTMLElement{constructor(){super(),this.attachShadow({mode:"open"}),this._hass=null,this._config=null,this._stateHash=null}setConfig(e){if(!(e!=null&&e.area))throw new Error('[hass-omnibus-card] Missing required field: "area"');this._config={...e},this._stateHash=null,this._hass&&this._update()}set hass(e){if(this._hass=e,!this._config)return;const t=this._buildHash();t!==this._stateHash&&(this._stateHash=t,this._update())}getCardSize(){return 2}static getStubConfig(){return{area:"living_room",icon:"mdi:sofa"}}_buildHash(){return!this._hass||!this._config?"":$(this._hass,this._config.area).map(({entityId:e,state:t})=>{var i,o;return`${e}=${t.state}|${((i=t.attributes)==null?void 0:i.rgb_color)??""}|${((o=t.attributes)==null?void 0:o.current_temperature)??""}`}).sort().join(";")}_update(){const e=Y(this._hass,this._config);V(this.shadowRoot,this,e)}}window.customCards=window.customCards||[],window.customCards.push({type:x,name:"Hass Omnibus Card",description:"Compact, area-based room summary with automatic entity discovery.",preview:!0}),console.info(`%c HASS-OMNIBUS-CARD %c v${L} `,"color:#fff;background:#2196f3;font-weight:bold;padding:2px 4px;border-radius:3px 0 0 3px","color:#2196f3;background:#e3f2fd;font-weight:bold;padding:2px 4px;border-radius:0 3px 3px 0"),customElements.define(x,J)})();
+    </ha-card>`}function J(t,e,a){t.innerHTML=a.error?V(a.error):W(a),a.error||K(t,e,a)}function K(t,e,{navPath:a,chipItems:i}){a&&t.querySelector("ha-card").addEventListener("click",o=>{!o.target.closest(".chip")&&!o.target.closest(".env-chip")&&q(a)}),t.querySelectorAll(".env-chip[data-entity]").forEach(o=>{const n=o.dataset.entity;n&&o.addEventListener("click",r=>{r.stopPropagation(),A(e,n)})}),t.querySelectorAll(".chip[data-entity]").forEach(o=>{o.addEventListener("click",n=>{n.stopPropagation(),A(e,o.dataset.entity)})})}class Q extends HTMLElement{constructor(){super(),this.attachShadow({mode:"open"}),this._hass=null,this._config=null,this._stateHash=null}setConfig(e){if(!(e!=null&&e.area))throw new Error('[hass-omnibus-card] Missing required field: "area"');this._config={...e},this._stateHash=null,this._hass&&this._update()}set hass(e){if(this._hass=e,!this._config)return;const a=this._buildHash();a!==this._stateHash&&(this._stateHash=a,this._update())}getCardSize(){return 2}static getStubConfig(){return{area:"living_room",icon:"mdi:sofa"}}_buildHash(){return!this._hass||!this._config?"":$(this._hass,this._config.area).map(({entityId:e,state:a})=>{var i,o;return`${e}=${a.state}|${((i=a.attributes)==null?void 0:i.rgb_color)??""}|${((o=a.attributes)==null?void 0:o.current_temperature)??""}`}).sort().join(";")}_update(){const e=B(this._hass,this._config);J(this.shadowRoot,this,e)}}window.customCards=window.customCards||[],window.customCards.push({type:x,name:"Hass Omnibus Card",description:"Compact, area-based room summary with automatic entity discovery.",preview:!0}),console.info(`%c HASS-OMNIBUS-CARD %c v${L} `,"color:#fff;background:#2196f3;font-weight:bold;padding:2px 4px;border-radius:3px 0 0 3px","color:#2196f3;background:#e3f2fd;font-weight:bold;padding:2px 4px;border-radius:0 3px 3px 0"),customElements.define(x,Q)})();
