@@ -557,7 +557,7 @@ npm run build
 2. `npm run build` — Vite bundles `src/` → `dist/hass-omnibus-card.js`
 3. `git diff --exit-code dist/hass-omnibus-card.js` — fails if built output differs from committed file
 4. `npx playwright install chromium` — install browser
-5. `npm test` — run 32 snapshot tests against committed baselines
+5. `npm test` — run 39 snapshot tests against committed baselines
 
 Step 3 enforces that `dist/` is always in sync with `src/`. If you change source and forget to build+commit before pushing, CI catches it.
 
@@ -571,7 +571,7 @@ If a test fails, the Playwright HTML report is uploaded as a GitHub Actions arti
 ### Run the tests
 
 ```bash
-npm test                    # compare against committed baselines — 37 tests
+npm test                    # compare against committed baselines — 39 tests
 npm run test:update         # regenerate baselines after intentional visual changes (local OS)
 npm run test:update-ci      # regenerate baselines inside Docker (matches CI/Ubuntu environment)
 npm run test:ui             # open Playwright interactive UI for debugging failures
