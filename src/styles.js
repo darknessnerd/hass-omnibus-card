@@ -33,7 +33,18 @@ export const CARD_STYLES = `
 
   /* ── Layout ── */
 
+  .bg-chart {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
   .card-content {
+    position: relative;
+    z-index: 1;
     padding: 14px 16px 12px;
   }
 

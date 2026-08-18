@@ -196,6 +196,19 @@ const MOCK_HASS = {
   fireEvent: (el, type, detail) => {
     el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
   },
+  callWS(msg) {
+    if (msg.type === 'history/history_during_period') {
+      const id  = msg.entity_ids[0];
+      const now = Date.now() / 1000;
+      const pts = Array.from({ length: 48 }, (_, i) => ({
+        s:  String((21 + Math.sin(i / 5) * 2.5 + Math.cos(i / 9)).toFixed(2)),
+        lu: now - (48 - i) * 1800,
+      }));
+      log(`callWS history: ${id} → ${pts.length} points`);
+      return Promise.resolve({ [id]: pts });
+    }
+    return Promise.resolve({});
+  },
 };
 
 
@@ -261,6 +274,11 @@ function refreshAll() {
 </div>
 
 <div class="section">
+  <h2>History Chart</h2>
+  <div class="grid" id="history-cards"></div>
+</div>
+
+<div class="section">
   <h2>Entity Filtering</h2>
   <div class="grid" id="filter-cards"></div>
 </div>
@@ -294,6 +312,20 @@ window.addEventListener('load', () => {
       el.setConfig(config);
       el.hass = { ...MOCK_HASS };
       container.appendChild(el);
+    });
+
+    const HISTORY_CARDS = [
+      { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } },
+      { area: 'living_room', history_chart: { entity_id: 'sensor.temperature', color: 'rgba(255,152,0,0.18)' } },
+      { area: 'bedroom',     history_chart: { entity_id: 'sensor.bed_temperature', hours: 48 } },
+    ];
+
+    const historyContainer = document.getElementById('history-cards');
+    HISTORY_CARDS.forEach(config => {
+      const el = document.createElement('hass-omnibus-card');
+      el.setConfig(config);
+      el.hass = { ...MOCK_HASS };
+      historyContainer.appendChild(el);
     });
 
     const FILTER_CARDS = [

@@ -14,6 +14,7 @@ import { getAreaEntities, classify, filterEntities } from './discovery.js';
 import { average, anyOn, activeLights, rgbColor } from './aggregators.js';
 import { friendlyLabel, entityIcon }  from './utils.js';
 import { fireMoreInfo, navigate }     from './events.js';
+import { sparklineSvg }              from './sparkline.js';
 
 
 // ── View model ─────────────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ import { fireMoreInfo, navigate }     from './events.js';
  * Returns { error } when the area is not found and no name override is set.
  * Pure: no DOM access, no side effects.
  */
-export function buildViewModel(hass, config) {
+export function buildViewModel(hass, config, historyPoints = null) {
   const areaId = config.area;
   const area   = hass.areas?.[areaId];
 
@@ -65,6 +66,9 @@ export function buildViewModel(hass, config) {
     gasOn:    anyOn(c.gases),
     waterOn:  anyOn(c.moistures),
     moldRisk: humVal !== null && humVal >= moldThreshold,
+
+    historyPoints: config.history_chart?.entity_id ? historyPoints : null,
+    historyColor:  config.history_chart?.color ?? 'rgba(3, 169, 244, 0.12)',
 
     // pre-computed chip data keeps template functions free of utility imports
     chipItems: config.show_entities !== false
@@ -190,6 +194,7 @@ function renderCard(vm) {
       ${vm.navPath ? `role="button" tabindex="0"` : ''}
       aria-label="${vm.areaName}"
     >
+      ${vm.historyPoints ? sparklineSvg(vm.historyPoints, vm.historyColor) : ''}
       <div class="card-content">
         ${renderHeader(vm)}
         ${renderEnvRow(vm)}

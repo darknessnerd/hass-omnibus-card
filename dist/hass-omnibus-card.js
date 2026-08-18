@@ -1,4 +1,4 @@
-(function(){"use strict";const x="hass-omnibus-card",N="1.3.0",y=new Set(["on","open","playing","home","unlocked"]),T={heat:["mdi:fire","#ef6c00"],cool:["mdi:snowflake","#0288d1"],auto:["mdi:thermostat-auto","#43a047"],dry:["mdi:water-off-outline","#f9a825"],fan_only:["mdi:fan","#546e7a"],heat_cool:["mdi:fire-circle","#e64a19"],off:["mdi:thermostat-off","var(--secondary-text-color)"]},_={motion:"mdi:motion-sensor",door:{on:"mdi:door-open",off:"mdi:door-closed"},window:{on:"mdi:window-open",off:"mdi:window-closed"},lock:{on:"mdi:lock-open",off:"mdi:lock"},vibration:"mdi:vibrate",plug:"mdi:power-plug",presence:"mdi:home-account",power:"mdi:flash",energy:"mdi:lightning-bolt",battery:"mdi:battery",connectivity:"mdi:wifi"},w={switch:{on:"mdi:toggle-switch",off:"mdi:toggle-switch-off-outline"},cover:{on:"mdi:blinds-open",off:"mdi:blinds"},fan:{on:"mdi:fan",off:"mdi:fan-off"},media_player:{on:"mdi:play-circle",off:"mdi:multimedia"},input_boolean:{on:"mdi:check-circle-outline",off:"mdi:close-circle-outline"},binary_sensor:{on:"mdi:radiobox-marked",off:"mdi:radiobox-blank"},automation:"mdi:robot",script:"mdi:script-text",person:"mdi:account",device_tracker:"mdi:map-marker",sensor:"mdi:eye",input_select:"mdi:format-list-bulleted"};function $(t,e){const{entities:a={},devices:i={},states:o={}}=t;return Object.keys(o).reduce((n,r)=>{var l;const s=a[r];if(!s||s.hidden_by)return n;const c=s.area_id===e,d=s.device_id&&((l=i[s.device_id])==null?void 0:l.area_id)===e;return(c||d)&&n.push({entityId:r,state:o[r]}),n},[])}function D(t,e,a){var r,s;if((r=e.entities)!=null&&r.length)return e.entities.map(c=>{var l;const d=(l=a.states)==null?void 0:l[c];return d?{entityId:c,state:d}:null}).filter(Boolean);const i=new Set(e.exclude_entities??[]),o=e.add_entities??[],n=t.filter(c=>!i.has(c.entityId));for(const c of o){if(n.some(l=>l.entityId===c))continue;const d=(s=a.states)==null?void 0:s[c];d&&n.push({entityId:c,state:d})}return n}function j(t){var a;const e={lights:[],climate:[],temperatures:[],humidities:[],motions:[],occupancy:[],smokes:[],gases:[],moistures:[],problems:[],others:[]};for(const i of t){const{entityId:o,state:n}=i,r=o.split(".")[0],s=((a=n.attributes)==null?void 0:a.device_class)??"",c=n.state;r==="light"?e.lights.push(i):r==="climate"?e.climate.push(i):r==="sensor"&&s==="temperature"?e.temperatures.push(i):r==="sensor"&&s==="humidity"?e.humidities.push(i):r==="binary_sensor"&&s==="motion"?e.motions.push(i):r==="binary_sensor"&&s==="occupancy"?e.occupancy.push(i):r==="binary_sensor"&&s==="smoke"?e.smokes.push(i):r==="binary_sensor"&&s==="gas"?e.gases.push(i):r==="binary_sensor"&&s==="moisture"?e.moistures.push(i):c==="unavailable"||r==="binary_sensor"&&["problem","tamper","safety"].includes(s)&&c==="on"?e.problems.push(i):e.others.push(i)}return e}const k=`
+(function(){"use strict";const _="hass-omnibus-card",j="1.3.0",w=new Set(["on","open","playing","home","unlocked"]),B={heat:["mdi:fire","#ef6c00"],cool:["mdi:snowflake","#0288d1"],auto:["mdi:thermostat-auto","#43a047"],dry:["mdi:water-off-outline","#f9a825"],fan_only:["mdi:fan","#546e7a"],heat_cool:["mdi:fire-circle","#e64a19"],off:["mdi:thermostat-off","var(--secondary-text-color)"]},$={motion:"mdi:motion-sensor",door:{on:"mdi:door-open",off:"mdi:door-closed"},window:{on:"mdi:window-open",off:"mdi:window-closed"},lock:{on:"mdi:lock-open",off:"mdi:lock"},vibration:"mdi:vibrate",plug:"mdi:power-plug",presence:"mdi:home-account",power:"mdi:flash",energy:"mdi:lightning-bolt",battery:"mdi:battery",connectivity:"mdi:wifi"},k={switch:{on:"mdi:toggle-switch",off:"mdi:toggle-switch-off-outline"},cover:{on:"mdi:blinds-open",off:"mdi:blinds"},fan:{on:"mdi:fan",off:"mdi:fan-off"},media_player:{on:"mdi:play-circle",off:"mdi:multimedia"},input_boolean:{on:"mdi:check-circle-outline",off:"mdi:close-circle-outline"},binary_sensor:{on:"mdi:radiobox-marked",off:"mdi:radiobox-blank"},automation:"mdi:robot",script:"mdi:script-text",person:"mdi:account",device_tracker:"mdi:map-marker",sensor:"mdi:eye",input_select:"mdi:format-list-bulleted"};function C(t,e){const{entities:i={},devices:a={},states:r={}}=t;return Object.keys(r).reduce((s,o)=>{var d;const n=i[o];if(!n||n.hidden_by)return s;const c=n.area_id===e,l=n.device_id&&((d=a[n.device_id])==null?void 0:d.area_id)===e;return(c||l)&&s.push({entityId:o,state:r[o]}),s},[])}function F(t,e,i){var o,n;if((o=e.entities)!=null&&o.length)return e.entities.map(c=>{var d;const l=(d=i.states)==null?void 0:d[c];return l?{entityId:c,state:l}:null}).filter(Boolean);const a=new Set(e.exclude_entities??[]),r=e.add_entities??[],s=t.filter(c=>!a.has(c.entityId));for(const c of r){if(s.some(d=>d.entityId===c))continue;const l=(n=i.states)==null?void 0:n[c];l&&s.push({entityId:c,state:l})}return s}function R(t){var i;const e={lights:[],climate:[],temperatures:[],humidities:[],motions:[],occupancy:[],smokes:[],gases:[],moistures:[],problems:[],others:[]};for(const a of t){const{entityId:r,state:s}=a,o=r.split(".")[0],n=((i=s.attributes)==null?void 0:i.device_class)??"",c=s.state;o==="light"?e.lights.push(a):o==="climate"?e.climate.push(a):o==="sensor"&&n==="temperature"?e.temperatures.push(a):o==="sensor"&&n==="humidity"?e.humidities.push(a):o==="binary_sensor"&&n==="motion"?e.motions.push(a):o==="binary_sensor"&&n==="occupancy"?e.occupancy.push(a):o==="binary_sensor"&&n==="smoke"?e.smokes.push(a):o==="binary_sensor"&&n==="gas"?e.gases.push(a):o==="binary_sensor"&&n==="moisture"?e.moistures.push(a):c==="unavailable"||o==="binary_sensor"&&["problem","tamper","safety"].includes(n)&&c==="on"?e.problems.push(a):e.others.push(a)}return e}const S=`
   :host {
     display: block;
   }
@@ -33,7 +33,18 @@
 
   /* ── Layout ── */
 
+  .bg-chart {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
   .card-content {
+    position: relative;
+    z-index: 1;
     padding: 14px 16px 12px;
   }
 
@@ -243,84 +254,85 @@
     --mdc-icon-size: 20px;
     flex-shrink: 0;
   }
-`;function C(t){const e=t.map(a=>parseFloat(a.state.state)).filter(a=>!isNaN(a));return e.length?e.reduce((a,i)=>a+i,0)/e.length:null}function u(t){return t.some(e=>e.state.state==="on")}function B(t){return t.filter(e=>e.state.state==="on")}function P(t){var e;for(const a of t){const i=(e=a.state.attributes)==null?void 0:e.rgb_color;if(i)return`rgb(${i.join(",")})`}return null}function Y(t,e){var i;return(((i=e.attributes)==null?void 0:i.friendly_name)??t.split(".")[1]).split(" ").pop()}function q(t,e){var r,s;if((r=e.attributes)!=null&&r.icon)return e.attributes.icon;const a=t.split(".")[0],i=((s=e.attributes)==null?void 0:s.device_class)??"",o=y.has(e.state),n=c=>typeof c=="string"?c:o?c.on:c.off;return i&&_[i]?n(_[i]):w[a]?n(w[a]):"mdi:help-circle-outline"}function A(t,e){t.dispatchEvent(new CustomEvent("hass-more-info",{bubbles:!0,composed:!0,detail:{entityId:e}}))}function R(t){history.pushState(null,"",t),window.dispatchEvent(new CustomEvent("location-changed",{bubbles:!0,composed:!0,detail:{replace:!1}}))}function F(t,e){var E,S,H,O,z,I,L;const a=e.area,i=(E=t.areas)==null?void 0:E[a];if(!i&&!e.name&&!((S=e.entities)!=null&&S.length))return{error:a??"(no area)"};const o=(H=e.entities)!=null&&H.length?[]:$(t,a),n=D(o,e,t),r=j(n),s=B(r.lights),c=P(s),d=C(r.temperatures),l=C(r.humidities),p=r.climate[0]??null,[m,f]=T[(O=p==null?void 0:p.state)==null?void 0:O.state]??[null,null],b=e.mold_threshold??70,g=e.navigate_to||((z=e.tap_action)==null?void 0:z.navigation_path)||null;return{areaName:e.name||(i==null?void 0:i.name)||a||"",cardIcon:e.icon||(i==null?void 0:i.icon)||"mdi:home",navPath:g,lightCount:s.length,lightColor:c,occupied:u(r.motions)||u(r.occupancy),problemCount:r.problems.length,tempVal:d,humVal:l,tempUnit:((L=(I=r.temperatures[0])==null?void 0:I.state.attributes)==null?void 0:L.unit_of_measurement)??"°C",tempEntities:r.temperatures,humEntities:r.humidities,climate:p,climIcon:m,climColor:f,smokeOn:u(r.smokes),gasOn:u(r.gases),waterOn:u(r.moistures),moldRisk:l!==null&&l>=b,chipItems:e.show_entities!==!1?r.others.slice(0,e.max_entities??6).map(({entityId:v,state:h})=>{var M;return{entityId:v,isActive:y.has(h.state),icon:q(v,h),label:Y(v,h),title:`${((M=h.attributes)==null?void 0:M.friendly_name)??v} — ${h.state}`}}):[]}}function G({areaName:t,cardIcon:e,lightCount:a,occupied:i,problemCount:o}){return`
+`;function A(t){const e=t.map(i=>parseFloat(i.state.state)).filter(i=>!isNaN(i));return e.length?e.reduce((i,a)=>i+a,0)/e.length:null}function u(t){return t.some(e=>e.state.state==="on")}function Y(t){return t.filter(e=>e.state.state==="on")}function q(t){var e;for(const i of t){const a=(e=i.state.attributes)==null?void 0:e.rgb_color;if(a)return`rgb(${a.join(",")})`}return null}function W(t,e){var a;return(((a=e.attributes)==null?void 0:a.friendly_name)??t.split(".")[1]).split(" ").pop()}function G(t,e){var o,n;if((o=e.attributes)!=null&&o.icon)return e.attributes.icon;const i=t.split(".")[0],a=((n=e.attributes)==null?void 0:n.device_class)??"",r=w.has(e.state),s=c=>typeof c=="string"?c:r?c.on:c.off;return a&&$[a]?s($[a]):k[i]?s(k[i]):"mdi:help-circle-outline"}function E(t,e){t.dispatchEvent(new CustomEvent("hass-more-info",{bubbles:!0,composed:!0,detail:{entityId:e}}))}function U(t){history.pushState(null,"",t),window.dispatchEvent(new CustomEvent("location-changed",{bubbles:!0,composed:!0,detail:{replace:!1}}))}function V(t,e){if(!(t!=null&&t.length)||t.length<2)return"";const i=300,a=60,r=Math.min(...t),o=Math.max(...t)-r||1,n=t.map((d,p)=>p/(t.length-1)*i),c=t.map(d=>a-(d-r)/o*a),l=n.map((d,p)=>`${p?"L":"M"}${d.toFixed(1)},${c[p].toFixed(1)}`).join(" ");return`<svg class="bg-chart" viewBox="0 0 ${i} ${a}" preserveAspectRatio="none" aria-hidden="true"><path d="${l} V${a} H0 Z" fill="${e}"/></svg>`}function Z(t,e,i=null){var H,z,M,O,I,L,N,D,P;const a=e.area,r=(H=t.areas)==null?void 0:H[a];if(!r&&!e.name&&!((z=e.entities)!=null&&z.length))return{error:a??"(no area)"};const s=(M=e.entities)!=null&&M.length?[]:C(t,a),o=F(s,e,t),n=R(o),c=Y(n.lights),l=q(c),d=A(n.temperatures),p=A(n.humidities),h=n.climate[0]??null,[g,b]=B[(O=h==null?void 0:h.state)==null?void 0:O.state]??[null,null],y=e.mold_threshold??70,oe=e.navigate_to||((I=e.tap_action)==null?void 0:I.navigation_path)||null;return{areaName:e.name||(r==null?void 0:r.name)||a||"",cardIcon:e.icon||(r==null?void 0:r.icon)||"mdi:home",navPath:oe,lightCount:c.length,lightColor:l,occupied:u(n.motions)||u(n.occupancy),problemCount:n.problems.length,tempVal:d,humVal:p,tempUnit:((N=(L=n.temperatures[0])==null?void 0:L.state.attributes)==null?void 0:N.unit_of_measurement)??"°C",tempEntities:n.temperatures,humEntities:n.humidities,climate:h,climIcon:g,climColor:b,smokeOn:u(n.smokes),gasOn:u(n.gases),waterOn:u(n.moistures),moldRisk:p!==null&&p>=y,historyPoints:(D=e.history_chart)!=null&&D.entity_id?i:null,historyColor:((P=e.history_chart)==null?void 0:P.color)??"rgba(3, 169, 244, 0.12)",chipItems:e.show_entities!==!1?n.others.slice(0,e.max_entities??6).map(({entityId:x,state:m})=>{var T;return{entityId:x,isActive:w.has(m.state),icon:G(x,m),label:W(x,m),title:`${((T=m.attributes)==null?void 0:T.friendly_name)??x} — ${m.state}`}}):[]}}function J({areaName:t,cardIcon:e,lightCount:i,occupied:a,problemCount:r}){return`
     <div class="header">
       <div class="header-left">
         <ha-icon class="room-icon" icon="${e}"></ha-icon>
         <span class="room-name">${t}</span>
       </div>
       <div class="header-right">
-        ${a>0?`
+        ${i>0?`
           <div class="badge badge-lights"
-               title="${a} light${a!==1?"s":""} on">
+               title="${i} light${i!==1?"s":""} on">
             <ha-icon icon="mdi:lightbulb"></ha-icon>
-            ${a>1?`<span>${a}</span>`:""}
+            ${i>1?`<span>${i}</span>`:""}
           </div>`:""}
-        ${i?'<div class="occupancy-dot" title="Occupied"></div>':""}
-        ${o>0?`
+        ${a?'<div class="occupancy-dot" title="Occupied"></div>':""}
+        ${r>0?`
           <div class="badge badge-problems"
-               title="${o} problem${o!==1?"s":""}">
+               title="${r} problem${r!==1?"s":""}">
             <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-            ${o>1?`<span>${o}</span>`:""}
+            ${r>1?`<span>${r}</span>`:""}
           </div>`:""}
       </div>
-    </div>`}function U({tempVal:t,humVal:e,tempUnit:a,tempEntities:i,humEntities:o,climate:n,climIcon:r,climColor:s}){var c,d,l,p,m,f,b,g;return t===null&&e===null&&!r?"":`
+    </div>`}function K({tempVal:t,humVal:e,tempUnit:i,tempEntities:a,humEntities:r,climate:s,climIcon:o,climColor:n}){var c,l,d,p,h,g,b,y;return t===null&&e===null&&!o?"":`
     <div class="env-row">
       ${t!==null?`
         <div class="env-chip temp"
-             data-entity="${((c=i[0])==null?void 0:c.entityId)??""}"
-             title="${i.length>1?`Avg of ${i.length} sensors`:((l=(d=i[0])==null?void 0:d.state.attributes)==null?void 0:l.friendly_name)??""}">
+             data-entity="${((c=a[0])==null?void 0:c.entityId)??""}"
+             title="${a.length>1?`Avg of ${a.length} sensors`:((d=(l=a[0])==null?void 0:l.state.attributes)==null?void 0:d.friendly_name)??""}">
           <ha-icon icon="mdi:thermometer"></ha-icon>
-          <span>${t.toFixed(1)}${a}</span>
+          <span>${t.toFixed(1)}${i}</span>
         </div>`:""}
       ${e!==null?`
         <div class="env-chip hum"
-             data-entity="${((p=o[0])==null?void 0:p.entityId)??""}"
-             title="${o.length>1?`Avg of ${o.length} sensors`:((f=(m=o[0])==null?void 0:m.state.attributes)==null?void 0:f.friendly_name)??""}">
+             data-entity="${((p=r[0])==null?void 0:p.entityId)??""}"
+             title="${r.length>1?`Avg of ${r.length} sensors`:((g=(h=r[0])==null?void 0:h.state.attributes)==null?void 0:g.friendly_name)??""}">
           <ha-icon icon="mdi:water-percent"></ha-icon>
           <span>${e.toFixed(0)}%</span>
         </div>`:""}
-      ${r?`
+      ${o?`
         <div class="env-chip climate"
-             style="--climate-color: ${s}"
-             data-entity="${n.entityId}"
-             title="${((b=n.state.attributes)==null?void 0:b.friendly_name)??n.entityId}">
-          <ha-icon icon="${r}"></ha-icon>
-          <span>${((g=n.state.attributes)==null?void 0:g.current_temperature)!=null?`${n.state.attributes.current_temperature}°`:n.state.state}</span>
+             style="--climate-color: ${n}"
+             data-entity="${s.entityId}"
+             title="${((b=s.state.attributes)==null?void 0:b.friendly_name)??s.entityId}">
+          <ha-icon icon="${o}"></ha-icon>
+          <span>${((y=s.state.attributes)==null?void 0:y.current_temperature)!=null?`${s.state.attributes.current_temperature}°`:s.state.state}</span>
         </div>`:""}
-    </div>`}function V({chipItems:t}){return t.length?`
+    </div>`}function Q({chipItems:t}){return t.length?`
     <div class="entity-chips">
-      ${t.map(({entityId:e,isActive:a,icon:i,label:o,title:n})=>`
-        <div class="chip ${a?"on":""}" data-entity="${e}" title="${n}">
-          <ha-icon icon="${i}"></ha-icon>
-          <span class="chip-label">${o}</span>
+      ${t.map(({entityId:e,isActive:i,icon:a,label:r,title:s})=>`
+        <div class="chip ${i?"on":""}" data-entity="${e}" title="${s}">
+          <ha-icon icon="${a}"></ha-icon>
+          <span class="chip-label">${r}</span>
         </div>`).join("")}
-    </div>`:""}function W({smokeOn:t,gasOn:e,waterOn:a,moldRisk:i}){return!t&&!e&&!a&&!i?"":`
+    </div>`:""}function X({smokeOn:t,gasOn:e,waterOn:i,moldRisk:a}){return!t&&!e&&!i&&!a?"":`
     <div class="alarm-bar">
       ${t?'<span class="alarm-badge alarm-smoke"><ha-icon icon="mdi:smoke-detector-alert"></ha-icon> Smoke</span>':""}
       ${e?'<span class="alarm-badge alarm-gas"><ha-icon icon="mdi:molecule-co"></ha-icon> Gas</span>':""}
-      ${a?'<span class="alarm-badge alarm-water"><ha-icon icon="mdi:water-alert"></ha-icon> Water</span>':""}
-      ${i?'<span class="alarm-badge alarm-mold"><ha-icon icon="mdi:mold"></ha-icon> Mold risk</span>':""}
-    </div>`}function J(t){return`
-    <style>${k}</style>
+      ${i?'<span class="alarm-badge alarm-water"><ha-icon icon="mdi:water-alert"></ha-icon> Water</span>':""}
+      ${a?'<span class="alarm-badge alarm-mold"><ha-icon icon="mdi:mold"></ha-icon> Mold risk</span>':""}
+    </div>`}function ee(t){return`
+    <style>${S}</style>
     <ha-card class="error-card">
       <div class="error-content">
         <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
         <span>Area <strong>${t}</strong> not found.
           Check the <code>area:</code> value or add a <code>name:</code> override.</span>
       </div>
-    </ha-card>`}function K(t){const e=t.smokeOn||t.gasOn||t.waterOn,a=t.lightColor?`background: linear-gradient(135deg, ${t.lightColor}1a 0%, var(--ha-card-background, var(--card-background-color, #fff)) 60%);`:"";return`
-    <style>${k}</style>
+    </ha-card>`}function te(t){const e=t.smokeOn||t.gasOn||t.waterOn,i=t.lightColor?`background: linear-gradient(135deg, ${t.lightColor}1a 0%, var(--ha-card-background, var(--card-background-color, #fff)) 60%);`:"";return`
+    <style>${S}</style>
     <ha-card
       class="${t.navPath?"clickable":""} ${e?"alarm-active":""}"
-      style="${a}"
+      style="${i}"
       ${t.navPath?'role="button" tabindex="0"':""}
       aria-label="${t.areaName}"
     >
+      ${t.historyPoints?V(t.historyPoints,t.historyColor):""}
       <div class="card-content">
-        ${G(t)}
-        ${U(t)}
-        ${V(t)}
-        ${W(t)}
+        ${J(t)}
+        ${K(t)}
+        ${Q(t)}
+        ${X(t)}
       </div>
-    </ha-card>`}function Q(t,e,a){t.innerHTML=a.error?J(a.error):K(a),a.error||X(t,e,a)}function X(t,e,{navPath:a,chipItems:i}){a&&t.querySelector("ha-card").addEventListener("click",o=>{!o.target.closest(".chip")&&!o.target.closest(".env-chip")&&R(a)}),t.querySelectorAll(".env-chip[data-entity]").forEach(o=>{const n=o.dataset.entity;n&&o.addEventListener("click",r=>{r.stopPropagation(),A(e,n)})}),t.querySelectorAll(".chip[data-entity]").forEach(o=>{o.addEventListener("click",n=>{n.stopPropagation(),A(e,o.dataset.entity)})})}class Z extends HTMLElement{constructor(){super(),this.attachShadow({mode:"open"}),this._hass=null,this._config=null,this._stateHash=null}setConfig(e){var a;if(!(e!=null&&e.area)&&!((a=e==null?void 0:e.entities)!=null&&a.length))throw new Error('[hass-omnibus-card] Missing required field: "area" or "entities"');this._config={...e},this._stateHash=null,this._hass&&this._update()}set hass(e){if(this._hass=e,!this._config)return;const a=this._buildHash();a!==this._stateHash&&(this._stateHash=a,this._update())}getCardSize(){return 2}static getStubConfig(){return{area:"living_room",icon:"mdi:sofa"}}_buildHash(){var a;return!this._hass||!this._config?"":((a=this._config.entities)!=null&&a.length?this._config.entities.map(i=>{var o;return{entityId:i,state:(o=this._hass.states)==null?void 0:o[i]}}).filter(i=>i.state):$(this._hass,this._config.area)).map(({entityId:i,state:o})=>{var n,r;return`${i}=${o.state}|${((n=o.attributes)==null?void 0:n.rgb_color)??""}|${((r=o.attributes)==null?void 0:r.current_temperature)??""}`}).sort().join(";")}_update(){const e=F(this._hass,this._config);Q(this.shadowRoot,this,e)}}window.customCards=window.customCards||[],window.customCards.push({type:x,name:"Hass Omnibus Card",description:"Compact, area-based room summary with automatic entity discovery.",preview:!0}),console.info(`%c HASS-OMNIBUS-CARD %c v${N} `,"color:#fff;background:#2196f3;font-weight:bold;padding:2px 4px;border-radius:3px 0 0 3px","color:#2196f3;background:#e3f2fd;font-weight:bold;padding:2px 4px;border-radius:0 3px 3px 0"),customElements.define(x,Z)})();
+    </ha-card>`}function ie(t,e,i){t.innerHTML=i.error?ee(i.error):te(i),i.error||ae(t,e,i)}function ae(t,e,{navPath:i,chipItems:a}){i&&t.querySelector("ha-card").addEventListener("click",r=>{!r.target.closest(".chip")&&!r.target.closest(".env-chip")&&U(i)}),t.querySelectorAll(".env-chip[data-entity]").forEach(r=>{const s=r.dataset.entity;s&&r.addEventListener("click",o=>{o.stopPropagation(),E(e,s)})}),t.querySelectorAll(".chip[data-entity]").forEach(r=>{r.addEventListener("click",s=>{s.stopPropagation(),E(e,r.dataset.entity)})})}const v=new Map,f=new Set;function re(t,e,i,a){const r=`${e}:${Math.floor(Date.now()/3e5)}`;if(v.has(r))return v.get(r);if(f.has(r)||!(t!=null&&t.callWS))return null;f.add(r);const s=new Date(Date.now()-i*36e5).toISOString();return t.callWS({type:"history/history_during_period",entity_ids:[e],start_time:s,minimal_response:!0,no_attributes:!0}).then(o=>{const c=((o==null?void 0:o[e])??[]).map(l=>parseFloat(l.s)).filter(l=>!isNaN(l));v.set(r,c),f.delete(r),a(c)}).catch(()=>{f.delete(r)}),null}class ne extends HTMLElement{constructor(){super(),this.attachShadow({mode:"open"}),this._hass=null,this._config=null,this._stateHash=null}setConfig(e){var i;if(!(e!=null&&e.area)&&!((i=e==null?void 0:e.entities)!=null&&i.length))throw new Error('[hass-omnibus-card] Missing required field: "area" or "entities"');this._config={...e},this._stateHash=null,this._hass&&this._update()}set hass(e){if(this._hass=e,!this._config)return;const i=this._buildHash();i!==this._stateHash&&(this._stateHash=i,this._update())}getCardSize(){return 2}static getStubConfig(){return{area:"living_room",icon:"mdi:sofa"}}_buildHash(){var i;return!this._hass||!this._config?"":((i=this._config.entities)!=null&&i.length?this._config.entities.map(a=>{var r;return{entityId:a,state:(r=this._hass.states)==null?void 0:r[a]}}).filter(a=>a.state):C(this._hass,this._config.area)).map(({entityId:a,state:r})=>{var s,o;return`${a}=${r.state}|${((s=r.attributes)==null?void 0:s.rgb_color)??""}|${((o=r.attributes)==null?void 0:o.current_temperature)??""}`}).sort().join(";")}_update(){var r;let e=null;const i=(r=this._config)==null?void 0:r.history_chart;i!=null&&i.entity_id&&(e=re(this._hass,i.entity_id,i.hours??24,()=>this._update()));const a=Z(this._hass,this._config,e);ie(this.shadowRoot,this,a)}}window.customCards=window.customCards||[],window.customCards.push({type:_,name:"Hass Omnibus Card",description:"Compact, area-based room summary with automatic entity discovery.",preview:!0}),console.info(`%c HASS-OMNIBUS-CARD %c v${j} `,"color:#fff;background:#2196f3;font-weight:bold;padding:2px 4px;border-radius:3px 0 0 3px","color:#2196f3;background:#e3f2fd;font-weight:bold;padding:2px 4px;border-radius:0 3px 3px 0"),customElements.define(_,ne)})();

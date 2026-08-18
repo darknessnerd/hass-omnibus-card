@@ -61,6 +61,7 @@ area: living_room          entities: [light.x, sensor.y]
 | Shadow DOM CSS | Styles fully isolated — won't break your theme |
 | Entity filtering | Whitelist mode (`entities`), additive pinning (`add_entities`), exclusion (`exclude_entities`) |
 | Performance | Hash diff guard: DOM only rebuilds when area state actually changes |
+| History chart | Optional background sparkline from entity history — zero bundle cost when unused |
 
 ---
 
@@ -142,6 +143,12 @@ max_entities: 6            # Max chips to display (default: 6)
 
 # ── Environmental thresholds ──────────────────────────────────────────
 mold_threshold: 70         # Humidity % above which mold risk badge appears (default: 70)
+
+# ── History chart ─────────────────────────────────────────────────────
+history_chart:
+  entity_id: sensor.temperature  # required — entity to plot
+  hours: 24                      # lookback window in hours (default: 24)
+  color: 'rgba(255,200,100,0.15)'# fill color (default: semi-transparent primary-color)
 ```
 
 ---
@@ -218,6 +225,32 @@ add_entities:
 
 `add_entities` accepts any entity ID known to Home Assistant.
 
+### History chart — temperature sparkline as ambient background
+
+```yaml
+type: custom:hass-omnibus-card
+area: living_room
+history_chart:
+  entity_id: sensor.temperature
+  hours: 24
+```
+
+Custom color (e.g. warm orange tint):
+
+```yaml
+type: custom:hass-omnibus-card
+area: living_room
+history_chart:
+  entity_id: sensor.temperature
+  color: 'rgba(255,152,0,0.18)'
+```
+
+The sparkline is fetched once via `hass.callWS` and cached for 5 minutes. First render shows no chart; the SVG appears after the async response resolves — typically imperceptible on a normal page load.
+
+**Note:** Requires Home Assistant 2022.6+ (history WebSocket API). No effect on installs that block the `history/history_during_period` WebSocket call.
+
+---
+
 ### Multiple rooms in a grid
 
 ```yaml
@@ -267,7 +300,7 @@ cards:
 npm install          # install dependencies (Vite + Playwright)
 npm run dev          # start live-reload dev server → http://localhost:5173/dev.html
 npm run build        # bundle src/ → dist/hass-omnibus-card.js
-npm test             # run 28 E2E snapshot tests (Playwright + Chromium)
+npm test             # run 34 E2E snapshot tests (Playwright + Chromium)
 npm run test:update  # regenerate baselines after intentional visual changes
 npm run test:ui      # Playwright visual UI for debugging test failures
 ```

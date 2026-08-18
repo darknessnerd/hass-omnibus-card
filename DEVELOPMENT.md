@@ -36,12 +36,14 @@ graph TD
   subgraph view["View layer"]
     renderer["renderer.js\nbuildViewModel · templates · render"]
     styles["styles.js\nCSS string"]
+    sparkline["sparkline.js\nsparklineSvg"]
   end
 
   subgraph data["Data layer"]
     discovery["discovery.js\ngetAreaEntities · filterEntities · classify"]
     aggregators["aggregators.js\naverage · anyOn · rgbColor"]
     utils["utils.js\nentityIcon · friendlyLabel"]
+    history["history.js\ngetHistory · TTL cache"]
   end
 
   subgraph shared["Shared"]
@@ -54,6 +56,7 @@ graph TD
 
   card --> discovery
   card --> renderer
+  card --> history
 
   renderer --> styles
   renderer --> constants
@@ -61,6 +64,7 @@ graph TD
   renderer --> aggregators
   renderer --> utils
   renderer --> events
+  renderer --> sparkline
 
   utils --> constants
 ```
@@ -71,6 +75,7 @@ graph TD
 sequenceDiagram
   participant HA as Home Assistant
   participant C  as card.js
+  participant H  as history.js
   participant D  as discovery.js
   participant R  as renderer.js
   participant DOM as Shadow DOM
@@ -87,11 +92,25 @@ sequenceDiagram
   end
 
   alt hash changed
-    C->>R: buildViewModel(hass, config)
-    note over R: filterEntities (whitelist or exclude/add) → classify → aggregate → pre-compute chip data
+    C->>C: _update()
+
+    alt history_chart configured
+      C->>H: getHistory(hass, entityId, hours, onDone)
+      alt cache hit (< 5 min old)
+        H-->>C: points[]
+      else cache miss
+        H->>HA: callWS history/history_during_period [async]
+        H-->>C: null  (fetch in flight)
+        note over HA,H: resolves later → cache set → onDone() → _update() again
+      end
+    end
+
+    C->>R: buildViewModel(hass, config, historyPoints)
+    note over R: filterEntities → classify → aggregate → pre-compute chip + sparkline data
     R-->>C: view model (plain object, no DOM)
     C->>R: render(shadowRoot, host, vm)
     R->>DOM: shadowRoot.innerHTML = renderCard(vm)
+    note over R,DOM: vm.historyPoints → sparklineSvg() injected as .bg-chart SVG layer
     R->>DOM: bindEvents(shadowRoot, host, vm)
   else hash unchanged
     C->>C: skip render
@@ -113,7 +132,7 @@ flowchart TD
 
   pr["pull request / push to main"]
   ci_wf["ci.yml\nbuild · check dist · npm test"]
-  tests["32 Playwright\nsnapshot tests"]
+  tests["34 Playwright\ntests"]
   pass["✅ pass"]
 
   src --> vite --> dist --> commit --> rel_wf --> release --> hacs --> ha
@@ -149,13 +168,15 @@ card-ha/
 │  ├─ aggregators.js           # average(), anyOn(), rgbColor()
 │  ├─ utils.js                 # entityIcon(), friendlyLabel()
 │  ├─ events.js                # fireMoreInfo(), navigate()
+│  ├─ history.js               # getHistory() — callWS wrapper with 5-min TTL cache
+│  ├─ sparkline.js             # sparklineSvg() — inline SVG background chart
 │  └─ renderer.js              # buildViewModel() + templates + render()
 ├─ dist/
 │  └─ hass-omnibus-card.js     # built IIFE — commit before tagging
 ├─ tests/
 │  ├─ fixture.html             # test harness: box-stub icons, animations off, mountCard()
 │  └─ e2e/
-│     ├─ card.spec.js          # 32 Playwright snapshot tests (one per feature/state)
+│     ├─ card.spec.js          # 34 Playwright tests (snapshot + behavioral)
 │     └─ snapshots/            # committed baseline PNGs — ground truth for CI
 │        └─ chromium/
 ├─ .github/
@@ -518,7 +539,7 @@ npm run build
 
 1. `npm run build` — rebuilds dist
 2. Checks `dist/hass-omnibus-card.js` is committed — blocks push if out of sync
-3. `npm test` — runs 32 Playwright snapshot tests
+3. `npm test` — runs 34 Playwright snapshot tests
 
 `npm install` / `npm run prepare` installs the hook into `.git/hooks/` automatically. New contributors get it on first install.
 
@@ -544,7 +565,7 @@ If a test fails, the Playwright HTML report is uploaded as a GitHub Actions arti
 ### Run the tests
 
 ```bash
-npm test                    # compare against committed baselines — 32 tests
+npm test                    # compare against committed baselines — 34 tests
 npm run test:update         # regenerate baselines after intentional visual changes (local OS)
 npm run test:update-ci      # regenerate baselines inside Docker (matches CI/Ubuntu environment)
 npm run test:ui             # open Playwright interactive UI for debugging failures
@@ -562,7 +583,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 - **Animations and transitions are disabled** in `tests/fixture.html` for deterministic screenshots.
 - **Icons use a box stub** (not Iconify CDN) — a solid-color rectangle per icon. Snapshots show layout and color, not specific icon glyphs. No CDN dependency, no flaky rendering.
 
-### What is covered (32 tests)
+### What is covered (34 tests)
 
 | Category | Tests |
 |---|---|
@@ -579,6 +600,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 | Error state | Area not found, area not found with name override |
 | Config | Custom icon, custom name, `max_entities` limit |
 | Entity filtering | `exclude_entities` on classified entity, on chip-strip entity; `add_entities` from outside area; `entities` whitelist overrides area discovery |
+| History chart | `.bg-chart` SVG rendered when `history_chart` configured; absent when not configured |
 
 ### Adding a new test
 
@@ -606,7 +628,8 @@ test('my new scenario', async ({ page }) => {
 | Icons | Box stubs (deterministic) | Iconify CDN (real glyphs) |
 | Animations | Disabled | Enabled |
 | Scenarios | Via `mountCard()` API | Scenario buttons |
-| Card count | Single card | Four rooms + error |
+| Card count | Single card | 5 room cards + 3 history + 3 filter cards |
+| `callWS` stub | Fixed 24-point array (deterministic) | 48-point sinusoidal (visual preview) |
 | Purpose | Automated testing | Interactive development |
 
 ---
@@ -686,8 +709,9 @@ Vite serves `src/` as native ES modules — no bundling in dev. Edit any `src/` 
 
 ### What dev.html provides
 
-- All four rooms rendered: Living Room, Bedroom, Kitchen, Bathroom
+- Four rooms rendered: Living Room, Bedroom, Kitchen, Bathroom
 - One error-state card (`nonexistent_area`) to validate error rendering
+- Three history chart cards (default color, custom color, 48h window) with `callWS` stub
 - Scenario toggle buttons:
 
 | Button | What it tests |
@@ -712,8 +736,11 @@ Vite serves `src/` as native ES modules — no bundling in dev. Edit any `src/` 
   devices:  { [device_id]: { area_id } },
   entities: { [entity_id]: { area_id, device_id, hidden_by } },
   states:   { [entity_id]: { state, attributes: { ... } } },
+  callWS:   async (msg) => { /* history stub */ },
 }
 ```
+
+`callWS` is used by `history.js` when `history_chart` is configured. The dev harness stub returns synthetic sinusoidal data; the test fixture returns a fixed 24-point array.
 
 To add a new test entity, add matching entries to `entities` and `states` (and `devices` if it's device-assigned).
 

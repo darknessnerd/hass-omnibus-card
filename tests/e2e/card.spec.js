@@ -267,3 +267,16 @@ test('entities — whitelist overrides area discovery', async ({ page }) => {
   await expect(page.locator('#mount').locator('.env-chip.temp')).toBeVisible();
   await expect(page.locator('#mount')).toHaveScreenshot('entities-whitelist.png', SNAP);
 });
+
+// ── History chart ─────────────────────────────────────────────────────────────
+
+test('history chart — svg rendered when history_chart configured', async ({ page }) => {
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  // callWS returns Promise.resolve — microtask fires before first poll
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+});
+
+test('history chart — absent when history_chart not configured', async ({ page }) => {
+  await mount(page, CARD);
+  await expect(page.locator('#mount').locator('.bg-chart')).not.toBeVisible();
+});

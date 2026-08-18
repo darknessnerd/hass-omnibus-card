@@ -84,6 +84,17 @@
 <script>
 // ── Base mock hass ────────────────────────────────────────────────────────────
 window.BASE_HASS = {
+  callWS(msg) {
+    if (msg.type === 'history/history_during_period') {
+      const id = msg.entity_ids[0];
+      const points = Array.from({ length: 24 }, (_, i) => ({
+        s: String((20 + Math.sin(i / 3) * 3).toFixed(2)),
+        lu: 1704067200 + i * 3600,
+      }));
+      return Promise.resolve({ [id]: points });
+    }
+    return Promise.resolve({});
+  },
   areas: {
     living_room: { area_id: 'living_room', name: 'Living Room', icon: 'mdi:sofa' },
     bedroom:     { area_id: 'bedroom',     name: 'Bedroom',     icon: 'mdi:bed' },
@@ -133,6 +144,7 @@ window.mountCard = function(config, stateOverrides) {
   document.getElementById('mount').innerHTML = '';
 
   const hass = JSON.parse(JSON.stringify(window.BASE_HASS));
+  hass.callWS = window.BASE_HASS.callWS; // functions are dropped by JSON serialization
   if (stateOverrides) {
     for (const [id, patch] of Object.entries(stateOverrides)) {
       if (hass.states[id]) {

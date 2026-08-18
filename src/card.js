@@ -6,6 +6,7 @@
 
 import { getAreaEntities }     from './discovery.js';
 import { buildViewModel, render } from './renderer.js';
+import { getHistory }            from './history.js';
 
 export class HassOmnibusCard extends HTMLElement {
 
@@ -60,7 +61,12 @@ export class HassOmnibusCard extends HTMLElement {
   }
 
   _update() {
-    const vm = buildViewModel(this._hass, this._config);
+    let historyPoints = null;
+    const hc = this._config?.history_chart;
+    if (hc?.entity_id) {
+      historyPoints = getHistory(this._hass, hc.entity_id, hc.hours ?? 24, () => this._update());
+    }
+    const vm = buildViewModel(this._hass, this._config, historyPoints);
     render(this.shadowRoot, this, vm);
   }
 }
