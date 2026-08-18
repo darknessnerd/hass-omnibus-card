@@ -26,6 +26,26 @@ export function getAreaEntities(hass, areaId) {
 }
 
 /**
+ * Applies exclude_entities / include_entities config lists to a discovered entity list.
+ * - exclude_entities: entity IDs to drop
+ * - include_entities: entity IDs to force-add from hass.states (even from outside the area)
+ */
+export function filterEntities(entities, config, hass) {
+  const exclude = new Set(config.exclude_entities ?? []);
+  const include = config.include_entities ?? [];
+
+  const filtered = entities.filter(e => !exclude.has(e.entityId));
+
+  for (const entityId of include) {
+    if (filtered.some(e => e.entityId === entityId)) continue;
+    const state = hass.states?.[entityId];
+    if (state) filtered.push({ entityId, state });
+  }
+
+  return filtered;
+}
+
+/**
  * Buckets a flat entity list into semantic groups by domain / device_class.
  * Each bucket is an array of { entityId, state } items.
  * The `others` bucket feeds the generic chip strip.

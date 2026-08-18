@@ -260,6 +260,11 @@ function refreshAll() {
   <div class="grid" id="cards"></div>
 </div>
 
+<div class="section">
+  <h2>Entity Filtering</h2>
+  <div class="grid" id="filter-cards"></div>
+</div>
+
 <div id="log"></div>
 
 <script>
@@ -289,6 +294,29 @@ window.addEventListener('load', () => {
       el.setConfig(config);
       el.hass = { ...MOCK_HASS };
       container.appendChild(el);
+    });
+
+    const FILTER_CARDS = [
+      // exclude motion + TV from living room — no occupancy dot, fewer chips
+      {
+        area: 'living_room',
+        name: 'Living Room (excluded)',
+        exclude_entities: ['binary_sensor.motion', 'media_player.tv'],
+      },
+      // pin bedroom humidity into living room — humidity avg includes bed sensor
+      {
+        area: 'living_room',
+        name: 'Living Room (included)',
+        include_entities: ['sensor.bed_humidity'],
+      },
+    ];
+
+    const filterContainer = document.getElementById('filter-cards');
+    FILTER_CARDS.forEach(config => {
+      const el = document.createElement('hass-omnibus-card');
+      el.setConfig(config);
+      el.hass = { ...MOCK_HASS };
+      filterContainer.appendChild(el);
     });
 
     log('cards mounted');

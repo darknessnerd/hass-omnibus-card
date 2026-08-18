@@ -236,3 +236,25 @@ test('max_entities limits chip count', async ({ page }) => {
   await expect(chips).toHaveCount(1);
   await expect(page.locator('#mount')).toHaveScreenshot('max-entities-1.png', SNAP);
 });
+
+// ── Entity filtering ──────────────────────────────────────────────────────────
+
+test('exclude_entities — classified entity removed', async ({ page }) => {
+  await mount(page, { area: 'living_room', exclude_entities: ['binary_sensor.motion'] });
+  await expect(page.locator('#mount').locator('.occupancy-dot')).not.toBeVisible();
+  await expect(page.locator('#mount')).toHaveScreenshot('exclude-classified.png', SNAP);
+});
+
+test('exclude_entities — chip-strip entity removed', async ({ page }) => {
+  await mount(page, { area: 'living_room', exclude_entities: ['switch.outlet'] });
+  const chips = page.locator('#mount').locator('.chip');
+  await expect(chips).toHaveCount(2);
+  await expect(page.locator('#mount')).toHaveScreenshot('exclude-chip.png', SNAP);
+});
+
+test('include_entities — entity from outside area pinned', async ({ page }) => {
+  // sensor.bed_humidity (bedroom, 72%) + sensor.humidity (living_room, 52%) → avg 62%
+  await mount(page, { area: 'living_room', include_entities: ['sensor.bed_humidity'] });
+  await expect(page.locator('#mount').locator('.env-chip.hum > span')).toHaveText('62%');
+  await expect(page.locator('#mount')).toHaveScreenshot('include-entity.png', SNAP);
+});

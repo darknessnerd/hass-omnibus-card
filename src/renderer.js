@@ -10,7 +10,7 @@
 
 import { CLIMATE_MAP, ACTIVE_STATES } from './constants.js';
 import { CARD_STYLES }                from './styles.js';
-import { getAreaEntities, classify }  from './discovery.js';
+import { getAreaEntities, classify, filterEntities } from './discovery.js';
 import { average, anyOn, activeLights, rgbColor } from './aggregators.js';
 import { friendlyLabel, entityIcon }  from './utils.js';
 import { fireMoreInfo, navigate }     from './events.js';
@@ -29,7 +29,8 @@ export function buildViewModel(hass, config) {
 
   if (!area && !config.name) return { error: areaId };
 
-  const entities   = getAreaEntities(hass, areaId);
+  const raw        = getAreaEntities(hass, areaId);
+  const entities   = filterEntities(raw, config, hass);
   const c          = classify(entities);
   const onLights   = activeLights(c.lights);
   const lightColor = rgbColor(onLights);

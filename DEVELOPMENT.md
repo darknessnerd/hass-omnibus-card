@@ -39,7 +39,7 @@ graph TD
   end
 
   subgraph data["Data layer"]
-    discovery["discovery.js\ngetAreaEntities · classify"]
+    discovery["discovery.js\ngetAreaEntities · filterEntities · classify"]
     aggregators["aggregators.js\naverage · anyOn · rgbColor"]
     utils["utils.js\nentityIcon · friendlyLabel"]
   end
@@ -84,7 +84,7 @@ sequenceDiagram
 
   alt hash changed
     C->>R: buildViewModel(hass, config)
-    note over R: classify → aggregate → pre-compute chip data
+    note over R: filterEntities → classify → aggregate → pre-compute chip data
     R-->>C: view model (plain object, no DOM)
     C->>R: render(shadowRoot, host, vm)
     R->>DOM: shadowRoot.innerHTML = renderCard(vm)
@@ -230,6 +230,21 @@ This covers two assignment paths:
 2. **Via device** — entity belongs to a device that is assigned to the area
 
 Entities assigned only via labels or floors are not discovered (HA doesn't expose these in the frontend `hass` object).
+
+### Entity filtering (exclude / include)
+
+After discovery, `filterEntities()` applies config-driven adjustments:
+
+```
+exclude_entities: [...]
+  → remove matching IDs from the discovered list
+
+include_entities: [...]
+  → for each ID not already in the list, look up hass.states and append
+     (entity may be from a different area or have no area assignment)
+```
+
+Both lists are optional. `include_entities` bypasses the `hidden_by` check and area boundary — it's an explicit user override. The resulting list is then classified normally by `classify()`.
 
 ---
 
@@ -522,7 +537,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 - **Animations and transitions are disabled** in `tests/fixture.html` for deterministic screenshots.
 - **Icons use a box stub** (not Iconify CDN) — a solid-color rectangle per icon. Snapshots show layout and color, not specific icon glyphs. No CDN dependency, no flaky rendering.
 
-### What is covered (28 tests)
+### What is covered (31 tests)
 
 | Category | Tests |
 |---|---|
@@ -538,6 +553,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 | Navigation | Navigable card (`clickable` class), non-navigable |
 | Error state | Area not found, area not found with name override |
 | Config | Custom icon, custom name, `max_entities` limit |
+| Entity filtering | `exclude_entities` on classified entity, on chip-strip entity; `include_entities` from outside area |
 
 ### Adding a new test
 
