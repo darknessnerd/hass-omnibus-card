@@ -256,6 +256,12 @@ Source is split into single-responsibility modules under `src/`. See [DEVELOPMEN
 
 ---
 
+## Official Documentation & References
+
+This card is built using the official Home Assistant custom card API. For more details on the technical standards and lifecycle used by custom cards, see the [Home Assistant Developer Documentation](https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card/).
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE)

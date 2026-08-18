@@ -4,6 +4,19 @@ Technical reference for contributors and developers who want to understand, exte
 
 ---
 
+## Official Documentation
+
+For a comprehensive guide on building custom cards for Home Assistant, refer to the official documentation:
+- **[Home Assistant Frontend: Custom Cards](https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card/)**
+
+This card follows the standards defined in the official docs, including:
+- **Web Components:** Implemented as a custom element.
+- **Lifecycle Management:** Using `setConfig(config)` for initialization and the `hass` setter for state updates.
+- **Shadow DOM:** Ensuring style isolation to prevent theme conflicts.
+- **Performance:** Implementing diff guards to minimize DOM re-renders.
+
+---
+
 ## Architecture overview
 
 The source is split into single-responsibility modules under `src/`. Vite bundles them into a single IIFE at `dist/hass-omnibus-card.js` for HACS distribution.
@@ -114,7 +127,7 @@ card-ha/
 ├─ src/                        # source modules — edit these
 │  ├─ index.js                 # entry: registration + customElements.define
 │  ├─ card.js                  # HassOmnibusCard — HA lifecycle only
-│  ├─ constants.js             # CARD_TAG, CARD_VERSION, icon maps
+│  ├─ constants.js             # CARD_TAG, versioning, icon maps
 │  ├─ styles.js                # CSS string (Shadow DOM)
 │  ├─ discovery.js             # getAreaEntities() + classify()
 │  ├─ aggregators.js           # average(), anyOn(), rgbColor()
@@ -449,7 +462,7 @@ static getConfigElement() {
 
 ---
 
-## Build and release workflow
+## Build & CI
 
 ### Local build
 
@@ -458,7 +471,6 @@ npm run build
 # → dist/hass-omnibus-card.js (~15 kB IIFE bundle, ready for HACS)
 ```
 
-Commit `dist/hass-omnibus-card.js` before pushing a release tag — HACS scans the default branch when no release exists yet.
 
 ### Git pre-push hook
 
@@ -484,22 +496,6 @@ Step 3 enforces that `dist/` is always in sync with `src/`. If you change source
 
 If a test fails, the Playwright HTML report is uploaded as a GitHub Actions artifact (7-day retention).
 
-### Release (automated via GitHub Actions)
-
-```bash
-npm run build
-git add dist/hass-omnibus-card.js
-git commit -m "chore: build v1.x.x"
-git tag v1.x.x
-git push && git push --tags
-```
-
-`.github/workflows/release.yml` triggers on the tag push:
-1. `npm ci` — clean install
-2. `npm run build` — Vite bundles `src/` → `dist/hass-omnibus-card.js`
-3. Creates a GitHub release with auto-generated notes and attaches the JS file
-
-HACS downloads from the release asset. The committed `dist/` file is the fallback for users who add the repo before any release exists.
 
 ---
 
@@ -571,6 +567,45 @@ test('my new scenario', async ({ page }) => {
 | Scenarios | Via `mountCard()` API | Scenario buttons |
 | Card count | Single card | Four rooms + error |
 | Purpose | Automated testing | Interactive development |
+
+---
+
+## HACS & Project Management
+
+### Versioning strategy
+
+The version is managed in a single source of truth: **`package.json`**.
+
+1.  **Source of Truth**: The `"version"` field in `package.json` defines the project version.
+2.  **Automated Injection**: During the build process (`npm run build`), Vite injects this version into the JavaScript code using the `__VERSION__` definition in `src/constants.js`.
+3.  **Documentation Sync**: When you run `npm version`, the `scripts/sync-version.js` utility automatically updates the version badge in `README.md`.
+
+We follow [Semantic Versioning](https://semver.org/):
+- **MAJOR**: Breaking config changes (removed/renamed keys).
+- **MINOR**: New features, new config keys (backward-compatible).
+- **PATCH**: Bug fixes, style tweaks.
+
+### HACS Integration
+
+HACS tracks this project via `hacs.json` and GitHub Releases.
+- **`hacs.json`**: Metadata defining the entry point (`dist/hass-omnibus-card.js`) and HA compatibility.
+- **Releases**: HACS uses GitHub tags and releases to detect updates. The bundled JS file must be committed or attached to the release.
+
+### Release Workflow
+
+1.  **Verify**: Run `npm run test:docker` (or `npm test`) to ensure all tests pass.
+2.  **Version**: Run `npm version <patch|minor|major>`. 
+    *   This automatically builds the project, syncs `README.md`, stages `dist/` and `README.md`, and creates a git commit and tag.
+3.  **Push**: `git push && git push --tags`.
+
+**Why this works:**
+-   **`npm version`** triggers the `version` script in `package.json`.
+-   **Build Sync**: The `version` script runs `npm run build`, which injects the new version into `dist/hass-omnibus-card.js`.
+-   **Doc Sync**: It also runs `scripts/sync-version.js` to update the badge in `README.md`.
+-   **Atomic Commit**: Both `dist/` and `README.md` are staged and included in the version commit automatically.
+-   **Safety**: The `pre-push` hook still verifies that everything is in sync and tests pass before anything reaches GitHub.
+
+The `.github/workflows/release.yml` will automatically create a GitHub Release and attach the asset for HACS when you push the tag.
 
 ---
 
@@ -681,12 +716,3 @@ All `addEventListener` calls in `bindEvents()` (`src/renderer.js`) target the fr
 
 ---
 
-## Versioning
-
-Bump `CARD_VERSION` in `src/constants.js` with every release. The version appears in the browser console on load and in `window.customCards` — HACS reads it to detect updates.
-
-```
-MAJOR: breaking config changes (removed/renamed keys)
-MINOR: new features, new config keys (backward-compatible)
-PATCH: bug fixes, style tweaks
-```

@@ -1,5 +1,5 @@
 export const CARD_TAG     = 'hass-omnibus-card';
-export const CARD_VERSION = '9.9.9';
+export const CARD_VERSION = __VERSION__;
 
 export const ACTIVE_STATES = new Set(['on', 'open', 'playing', 'home', 'unlocked']);
 
