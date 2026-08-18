@@ -8,12 +8,13 @@
     "preview": "vite preview",
     "test": "playwright test",
     "test:update": "playwright test --update-snapshots",
-    "test:update-ci": "docker run --rm -e CI=true -v $(pwd):/work -w /work mcr.microsoft.com/playwright:v1.62.1-noble bash -c 'npm ci && npx playwright test --update-snapshots'",
+    "test:docker": "docker run --rm --user $(id -u):$(id -g) -e CI -v $(pwd):/work -w /work mcr.microsoft.com/playwright:v1.62.1-noble npx playwright test",
+    "test:update-ci": "docker run --rm --user $(id -u):$(id -g) -e CI=true -v $(pwd):/work -w /work mcr.microsoft.com/playwright:v1.62.1-noble bash -c 'npm ci && npx playwright test --update-snapshots'",
     "test:ui": "playwright test --ui",
     "prepare": "cp scripts/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push"
   },
   "devDependencies": {
-    "@playwright/test": "^1.47.0",
+    "@playwright/test": "1.62.1",
     "vite": "^5.4.0"
   }
 }
