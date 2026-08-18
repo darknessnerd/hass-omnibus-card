@@ -16,10 +16,14 @@ export function sparklineSvg(points, color, hc = null) {
   const dataMax = Math.max(...points);
   const min   = hc?.y_min != null ? Math.min(hc.y_min, dataMin) : dataMin;
   const max   = hc?.y_max != null ? Math.max(hc.y_max, dataMax) : dataMax;
-  const range = max - min || 1;
+  const range = max - min;
 
+  // All points identical and no y bounds set → no meaningful shape to draw
+  if (range === 0 && hc?.y_min == null && hc?.y_max == null) return '';
+
+  const effectiveRange = range || 1;
   const xs = points.map((_, i) => (i / (points.length - 1)) * W);
-  const ys = points.map(v => H - ((v - min) / range) * H);
+  const ys = points.map(v => H - ((v - min) / effectiveRange) * H);
   const d  = xs.map((x, i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
   const path = `${d} V${H} H0 Z`;
 
@@ -34,7 +38,7 @@ export function sparklineSvg(points, color, hc = null) {
   const colorLow  = hc.color_low  ?? 'rgba(33, 150, 243, 0.25)';
 
   // Map a data value to its Y pixel position (0 = top = high values)
-  const toY = v => Math.max(0, Math.min(H, H - ((v - min) / range) * H));
+  const toY = v => Math.max(0, Math.min(H, H - ((v - min) / effectiveRange) * H));
 
   const defs = `<defs><clipPath id="sg-cp"><path d="${path}"/></clipPath></defs>`;
   let body = `<path d="${path}" fill="${base}"/>`;

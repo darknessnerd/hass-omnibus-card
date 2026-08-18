@@ -302,6 +302,36 @@ test('history chart — high threshold only', async ({ page }) => {
 
 // ── History chart — Y axis bounds ────────────────────────────────────────────
 
+test('history chart — flat data (all identical) without y_min hides sparkline', async ({ page }) => {
+  // Override callWS to return 2 identical points — simulates brand-new sensor
+  await page.evaluate(() => {
+    window.BASE_HASS.callWS = msg => {
+      if (msg.type === 'history/history_during_period') {
+        const id = msg.entity_ids[0];
+        return Promise.resolve({ [id]: [{ s: '29.4', lu: 1 }, { s: '29.4', lu: 2 }] });
+      }
+      return Promise.resolve({});
+    };
+  });
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  await page.waitForTimeout(200);
+  await expect(page.locator('#mount').locator('.bg-chart')).not.toBeVisible();
+});
+
+test('history chart — flat data with y_min: 0 shows sparkline', async ({ page }) => {
+  await page.evaluate(() => {
+    window.BASE_HASS.callWS = msg => {
+      if (msg.type === 'history/history_during_period') {
+        const id = msg.entity_ids[0];
+        return Promise.resolve({ [id]: [{ s: '29.4', lu: 1 }, { s: '29.4', lu: 2 }] });
+      }
+      return Promise.resolve({});
+    };
+  });
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature', y_min: 0 } });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+});
+
 test('history chart — y_min: 0 anchors scale floor', async ({ page }) => {
   await mount(page, {
     area: 'living_room',

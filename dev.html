@@ -101,6 +101,7 @@ const MOCK_HASS = {
     bedroom:     { area_id: 'bedroom',     name: 'Bedroom',     icon: 'mdi:bed' },
     kitchen:     { area_id: 'kitchen',     name: 'Kitchen',     icon: 'mdi:chef-hat' },
     bathroom:    { area_id: 'bathroom',    name: 'Bathroom',    icon: 'mdi:shower' },
+    cucina:      { area_id: 'cucina',      name: 'Cucina',      icon: 'mdi:silverware-fork-knife' },
   },
 
   devices: {
@@ -133,6 +134,12 @@ const MOCK_HASS = {
     // bathroom
     'sensor.bath_humidity':    { area_id: 'bathroom', device_id: null,       hidden_by: null },
     'light.bath_mirror':       { area_id: 'bathroom', device_id: null,       hidden_by: null },
+    // cucina — mirrors real HA setup from debug log
+    'light.luci_cucina':                 { area_id: 'cucina', device_id: null, hidden_by: null },
+    'sensor.soggiornino_ths_temperature':{ area_id: 'cucina', device_id: null, hidden_by: null },
+    'sensor.soggiornino_ths_humidity':   { area_id: 'cucina', device_id: null, hidden_by: null },
+    'binary_sensor.cam_cucina_movimento':{ area_id: 'cucina', device_id: null, hidden_by: null },
+    'switch.led_cucina':                 { area_id: 'cucina', device_id: null, hidden_by: null },
   },
 
   states: {
@@ -212,6 +219,27 @@ const MOCK_HASS = {
       state: 'off',
       attributes: { friendly_name: 'Mirror Light' },
     },
+    // cucina — exact values from debug log
+    'light.luci_cucina': {
+      state: 'off',
+      attributes: { friendly_name: 'Luci Cucina' },
+    },
+    'sensor.soggiornino_ths_temperature': {
+      state: '29.4',
+      attributes: { friendly_name: 'Soggiornino THS Temp', device_class: 'temperature', unit_of_measurement: '°C' },
+    },
+    'sensor.soggiornino_ths_humidity': {
+      state: '46.1',
+      attributes: { friendly_name: 'Soggiornino THS Humidity', device_class: 'humidity', unit_of_measurement: '%' },
+    },
+    'binary_sensor.cam_cucina_movimento': {
+      state: 'off',
+      attributes: { friendly_name: 'Cam Cucina Movimento', device_class: 'motion' },
+    },
+    'switch.led_cucina': {
+      state: 'on',
+      attributes: { friendly_name: 'LED Cucina' },
+    },
   },
 
   // stub methods the card might call
@@ -281,10 +309,10 @@ function refreshAll() {
   });
 }
 
-function mountStatic(container, config, stateOverrides) {
+function mountStatic(container, config, stateOverrides, callWSOverride) {
   const hass = JSON.parse(JSON.stringify(MOCK_HASS));
   hass.callService = MOCK_HASS.callService;
-  hass.callWS      = MOCK_HASS.callWS;
+  hass.callWS      = callWSOverride ?? MOCK_HASS.callWS;
   hass.fireEvent   = MOCK_HASS.fireEvent;
   for (const [id, patch] of Object.entries(stateOverrides ?? {})) {
     hass.states[id] = { ...(hass.states[id] ?? {}), ...patch };
@@ -330,6 +358,11 @@ function mountStatic(container, config, stateOverrides) {
 </div>
 
 <div class="section">
+  <h2>History Chart — Flat Line (new sensor, 2 identical points)</h2>
+  <div class="grid" id="flat-history-cards"></div>
+</div>
+
+<div class="section">
   <h2>Entity Filtering</h2>
   <div class="grid" id="filter-cards"></div>
 </div>
@@ -354,6 +387,7 @@ window.addEventListener('load', () => {
       { area: 'bedroom', mold_threshold: 60 },
       { area: 'kitchen' },
       { area: 'bathroom', mold_threshold: 65 },
+      { area: 'cucina' },
       { area: 'nonexistent_area' },  // error state
     ];
 
@@ -386,6 +420,40 @@ window.addEventListener('load', () => {
       el.hass = { ...MOCK_HASS };
       historyContainer.appendChild(el);
     });
+
+    // ── Flat history (new sensor — 2 identical points) ──────────────────────
+    // Simulates real debug log: cucina / sensor.soggiornino_ths_temperature
+    // callWS returns only 2 identical points, as HA would for a brand-new sensor
+
+    const flatCallWS = msg => {
+      if (msg.type === 'history/history_during_period') {
+        const id = msg.entity_ids[0];
+        // brand-new sensor: only 2 readings, both identical
+        const pts = [{ s: '29.4', lu: Date.now() / 1000 - 3600 }, { s: '29.4', lu: Date.now() / 1000 }];
+        log(`callWS flat history: ${id} → ${pts.length} points (identical)`);
+        return Promise.resolve({ [id]: pts });
+      }
+      return Promise.resolve({});
+    };
+
+    const flatContainer = document.getElementById('flat-history-cards');
+
+    // no y_min → guard triggers → sparkline hidden (correct: no meaningful shape)
+    mountStatic(flatContainer, {
+      area: 'cucina',
+      name: 'Cucina — flat, no y_min (hidden)',
+      history_chart: { entity_id: 'sensor.soggiornino_ths_temperature', hours: 48, color: 'rgba(255,200,100,0.15)', threshold_high: 27, color_high: 'rgba(244,67,54,0.18)' },
+    }, {}, flatCallWS);
+
+    // y_min: 0 → flat line renders at ~top (29.4 out of 0–29.4 scale)
+    mountStatic(flatContainer, {
+      area: 'cucina',
+      name: 'Cucina — flat, y_min: 0 (shows line)',
+      history_chart: { entity_id: 'sensor.soggiornino_ths_temperature', hours: 48, color: 'rgba(255,200,100,0.15)', threshold_high: 27, color_high: 'rgba(244,67,54,0.18)', y_min: 0 },
+    }, {}, flatCallWS);
+
+    // cucina normal area card (no history)
+    mountStatic(flatContainer, { area: 'cucina', name: 'Cucina — area card' }, {});
 
     const FILTER_CARDS = [
       // exclude motion + TV from living room — no occupancy dot, fewer chips

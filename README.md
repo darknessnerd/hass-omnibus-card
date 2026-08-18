@@ -289,6 +289,8 @@ Opens browser DevTools → Console to see `[hass-omnibus-card] update { area, ha
 
 The sparkline overlays three small labels on the card: max value (top-right), min value (bottom-right), and time window (bottom-left). Threshold zones use SVG `clipPath` — only the portion of the fill that actually exceeds/dips below a threshold is colored, so zone coloring tracks the real data.
 
+When all history points are identical (e.g. a brand-new sensor with only one reading) and no `y_min`/`y_max` is set, the sparkline is hidden — there is no meaningful shape to draw. Set `y_min: 0` to force the chart to render with the value positioned relative to zero.
+
 The chart is fetched once via `hass.callWS` and cached for 5 minutes. First render shows no chart; the SVG appears after the async response resolves — typically imperceptible on a normal page load. When `add_entities` or `history_chart.entity_id` entities are used, their state changes also trigger re-renders and TTL refresh.
 
 **Note:** Requires Home Assistant 2022.6+ (history WebSocket API). No effect on installs that block the `history/history_during_period` WebSocket call.
