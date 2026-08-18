@@ -257,7 +257,7 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
   if (lightBadge && host._config?.area && host._hass?.callService) {
     lightBadge.addEventListener('click', e => {
       e.stopPropagation();
-      host._hass.callService('light', 'toggle', { area_id: host._config.area });
+      host._hass.callService('light', 'toggle', {}, { area_id: host._config.area });
     });
   }
 

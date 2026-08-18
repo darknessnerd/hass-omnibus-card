@@ -53,7 +53,8 @@ export const CARD_STYLES = `
     position: absolute;
     font-size: 9px;
     font-weight: 500;
-    color: var(--secondary-text-color, rgba(128, 128, 128, 0.7));
+    color: var(--secondary-text-color, #888);
+    opacity: 0.5;
     line-height: 1;
     letter-spacing: 0.02em;
     white-space: nowrap;
