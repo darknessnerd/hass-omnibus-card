@@ -88,6 +88,7 @@ sequenceDiagram
   else area mode
     C->>D: getAreaEntities(hass, areaId)
     D-->>C: [{entityId, state}, ...]
+    note over C: also appends add_entities + history_chart.entity_id to hash base
     C->>C: _buildHash() — diff guard
   end
 
