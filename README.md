@@ -61,7 +61,7 @@ area: living_room          entities: [light.x, sensor.y]
 | Shadow DOM CSS | Styles fully isolated — won't break your theme |
 | Entity filtering | Whitelist mode (`entities`), additive pinning (`add_entities`), exclusion (`exclude_entities`) |
 | Performance | Hash diff guard: DOM only rebuilds when area state actually changes |
-| History chart | Optional background sparkline; fill color changes automatically when value crosses configurable thresholds |
+| History chart | Background sparkline with min/max/period labels; fill zones colored by threshold (clipPath, not gradient) |
 
 ---
 
@@ -260,7 +260,9 @@ history_chart:
   color: 'rgba(255,152,0,0.18)'
 ```
 
-The sparkline is fetched once via `hass.callWS` and cached for 5 minutes. First render shows no chart; the SVG appears after the async response resolves — typically imperceptible on a normal page load.
+The sparkline overlays three small labels on the card: max value (top-right), min value (bottom-right), and time window (bottom-left). Threshold zones use SVG `clipPath` — only the portion of the fill that actually exceeds/dips below a threshold is colored, so zone coloring tracks the real data.
+
+The chart is fetched once via `hass.callWS` and cached for 5 minutes. First render shows no chart; the SVG appears after the async response resolves — typically imperceptible on a normal page load. When `add_entities` or `history_chart.entity_id` entities are used, their state changes also trigger re-renders and TTL refresh.
 
 **Note:** Requires Home Assistant 2022.6+ (history WebSocket API). No effect on installs that block the `history/history_during_period` WebSocket call.
 
@@ -308,8 +310,8 @@ cards:
 | Problems detected | Red alert badge with count |
 | Alarm active (smoke/gas/water) | Card pulses red; alarm bar with badges appears |
 | Mold risk | Green mold badge in alarm bar |
-| History value above `threshold_high` | Sparkline fill switches to `color_high` (red by default) |
-| History value below `threshold_low` | Sparkline fill switches to `color_low` (blue by default) |
+| History value above `threshold_high` | Fill area above threshold line turns `color_high` (red by default); dashed marker line drawn |
+| History value below `threshold_low` | Fill area below threshold line turns `color_low` (blue by default); dashed marker line drawn |
 | Area not found | Dashed red error card with explanation |
 
 ---
@@ -320,7 +322,7 @@ cards:
 npm install          # install dependencies (Vite + Playwright)
 npm run dev          # start live-reload dev server → http://localhost:5173/dev.html
 npm run build        # bundle src/ → dist/hass-omnibus-card.js
-npm test             # run 37 E2E tests (Playwright + Chromium)
+npm test             # run 39 E2E tests (Playwright + Chromium)
 npm run test:update  # regenerate baselines after intentional visual changes
 npm run test:ui      # Playwright visual UI for debugging test failures
 ```

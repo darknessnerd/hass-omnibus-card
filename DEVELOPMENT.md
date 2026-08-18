@@ -298,11 +298,14 @@ All three keys are optional and independent. `entities` wins over both `exclude_
 
 `set hass` is called by HA on every state change in the entire installation. Without a guard, a state change in any entity would trigger a full DOM rebuild of every card.
 
-`_buildHash()` builds a deterministic string from the states of area entities only:
+`_buildHash()` builds a deterministic string from the relevant entity states:
 
 ```javascript
 _buildHash() {
-  return this._getAreaEntities()
+  // whitelist mode: hash the explicit entity list
+  // normal mode: area entities + add_entities + history_chart entity
+  let base = /* ... */;
+  return base
     .map(({ entityId, state }) =>
       `${entityId}=${state.state}|${state.attributes?.rgb_color ?? ''}|${state.attributes?.current_temperature ?? ''}`)
     .sort()
@@ -311,7 +314,9 @@ _buildHash() {
 ```
 
 The hash includes:
-- Entity state value
+- Area-discovered entities (normal mode) or whitelist entities
+- `add_entities` entities (so their state changes trigger re-renders)
+- `history_chart.entity_id` entity (so sensor readings refresh the history chart after TTL expiry)
 - `rgb_color` (changes when a color light changes color without changing `state`)
 - `current_temperature` (climate attribute — doesn't change `state`)
 
@@ -602,7 +607,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 | Error state | Area not found, area not found with name override |
 | Config | Custom icon, custom name, `max_entities` limit |
 | Entity filtering | `exclude_entities` on classified entity, on chip-strip entity; `add_entities` from outside area; `entities` whitelist overrides area discovery |
-| History chart | SVG rendered when configured; absent when not configured; offline light badge |
+| History chart | SVG rendered when configured; absent when not configured; gradient thresholds (both); high-threshold only |
 
 ### Adding a new test
 
@@ -630,7 +635,7 @@ test('my new scenario', async ({ page }) => {
 | Icons | Box stubs (deterministic) | Iconify CDN (real glyphs) |
 | Animations | Disabled | Enabled |
 | Scenarios | Via `mountCard()` API | Scenario buttons |
-| Card count | Single card | 5 room cards + 4 history + 3 filter cards |
+| Card count | Single card | 5 room cards + 6 feature gallery + 5 history + 3 filter cards |
 | `callWS` stub | Fixed 24-point array (deterministic) | 48-point sinusoidal (visual preview) |
 | Purpose | Automated testing | Interactive development |
 
@@ -713,7 +718,7 @@ Vite serves `src/` as native ES modules — no bundling in dev. Edit any `src/` 
 
 - Four rooms rendered: Living Room, Bedroom, Kitchen, Bathroom
 - One error-state card (`nonexistent_area`) to validate error rendering
-- Three history chart cards (default color, custom color, 48h window, threshold demo) with `callWS` stub
+- Five history chart cards (default, custom color, 48h, gradient thresholds both, high-only) with `callWS` stub; each shows min/max/period labels and dashed threshold lines
 - Scenario toggle buttons:
 
 | Button | What it tests |
