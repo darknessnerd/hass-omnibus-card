@@ -49,8 +49,8 @@ area: living_room          entities: [light.x, sensor.y]
 |---|---|
 | Area-based discovery | Finds all entities via the HA entity + device registry — no lists |
 | Sensor averaging | Multiple temp/humidity sensors → single averaged value |
-| Occupancy indicator | Motion or occupancy binary sensors → green pulse dot |
-| Light indicator | Active light count badge; RGB light tints the card background |
+| Occupancy indicator | Always-visible dot — green + pulsing when occupied, grey when idle |
+| Light indicator | Always-visible badge — colored when on, grey when off; tap to toggle; offline dot when any light unavailable |
 | Climate state | Heat/cool/auto/dry/fan icons with live temperature |
 | Safety alarms | Smoke, gas, water — pulsing alarm bar, high priority |
 | Mold risk | Humidity above configurable threshold → warning badge |
@@ -61,7 +61,7 @@ area: living_room          entities: [light.x, sensor.y]
 | Shadow DOM CSS | Styles fully isolated — won't break your theme |
 | Entity filtering | Whitelist mode (`entities`), additive pinning (`add_entities`), exclusion (`exclude_entities`) |
 | Performance | Hash diff guard: DOM only rebuilds when area state actually changes |
-| History chart | Optional background sparkline from entity history — zero bundle cost when unused |
+| History chart | Optional background sparkline; fill color changes automatically when value crosses configurable thresholds |
 
 ---
 
@@ -146,9 +146,13 @@ mold_threshold: 70         # Humidity % above which mold risk badge appears (def
 
 # ── History chart ─────────────────────────────────────────────────────
 history_chart:
-  entity_id: sensor.temperature  # required — entity to plot
-  hours: 24                      # lookback window in hours (default: 24)
-  color: 'rgba(255,200,100,0.15)'# fill color (default: semi-transparent primary-color)
+  entity_id: sensor.temperature   # required — entity to plot
+  hours: 24                       # lookback window in hours (default: 24)
+  color: 'rgba(255,200,100,0.15)' # baseline fill color (default: semi-transparent primary-color)
+  threshold_high: 25              # above this → color_high (optional)
+  color_high: 'rgba(244,67,54,0.18)'   # default: red tint
+  threshold_low: 18               # below this → color_low (optional)
+  color_low: 'rgba(33,150,243,0.18)'   # default: blue tint
 ```
 
 ---
@@ -235,7 +239,18 @@ history_chart:
   hours: 24
 ```
 
-Custom color (e.g. warm orange tint):
+Temperature thresholds — chart turns red when hot, blue when cold:
+
+```yaml
+type: custom:hass-omnibus-card
+area: living_room
+history_chart:
+  entity_id: sensor.temperature
+  threshold_high: 26
+  threshold_low: 18
+```
+
+Custom baseline color:
 
 ```yaml
 type: custom:hass-omnibus-card
@@ -285,11 +300,16 @@ cards:
 
 | State | Visual effect |
 |---|---|
-| Any light on | Warm light badge in header; RGB light tints card background |
+| Any light on | Amber badge in header; RGB light tints card background; tap to toggle |
+| All lights off | Grey badge in header; tap to turn on |
+| Light(s) unavailable | Orange dot on the light badge |
 | Room occupied | Green pulsing dot in header |
+| Room not occupied | Grey dim dot in header (dot always visible when motion/occupancy sensors exist) |
 | Problems detected | Red alert badge with count |
 | Alarm active (smoke/gas/water) | Card pulses red; alarm bar with badges appears |
 | Mold risk | Green mold badge in alarm bar |
+| History value above `threshold_high` | Sparkline fill switches to `color_high` (red by default) |
+| History value below `threshold_low` | Sparkline fill switches to `color_low` (blue by default) |
 | Area not found | Dashed red error card with explanation |
 
 ---
@@ -300,7 +320,7 @@ cards:
 npm install          # install dependencies (Vite + Playwright)
 npm run dev          # start live-reload dev server → http://localhost:5173/dev.html
 npm run build        # bundle src/ → dist/hass-omnibus-card.js
-npm test             # run 34 E2E snapshot tests (Playwright + Chromium)
+npm test             # run 37 E2E tests (Playwright + Chromium)
 npm run test:update  # regenerate baselines after intentional visual changes
 npm run test:ui      # Playwright visual UI for debugging test failures
 ```

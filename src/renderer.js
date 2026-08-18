@@ -33,23 +33,27 @@ export function buildViewModel(hass, config, historyPoints = null) {
   const raw      = config.entities?.length ? [] : getAreaEntities(hass, areaId);
   const entities = filterEntities(raw, config, hass);
   const c          = classify(entities);
-  const onLights   = activeLights(c.lights);
-  const lightColor = rgbColor(onLights);
-  const tempVal    = average(c.temperatures);
-  const humVal     = average(c.humidities);
-  const climate    = c.climate[0] ?? null;
+  const onLights    = activeLights(c.lights);
+  const lightColor  = rgbColor(onLights);
+  const tempVal     = average(c.temperatures);
+  const humVal      = average(c.humidities);
+  const climate     = c.climate[0] ?? null;
   const [climIcon, climColor] = CLIMATE_MAP[climate?.state?.state] ?? [null, null];
   const moldThreshold = config.mold_threshold ?? 70;
-  const navPath    = config.navigate_to || config.tap_action?.navigation_path || null;
+  const navPath     = config.navigate_to || config.tap_action?.navigation_path || null;
+  const hc          = config.history_chart ?? null;
 
   return {
     areaName:     config.name || area?.name || areaId || '',
     cardIcon:     config.icon || area?.icon || 'mdi:home',
     navPath,
 
-    lightCount:   onLights.length,
+    hasLights:     c.lights.length > 0,
+    lightCount:    onLights.length,
+    offlineLights: c.lights.filter(l => l.state.state === 'unavailable').length,
     lightColor,
-    occupied:     anyOn(c.motions) || anyOn(c.occupancy),
+    occupied:            anyOn(c.motions) || anyOn(c.occupancy),
+    hasOccupancySensors: c.motions.length > 0 || c.occupancy.length > 0,
     problemCount: c.problems.length,
 
     tempVal,
@@ -67,8 +71,9 @@ export function buildViewModel(hass, config, historyPoints = null) {
     waterOn:  anyOn(c.moistures),
     moldRisk: humVal !== null && humVal >= moldThreshold,
 
-    historyPoints: config.history_chart?.entity_id ? historyPoints : null,
-    historyColor:  config.history_chart?.color ?? 'rgba(3, 169, 244, 0.12)',
+    historyPoints: hc?.entity_id ? historyPoints : null,
+    historyColor:  hc?.color ?? 'rgba(3, 169, 244, 0.12)',
+    historyChart:  hc,
 
     // pre-computed chip data keeps template functions free of utility imports
     chipItems: config.show_entities !== false
@@ -86,7 +91,12 @@ export function buildViewModel(hass, config, historyPoints = null) {
 
 // ── Template functions (ViewModel → HTML string) ────────────────────────────
 
-function renderHeader({ areaName, cardIcon, lightCount, occupied, problemCount }) {
+function renderHeader({ areaName, cardIcon, hasLights, lightCount, offlineLights, occupied, hasOccupancySensors, problemCount }) {
+  const lightsOff     = lightCount === 0;
+  const lightTitle    = lightsOff
+    ? (offlineLights > 0 ? `${offlineLights} light${offlineLights !== 1 ? 's' : ''} offline` : 'Lights off')
+    : `${lightCount} light${lightCount !== 1 ? 's' : ''} on${offlineLights > 0 ? ` · ${offlineLights} offline` : ''}`;
+
   return `
     <div class="header">
       <div class="header-left">
@@ -94,13 +104,13 @@ function renderHeader({ areaName, cardIcon, lightCount, occupied, problemCount }
         <span class="room-name">${areaName}</span>
       </div>
       <div class="header-right">
-        ${lightCount > 0 ? `
-          <div class="badge badge-lights"
-               title="${lightCount} light${lightCount !== 1 ? 's' : ''} on">
-            <ha-icon icon="mdi:lightbulb"></ha-icon>
+        ${hasLights ? `
+          <div class="badge badge-lights ${lightsOff ? 'off' : ''} ${offlineLights > 0 ? 'has-offline' : ''}"
+               title="${lightTitle}">
+            <ha-icon icon="mdi:lightbulb${lightsOff ? '-off' : ''}"></ha-icon>
             ${lightCount > 1 ? `<span>${lightCount}</span>` : ''}
           </div>` : ''}
-        ${occupied ? `<div class="occupancy-dot" title="Occupied"></div>` : ''}
+        ${hasOccupancySensors ? `<div class="occupancy-dot ${occupied ? '' : 'idle'}" title="${occupied ? 'Occupied' : 'Not occupied'}"></div>` : ''}
         ${problemCount > 0 ? `
           <div class="badge badge-problems"
                title="${problemCount} problem${problemCount !== 1 ? 's' : ''}">
@@ -194,7 +204,7 @@ function renderCard(vm) {
       ${vm.navPath ? `role="button" tabindex="0"` : ''}
       aria-label="${vm.areaName}"
     >
-      ${vm.historyPoints ? sparklineSvg(vm.historyPoints, vm.historyColor) : ''}
+      ${vm.historyPoints ? sparklineSvg(vm.historyPoints, vm.historyColor, vm.historyChart) : ''}
       <div class="card-content">
         ${renderHeader(vm)}
         ${renderEnvRow(vm)}
@@ -223,7 +233,15 @@ export function render(shadowRoot, host, vm) {
 function bindEvents(shadowRoot, host, { navPath, chipItems }) {
   if (navPath) {
     shadowRoot.querySelector('ha-card').addEventListener('click', e => {
-      if (!e.target.closest('.chip') && !e.target.closest('.env-chip')) navigate(navPath);
+      if (!e.target.closest('.chip') && !e.target.closest('.env-chip') && !e.target.closest('.badge-lights')) navigate(navPath);
+    });
+  }
+
+  const lightBadge = shadowRoot.querySelector('.badge-lights');
+  if (lightBadge && host._config?.area && host._hass?.callService) {
+    lightBadge.addEventListener('click', e => {
+      e.stopPropagation();
+      host._hass.callService('light', 'toggle', { area_id: host._config.area });
     });
   }
 

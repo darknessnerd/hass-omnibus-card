@@ -108,6 +108,34 @@ export const CARD_STYLES = `
   .badge-lights {
     background: rgba(255, 152, 0, 0.15);
     color: #ff9800;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .badge-lights:hover {
+    background: rgba(255, 152, 0, 0.28);
+  }
+
+  .badge-lights.off {
+    background: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+    color: var(--disabled-text-color, #5e5e5e);
+  }
+
+  .badge-lights.off:hover {
+    background: rgba(255, 152, 0, 0.15);
+    color: #ff9800;
+  }
+
+  .badge-lights.has-offline::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--warning-color, #ff9800);
+    margin-left: 3px;
+    flex-shrink: 0;
   }
 
   .badge-problems {
@@ -115,7 +143,7 @@ export const CARD_STYLES = `
     color: var(--error-color, #f44336);
   }
 
-  /* Occupancy green pulse dot */
+  /* Occupancy dot — always visible when sensors exist */
   .occupancy-dot {
     width: 9px;
     height: 9px;
@@ -123,6 +151,14 @@ export const CARD_STYLES = `
     background: var(--success-color, #4caf50);
     box-shadow: 0 0 5px rgba(76, 175, 80, 0.7);
     animation: occ-blink 3s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  .occupancy-dot.idle {
+    background: var(--disabled-text-color, #5e5e5e);
+    box-shadow: none;
+    animation: none;
+    opacity: 0.5;
   }
 
   @keyframes occ-blink {

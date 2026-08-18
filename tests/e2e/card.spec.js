@@ -24,11 +24,12 @@ test('normal — lights on, temp, humidity, motion, climate, chip strip', async 
   await expect(page.locator('#mount')).toHaveScreenshot('normal.png', SNAP);
 });
 
-test('lights off — no badge, no rgb tint', async ({ page }) => {
+test('lights off — grey badge, no rgb tint', async ({ page }) => {
   await mount(page, CARD, {
     'light.ceiling':    { state: 'off', attributes: { friendly_name: 'Ceiling' } },
     'light.floor_lamp': { state: 'off', attributes: { friendly_name: 'Floor Lamp' } },
   });
+  await expect(page.locator('#mount').locator('.badge-lights.off')).toBeVisible();
   await expect(page.locator('#mount')).toHaveScreenshot('lights-off.png', SNAP);
 });
 
@@ -54,11 +55,11 @@ test('occupied — green dot visible', async ({ page }) => {
   await expect(page.locator('#mount')).toHaveScreenshot('occupied.png', SNAP);
 });
 
-test('not occupied — no dot', async ({ page }) => {
+test('not occupied — grey dot', async ({ page }) => {
   await mount(page, CARD, {
     'binary_sensor.motion': { state: 'off', attributes: { friendly_name: 'Motion', device_class: 'motion' } },
   });
-  await expect(page.locator('#mount').locator('.occupancy-dot')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.occupancy-dot.idle')).toBeVisible();
   await expect(page.locator('#mount')).toHaveScreenshot('not-occupied.png', SNAP);
 });
 
@@ -279,4 +280,49 @@ test('history chart — svg rendered when history_chart configured', async ({ pa
 test('history chart — absent when history_chart not configured', async ({ page }) => {
   await mount(page, CARD);
   await expect(page.locator('#mount').locator('.bg-chart')).not.toBeVisible();
+});
+
+test('history chart — gradient thresholds both high and low', async ({ page }) => {
+  await mount(page, {
+    area: 'living_room',
+    history_chart: { entity_id: 'sensor.temperature', threshold_high: 22, threshold_low: 18 },
+  });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('#mount')).toHaveScreenshot('history-gradient-thresholds.png', SNAP);
+});
+
+test('history chart — high threshold only', async ({ page }) => {
+  await mount(page, {
+    area: 'living_room',
+    history_chart: { entity_id: 'sensor.temperature', threshold_high: 22 },
+  });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('#mount')).toHaveScreenshot('history-high-threshold.png', SNAP);
+});
+
+// ── Light badge enhancements ───────────────────────────────────────────────
+
+test('lights off — badge has .off class', async ({ page }) => {
+  await mount(page, CARD, {
+    'light.ceiling':    { state: 'off', attributes: { friendly_name: 'Ceiling' } },
+    'light.floor_lamp': { state: 'off', attributes: { friendly_name: 'Floor Lamp' } },
+  });
+  await expect(page.locator('#mount').locator('.badge-lights.off')).toBeVisible();
+});
+
+test('offline light — badge has .has-offline class', async ({ page }) => {
+  await mount(page, CARD, {
+    'light.ceiling': { state: 'unavailable', attributes: { friendly_name: 'Ceiling' } },
+  });
+  await expect(page.locator('#mount').locator('.badge-lights.has-offline')).toBeVisible();
+  await expect(page.locator('#mount')).toHaveScreenshot('lights-offline.png', SNAP);
+});
+
+// ── Occupancy enhancements ─────────────────────────────────────────────────
+
+test('not occupied — idle dot visible', async ({ page }) => {
+  await mount(page, CARD, {
+    'binary_sensor.motion': { state: 'off', attributes: { friendly_name: 'Motion', device_class: 'motion' } },
+  });
+  await expect(page.locator('#mount').locator('.occupancy-dot.idle')).toBeVisible();
 });

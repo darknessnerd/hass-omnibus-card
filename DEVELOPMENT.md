@@ -132,7 +132,7 @@ flowchart TD
 
   pr["pull request / push to main"]
   ci_wf["ci.yml\nbuild · check dist · npm test"]
-  tests["34 Playwright\ntests"]
+  tests["37 Playwright\ntests"]
   pass["✅ pass"]
 
   src --> vite --> dist --> commit --> rel_wf --> release --> hacs --> ha
@@ -176,7 +176,7 @@ card-ha/
 ├─ tests/
 │  ├─ fixture.html             # test harness: box-stub icons, animations off, mountCard()
 │  └─ e2e/
-│     ├─ card.spec.js          # 34 Playwright tests (snapshot + behavioral)
+│     ├─ card.spec.js          # 37 Playwright tests (snapshot + behavioral)
 │     └─ snapshots/            # committed baseline PNGs — ground truth for CI
 │        └─ chromium/
 ├─ .github/
@@ -364,8 +364,9 @@ The card uses HA CSS custom properties so it inherits the active theme automatic
 | `--ha-card-background` | Card base background |
 | `--card-background-color` | Fallback card background |
 | `--error-color` | Problem badge, error card border |
-| `--success-color` | Occupancy dot |
-| `--warning-color` | Lights badge |
+| `--success-color` | Occupancy dot (occupied state) |
+| `--warning-color` | Light badge offline indicator dot |
+| `--disabled-text-color` | Light badge `.off` state; occupancy dot `.idle` state |
 | `--mdc-icon-size` | All `<ha-icon>` size overrides |
 
 Avoid hardcoding hex colors for any property that a theme should control.
@@ -539,7 +540,7 @@ npm run build
 
 1. `npm run build` — rebuilds dist
 2. Checks `dist/hass-omnibus-card.js` is committed — blocks push if out of sync
-3. `npm test` — runs 34 Playwright snapshot tests
+3. `npm test` — runs 37 Playwright snapshot tests
 
 `npm install` / `npm run prepare` installs the hook into `.git/hooks/` automatically. New contributors get it on first install.
 
@@ -565,7 +566,7 @@ If a test fails, the Playwright HTML report is uploaded as a GitHub Actions arti
 ### Run the tests
 
 ```bash
-npm test                    # compare against committed baselines — 34 tests
+npm test                    # compare against committed baselines — 37 tests
 npm run test:update         # regenerate baselines after intentional visual changes (local OS)
 npm run test:update-ci      # regenerate baselines inside Docker (matches CI/Ubuntu environment)
 npm run test:ui             # open Playwright interactive UI for debugging failures
@@ -583,13 +584,14 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 - **Animations and transitions are disabled** in `tests/fixture.html` for deterministic screenshots.
 - **Icons use a box stub** (not Iconify CDN) — a solid-color rectangle per icon. Snapshots show layout and color, not specific icon glyphs. No CDN dependency, no flaky rendering.
 
-### What is covered (34 tests)
+### What is covered (37 tests)
 
 | Category | Tests |
 |---|---|
 | Normal state | Lights on with RGB tint, temperature, humidity, occupancy, climate chip, entity chips |
-| Lights | Off (no badge/tint), single on (badge without count), multiple on (count badge) |
-| Occupancy | Occupied (green dot), not occupied (no dot) |
+| Lights | Off (grey badge + `.off` class), single on (badge without count), multiple on (count badge) |
+| Light offline | `.has-offline` dot on badge when any light `unavailable` |
+| Occupancy | Occupied (green dot), not occupied (grey `.idle` dot — dot always visible) |
 | Alarms | Smoke, gas, water, all three simultaneously |
 | Mold risk | Default threshold (70%), custom threshold |
 | Problems | `problem` binary sensor active, unavailable entity |
@@ -600,7 +602,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 | Error state | Area not found, area not found with name override |
 | Config | Custom icon, custom name, `max_entities` limit |
 | Entity filtering | `exclude_entities` on classified entity, on chip-strip entity; `add_entities` from outside area; `entities` whitelist overrides area discovery |
-| History chart | `.bg-chart` SVG rendered when `history_chart` configured; absent when not configured |
+| History chart | SVG rendered when configured; absent when not configured; offline light badge |
 
 ### Adding a new test
 
@@ -628,7 +630,7 @@ test('my new scenario', async ({ page }) => {
 | Icons | Box stubs (deterministic) | Iconify CDN (real glyphs) |
 | Animations | Disabled | Enabled |
 | Scenarios | Via `mountCard()` API | Scenario buttons |
-| Card count | Single card | 5 room cards + 3 history + 3 filter cards |
+| Card count | Single card | 5 room cards + 4 history + 3 filter cards |
 | `callWS` stub | Fixed 24-point array (deterministic) | 48-point sinusoidal (visual preview) |
 | Purpose | Automated testing | Interactive development |
 
@@ -711,7 +713,7 @@ Vite serves `src/` as native ES modules — no bundling in dev. Edit any `src/` 
 
 - Four rooms rendered: Living Room, Bedroom, Kitchen, Bathroom
 - One error-state card (`nonexistent_area`) to validate error rendering
-- Three history chart cards (default color, custom color, 48h window) with `callWS` stub
+- Three history chart cards (default color, custom color, 48h window, threshold demo) with `callWS` stub
 - Scenario toggle buttons:
 
 | Button | What it tests |
@@ -719,9 +721,10 @@ Vite serves `src/` as native ES modules — no bundling in dev. Edit any `src/` 
 | Normal | Baseline state |
 | Smoke alarm | `binary_sensor` smoke → alarm bar |
 | Gas alarm | `binary_sensor` gas → alarm bar |
-| No motion | Occupancy dot disappears |
+| No motion | Occupancy dot turns grey (`.idle`) |
 | Mold risk | Bathroom humidity → mold badge |
-| Lights off | Light badge clears, background tint removed |
+| Lights off | Light badge turns grey (`.off`), background tint removed |
+| Light offline | Light badge shows orange offline dot (`.has-offline`) |
 
 - `hass-more-info` and `location-changed` events logged at the bottom of the page
 - `ha-card` and `ha-icon` stubbed (icons rendered via Iconify CDN — requires internet on first load, cached after)
