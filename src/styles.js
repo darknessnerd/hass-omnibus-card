@@ -53,7 +53,7 @@ export const CARD_STYLES = `
     position: absolute;
     font-size: 9px;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.28);
+    color: var(--secondary-text-color, rgba(128, 128, 128, 0.7));
     line-height: 1;
     letter-spacing: 0.02em;
     white-space: nowrap;
@@ -139,7 +139,7 @@ export const CARD_STYLES = `
   }
 
   .badge-lights.off {
-    background: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+    background: var(--secondary-background-color, rgba(128, 128, 128, 0.12));
     color: var(--disabled-text-color, #5e5e5e);
   }
 
@@ -211,7 +211,7 @@ export const CARD_STYLES = `
   }
 
   .env-chip:hover {
-    background: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+    background: var(--secondary-background-color, rgba(128, 128, 128, 0.12));
   }
 
   .env-chip ha-icon  { --mdc-icon-size: 15px; }
@@ -234,7 +234,7 @@ export const CARD_STYLES = `
     padding: 4px 9px;
     border-radius: 16px;
     font-size: 0.74rem;
-    background: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+    background: var(--secondary-background-color, rgba(128, 128, 128, 0.12));
     color: var(--secondary-text-color);
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s;

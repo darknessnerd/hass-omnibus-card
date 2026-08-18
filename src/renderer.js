@@ -165,7 +165,7 @@ function renderChips({ chipItems }) {
   return `
     <div class="entity-chips">
       ${chipItems.map(({ entityId, isActive, icon, label, title }) => `
-        <div class="chip ${isActive ? 'on' : ''}" data-entity="${entityId}" title="${title}">
+        <div class="chip${isActive ? ' on' : ''}" data-entity="${entityId}" title="${title}">
           <ha-icon icon="${icon}"></ha-icon>
           <span class="chip-label">${label}</span>
         </div>`).join('')}
@@ -208,12 +208,13 @@ function renderChartOverlay({ historyMin, historyMax, historyUnit: u, historyHou
 function renderCard(vm) {
   const hasAlarm  = vm.smokeOn || vm.gasOn || vm.waterOn;
   const bgStyle   = vm.lightColor
-    ? `background: linear-gradient(135deg, ${vm.lightColor}1a 0%, var(--ha-card-background, var(--card-background-color, #fff)) 60%);`
+    ? `background: linear-gradient(135deg, ${vm.lightColor}1a 0%, var(--ha-card-background, var(--card-background-color, transparent)) 60%);`
     : '';
+  const cardClass = [vm.navPath ? 'clickable' : '', hasAlarm ? 'alarm-active' : ''].filter(Boolean).join(' ');
   return `
     <style>${CARD_STYLES}</style>
     <ha-card
-      class="${vm.navPath ? 'clickable' : ''} ${hasAlarm ? 'alarm-active' : ''}"
+      ${cardClass ? `class="${cardClass}"` : ''}
       style="${bgStyle}"
       ${vm.navPath ? `role="button" tabindex="0"` : ''}
       aria-label="${vm.areaName}"
