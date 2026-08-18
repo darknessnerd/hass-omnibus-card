@@ -24,3 +24,6 @@ test-results/
 playwright-report/
 # snapshots are committed — they are the baseline truth
 # only /tests/e2e/snapshots/ goes into git
+
+# Ensure dist is not ignored even if globally ignored
+!dist/
