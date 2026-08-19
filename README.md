@@ -37,6 +37,9 @@ area: living_room          entities: [light.x, sensor.y]
       ├─ motion/occupancy ► occupied indicator dot
       ├─ smoke/gas/water ─► pulsing alarm bar
       ├─ battery ─────────► chip strip + low-battery badge (badge only when ≤ threshold)
+      ├─ camera ──────────► snapshot preview banner (tap → more-info / live view)
+      ├─ siren/button ────► controls row (siren: tap toggles; button: tap presses)
+      ├─ additional camera device-linked entity (switch, select, number, lock…) ─► controls row
       └─ everything else ─► entity chip strip
       │
       ▼
@@ -67,6 +70,9 @@ area: living_room          entities: [light.x, sensor.y]
 | History chart | Background sparkline with min/max/period labels; fill zones colored by threshold (clipPath, not gradient) |
 | History Y axis | `y_min` / `y_max` pin the sparkline scale floor/ceiling — data never clips, scale expands to fit |
 | Debug logging | `debug: true` emits console.debug on every render with entity states and view-model snapshot |
+| Camera preview | First `camera.*` entity in the area renders as a snapshot banner (uses the entity's own `entity_picture`); tap opens more-info; red dot while `state: recording`; dimmed + "(offline)" title while `state: unavailable`; disable with `show_camera: false`. Additional cameras in the same area still appear as regular chips |
+| Camera controls | `siren`/`button` entities always group into a dedicated "Controls" row; any other generic entity (switch, select, number, lock…) sharing a *device* with a discovered camera joins them. Tap: button → `button.press`, siren → `siren.toggle`, everything else → more-info |
+| Weather sensor icons | `device_class: wind_speed / precipitation / illuminance / sound_pressure` get proper mdi icons in the chip strip instead of the generic fallback |
 
 ---
 
@@ -143,8 +149,11 @@ add_entities:              # Entity IDs to force-add on top of area discovery (o
   - sensor.outside_temp    # may be from a different area or unassigned
 
 # ── Entity chips ──────────────────────────────────────────────────────
-show_entities: true        # Show the entity chip strip (default: true)
+show_entities: true        # Show the entity chip strip (default: true) — also gates the controls row
 max_entities: 6            # Max chips to display (default: 6)
+
+# ── Camera ────────────────────────────────────────────────────────────
+show_camera: true          # Show the camera snapshot preview banner (default: true)
 
 # ── Environmental thresholds ──────────────────────────────────────────
 mold_threshold: 70            # Humidity % above which mold risk badge appears (default: 70)
@@ -184,6 +193,11 @@ debug: false                   # true → console.debug on every render with ent
 | `sensor` + `device_class: battery` | Entity chip strip (always) + battery badge (header) when ≤ `battery_low_threshold` |
 | `binary_sensor` + `device_class: problem/tamper/safety` (on) | Problem badge |
 | Any entity with state `unavailable` | Problem badge |
+| `camera.*` (first found) | Camera snapshot preview banner |
+| `camera.*` (any additional) | Entity chip strip |
+| `siren.*`, `button.*` | Controls row (always, regardless of device) |
+| Any other domain sharing a *device* with a discovered camera | Controls row |
+| `sensor` + `device_class: wind_speed/precipitation/illuminance/sound_pressure` | Entity chip strip, with a dedicated icon |
 | Everything else | Entity chip strip (capped at `max_entities`) |
 
 ---
@@ -282,6 +296,23 @@ history_chart:
   color: 'rgba(255,152,0,0.18)'
 ```
 
+### Security camera — preview + controls
+
+```yaml
+type: custom:hass-omnibus-card
+area: esterno
+```
+
+The camera entity's snapshot renders as a banner at the top of the card. PTZ buttons, the siren, and any other entity sharing a device with the camera (IR light, status light, audio, sensitivity, alert sound…) group into a "Controls" row below the chip strip — tap a button to press it, tap the siren to toggle it, tap anything else to open more-info.
+
+Hide just the preview and keep the controls:
+
+```yaml
+type: custom:hass-omnibus-card
+area: esterno
+show_camera: false
+```
+
 ### Debug logging
 
 ```yaml
@@ -348,6 +379,8 @@ cards:
 | History value below `threshold_low` | Fill area below threshold line turns `color_low` (blue by default); dashed marker line with threshold value label drawn |
 | `y_min` / `y_max` set | Sparkline Y axis anchored to fixed floor/ceiling; data never clips, scale expands if data exceeds bounds |
 | Area not found | Dashed red error card with explanation |
+| Camera recording | Pulsing red dot on the snapshot preview banner |
+| Camera controls present | "Controls" label + chip row below the chip strip |
 
 ---
 
@@ -370,7 +403,10 @@ Source is split into single-responsibility modules under `src/`. See [DEVELOPMEN
 - Entity discovery requires entities to be assigned to an area in the HA entity or device registry. Entities with no area assignment (or assigned only via label) are not discovered.
 - Entity chip strip shows a maximum of `max_entities` chips. Use `max_entities` to tune.
 - Navigation uses `history.pushState` + `location-changed` event — standard HA SPA routing. Does not work if Kiosk mode intercepts navigation.
-- No support for `tap_action: call-service` on individual chips (chips always open more-info).
+- No support for `tap_action: call-service` on individual chips (chips always open more-info) — except the controls row, where `button` chips call `button.press` and `siren` chips call `siren.toggle` directly.
+- The camera preview uses the camera entity's own `entity_picture` (a live snapshot proxy URL) rather than a dedicated `image.*` helper entity — it refreshes whenever the camera's state/attributes change.
+- Camera-linked control grouping requires the entity to share a *device* (`device_id`) with the camera entity; entities only sharing an area are left as regular chips.
+- Only the first `camera.*` entity discovered in an area gets the preview banner; any others fall back to the chip strip.
 
 ---
 

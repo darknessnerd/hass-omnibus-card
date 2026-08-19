@@ -96,6 +96,7 @@ Supported concepts include:
 * sensor averaging
 * sensor-specific labels
 * clickable sensors
+* weather-station sensors (wind speed, precipitation, illuminance, sound pressure) — dedicated icons in the chip strip
 
 Sensor layouts can include:
 
@@ -270,6 +271,38 @@ A room can therefore visually communicate:
 `one or more lights on -> illuminated room state`
 
 RGB lights can additionally influence the card appearance.
+
+---
+
+## Camera Preview
+
+The card supports a snapshot preview banner for areas containing a camera entity.
+
+Conceptually:
+
+`camera entity -> entity_picture attribute -> snapshot banner -> tap -> more-info / live view`
+
+* The first `camera.*` entity discovered in the area is used; any additional cameras in the same area fall back to the entity chip strip.
+* A pulsing indicator appears while the camera reports `recording`.
+* The banner dims and its title notes "(offline)" while the camera reports `unavailable`.
+* Disabled via `show_camera: false`.
+
+---
+
+## Camera Controls
+
+Entities that exist purely to operate a camera (PTZ buttons, siren, IR/status light, audio, sensitivity, alert-sound select) are grouped into a dedicated "Controls" section, separate from the passive entity chip strip.
+
+Grouping rule:
+
+* `siren` and `button` domain entities always join Controls, regardless of device.
+* Any other otherwise-generic entity (switch, select, number, lock, cover, …) joins Controls only when it shares a *device* with a discovered camera — this avoids pulling unrelated switches (e.g. a nearby smart plug) into the group just because they're in the same area, while still covering camera-accessory domains beyond the original switch/select/number set.
+
+Interaction differs by domain:
+
+* `button` → pressed directly (`button.press`)
+* `siren` → toggled directly (`siren.toggle`)
+* everything else → opens the standard more-info dialog
 
 ---
 

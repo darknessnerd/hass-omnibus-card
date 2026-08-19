@@ -46,6 +46,11 @@ export function buildViewModel(hass, config, historyPoints = null) {
   const batteryLowThreshold = config.battery_low_threshold ?? 20;
   const lowBattery = lowestBattery(c.batteries);
 
+  // Only the first camera gets the dedicated preview banner; any additional
+  // cameras in the area still need to be reachable, so they fall back to chips.
+  const camera       = c.cameras[0] ?? null;
+  const extraCameras = c.cameras.slice(1);
+
   return {
     areaName:     config.name || area?.name || areaId || '',
     cardIcon:     config.icon || area?.icon || 'mdi:home',
@@ -82,6 +87,25 @@ export function buildViewModel(hass, config, historyPoints = null) {
     waterOn:  anyOn(c.moistures),
     moldRisk: humVal !== null && humVal >= moldThreshold,
 
+    hasCamera:    config.show_camera !== false && !!camera,
+    cameraEntity: camera?.entityId ?? null,
+    cameraImage:  camera?.state.attributes?.entity_picture ?? null,
+    cameraIcon:   camera ? entityIcon(camera.entityId, camera.state) : null,
+    cameraTitle:  camera?.state.attributes?.friendly_name ?? camera?.entityId ?? '',
+    cameraState:  camera?.state.state ?? '',
+    cameraOffline: camera?.state.state === 'unavailable',
+
+    controlItems: config.show_entities !== false
+      ? c.controls.map(({ entityId, state }) => ({
+          entityId,
+          domain:   entityId.split('.')[0],
+          isActive: ACTIVE_STATES.has(state.state),
+          icon:     entityIcon(entityId, state),
+          label:    friendlyLabel(entityId, state),
+          title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
+        }))
+      : [],
+
     historyPoints: hc?.entity_id ? historyPoints : null,
     historyColor:  hc?.color ?? 'rgba(3, 169, 244, 0.12)',
     historyChart:  hc,
@@ -92,7 +116,7 @@ export function buildViewModel(hass, config, historyPoints = null) {
 
     // pre-computed chip data keeps template functions free of utility imports
     chipItems: config.show_entities !== false
-      ? c.others.slice(0, config.max_entities ?? 6).map(({ entityId, state }) => ({
+      ? [...c.others, ...extraCameras].slice(0, config.max_entities ?? 6).map(({ entityId, state }) => ({
           entityId,
           isActive: ACTIVE_STATES.has(state.state),
           icon:     entityIcon(entityId, state),
@@ -191,6 +215,33 @@ function renderChips({ chipItems }) {
     </div>`;
 }
 
+function renderCameraPreview({ hasCamera, cameraImage, cameraIcon, cameraEntity, cameraTitle, cameraState, cameraOffline }) {
+  if (!hasCamera) return '';
+  const title = cameraOffline ? `${cameraTitle} (offline)` : cameraTitle;
+  return `
+    <div class="camera-preview${cameraOffline ? ' offline' : ''}" data-entity="${cameraEntity}" title="${title}">
+      ${cameraImage
+        ? `<img src="${cameraImage}" alt="${title}" loading="lazy" />`
+        : `<div class="camera-placeholder"><ha-icon icon="${cameraIcon}"></ha-icon></div>`}
+      ${cameraState === 'recording' ? `<span class="camera-rec-dot" title="Recording"></span>` : ''}
+    </div>`;
+}
+
+function renderControls({ controlItems }) {
+  if (!controlItems.length) return '';
+  return `
+    <div class="controls-row">
+      <span class="controls-label">Controls</span>
+      <div class="controls-chips">
+        ${controlItems.map(({ entityId, domain, isActive, icon, label, title }) => `
+          <div class="chip control-chip${isActive ? ' on' : ''}" data-entity="${entityId}" data-domain="${domain}" title="${title}">
+            <ha-icon icon="${icon}"></ha-icon>
+            <span class="chip-label">${label}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
 function renderAlarmBar({ smokeOn, gasOn, waterOn, moldRisk }) {
   if (!smokeOn && !gasOn && !waterOn && !moldRisk) return '';
   return `
@@ -261,9 +312,11 @@ function renderCard(vm) {
       ${vm.historyPoints ? sparklineSvg(vm.historyPoints, vm.historyColor, vm.historyChart) : ''}
       ${renderChartOverlay(vm)}
       <div class="card-content">
+        ${renderCameraPreview(vm)}
         ${renderHeader(vm)}
         ${renderEnvRow(vm)}
         ${renderChips(vm)}
+        ${renderControls(vm)}
         ${renderAlarmBar(vm)}
       </div>
     </ha-card>`;
@@ -289,9 +342,28 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
   if (navPath) {
     shadowRoot.querySelector('ha-card').addEventListener('click', e => {
       if (!e.target.closest('.chip') && !e.target.closest('.env-chip')
-          && !e.target.closest('.badge-lights') && !e.target.closest('.badge-battery')) navigate(navPath);
+          && !e.target.closest('.badge-lights') && !e.target.closest('.badge-battery')
+          && !e.target.closest('.camera-preview')) navigate(navPath);
     });
   }
+
+  const cameraPreview = shadowRoot.querySelector('.camera-preview[data-entity]');
+  if (cameraPreview) cameraPreview.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, cameraPreview.dataset.entity); });
+
+  shadowRoot.querySelectorAll('.control-chip[data-entity]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const entityId = el.dataset.entity;
+      const domain    = el.dataset.domain;
+      if (domain === 'button' && host._hass?.callService) {
+        host._hass.callService('button', 'press', {}, { entity_id: entityId });
+      } else if (domain === 'siren' && host._hass?.callService) {
+        host._hass.callService('siren', 'toggle', {}, { entity_id: entityId });
+      } else {
+        fireMoreInfo(host, entityId);
+      }
+    });
+  });
 
   const lightBadge = shadowRoot.querySelector('.badge-lights');
   if (lightBadge && host._config?.area && host._hass?.callService) {
@@ -309,7 +381,7 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
     if (eid) el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, eid); });
   });
 
-  shadowRoot.querySelectorAll('.chip[data-entity]').forEach(el => {
+  shadowRoot.querySelectorAll('.chip[data-entity]:not(.control-chip)').forEach(el => {
     el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
   });
 }

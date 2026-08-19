@@ -95,12 +95,18 @@ window.BASE_HASS = {
     }
     return Promise.resolve({});
   },
+  callService(domain, service, data, target) {
+    (window.__serviceCalls ??= []).push({ domain, service, data, target });
+    return Promise.resolve();
+  },
   areas: {
     living_room: { area_id: 'living_room', name: 'Living Room', icon: 'mdi:sofa' },
     bedroom:     { area_id: 'bedroom',     name: 'Bedroom',     icon: 'mdi:bed' },
+    garage:      { area_id: 'garage',      name: 'Garage',      icon: 'mdi:garage' },
   },
   devices: {
-    dev_lr: { area_id: 'living_room' },
+    dev_lr:  { area_id: 'living_room' },
+    dev_cam: { area_id: 'garage' },
   },
   entities: {
     'light.ceiling':          { area_id: null,          device_id: 'dev_lr', hidden_by: null },
@@ -117,6 +123,17 @@ window.BASE_HASS = {
     'switch.outlet':          { area_id: 'living_room', device_id: null,     hidden_by: null },
     'light.bed_light':        { area_id: 'bedroom',     device_id: null,     hidden_by: null },
     'sensor.bed_humidity':    { area_id: 'bedroom',     device_id: null,     hidden_by: null },
+    'camera.garage_cam':          { area_id: null,     device_id: 'dev_cam', hidden_by: null },
+    'camera.garage_cam_2':        { area_id: 'garage', device_id: null,      hidden_by: null },
+    'button.garage_cam_ptz_up':   { area_id: 'garage', device_id: null,      hidden_by: null },
+    'siren.garage_alarm':         { area_id: 'garage', device_id: null,      hidden_by: null },
+    'switch.garage_cam_ir_light': { area_id: null,     device_id: 'dev_cam', hidden_by: null },
+    'lock.garage_cam_housing':    { area_id: null,     device_id: 'dev_cam', hidden_by: null },
+    'switch.garage_plug':         { area_id: 'garage', device_id: null,      hidden_by: null },
+    'sensor.garage_wind':         { area_id: 'garage', device_id: null,      hidden_by: null },
+    'sensor.garage_rain':         { area_id: 'garage', device_id: null,      hidden_by: null },
+    'sensor.garage_illuminance':  { area_id: 'garage', device_id: null,      hidden_by: null },
+    'sensor.garage_noise':        { area_id: 'garage', device_id: null,      hidden_by: null },
   },
   states: {
     'light.ceiling':          { state: 'on',     attributes: { friendly_name: 'Ceiling', rgb_color: [255, 200, 100], brightness: 200 } },
@@ -134,6 +151,17 @@ window.BASE_HASS = {
     'light.bed_light':        { state: 'off',    attributes: { friendly_name: 'Bed Light' } },
     'sensor.bed_humidity':    { state: '72',     attributes: { friendly_name: 'Humidity', device_class: 'humidity', unit_of_measurement: '%' } },
     'sensor.battery_test':    { state: '82',     attributes: { friendly_name: 'Battery Test', device_class: 'battery', unit_of_measurement: '%' } },
+    'camera.garage_cam':          { state: 'recording', attributes: { friendly_name: 'Garage Cam', entity_picture: '/api/camera_proxy/camera.garage_cam?token=abc' } },
+    'camera.garage_cam_2':        { state: 'idle',      attributes: { friendly_name: 'Garage Cam 2', entity_picture: '/api/camera_proxy/camera.garage_cam_2?token=abc' } },
+    'button.garage_cam_ptz_up':   { state: 'unknown',   attributes: { friendly_name: 'Garage Cam PTZ Up' } },
+    'siren.garage_alarm':         { state: 'off',       attributes: { friendly_name: 'Garage Alarm' } },
+    'switch.garage_cam_ir_light': { state: 'on',        attributes: { friendly_name: 'Garage Cam IR Light' } },
+    'lock.garage_cam_housing':    { state: 'locked',    attributes: { friendly_name: 'Garage Cam Housing Lock' } },
+    'switch.garage_plug':         { state: 'off',       attributes: { friendly_name: 'Garage Plug' } },
+    'sensor.garage_wind':         { state: '2.5',  attributes: { friendly_name: 'Garage Wind',        device_class: 'wind_speed',    unit_of_measurement: 'km/h' } },
+    'sensor.garage_rain':         { state: '55.1', attributes: { friendly_name: 'Garage Rain',        device_class: 'precipitation', unit_of_measurement: 'mm' } },
+    'sensor.garage_illuminance':  { state: '36231',attributes: { friendly_name: 'Garage Illuminance', device_class: 'illuminance',   unit_of_measurement: 'lx' } },
+    'sensor.garage_noise':        { state: '-20.7',attributes: { friendly_name: 'Garage Noise',       device_class: 'sound_pressure',unit_of_measurement: 'dB' } },
   },
 };
 
@@ -144,8 +172,11 @@ window.BASE_HASS = {
 window.mountCard = function(config, stateOverrides) {
   document.getElementById('mount').innerHTML = '';
 
+  window.__serviceCalls = [];
+
   const hass = JSON.parse(JSON.stringify(window.BASE_HASS));
-  hass.callWS = window.BASE_HASS.callWS; // functions are dropped by JSON serialization
+  hass.callWS      = window.BASE_HASS.callWS;      // functions are dropped by JSON serialization
+  hass.callService = window.BASE_HASS.callService;
   if (stateOverrides) {
     for (const [id, patch] of Object.entries(stateOverrides)) {
       if (hass.states[id]) {

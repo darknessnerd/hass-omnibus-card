@@ -106,13 +106,15 @@ const MOCK_HASS = {
     kitchen:     { area_id: 'kitchen',     name: 'Kitchen',     icon: 'mdi:chef-hat' },
     bathroom:    { area_id: 'bathroom',    name: 'Bathroom',    icon: 'mdi:shower' },
     cucina:      { area_id: 'cucina',      name: 'Cucina',      icon: 'mdi:silverware-fork-knife' },
+    esterno:     { area_id: 'esterno',     name: 'Esterno',     icon: 'mdi:tree' },
   },
 
   devices: {
-    dev_lr_lamp:   { area_id: 'living_room' },
-    dev_lr_sensor: { area_id: 'living_room' },
-    dev_bed_lamp:  { area_id: 'bedroom' },
-    dev_kit_sensor:{ area_id: 'kitchen' },
+    dev_lr_lamp:    { area_id: 'living_room' },
+    dev_lr_sensor:  { area_id: 'living_room' },
+    dev_bed_lamp:   { area_id: 'bedroom' },
+    dev_kit_sensor: { area_id: 'kitchen' },
+    dev_esterno_cam:{ area_id: 'esterno' },
   },
 
   entities: {
@@ -146,6 +148,17 @@ const MOCK_HASS = {
     'sensor.soggiornino_ths_humidity':   { area_id: 'cucina', device_id: null, hidden_by: null },
     'binary_sensor.cam_cucina_movimento':{ area_id: 'cucina', device_id: null, hidden_by: null },
     'switch.led_cucina':                 { area_id: 'cucina', device_id: null, hidden_by: null },
+    // esterno — mirrors real HA setup from debug log: security camera + weather station
+    'camera.esterno_cam':          { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
+    'button.esterno_cam_ptz_up':   { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'siren.esterno_cam_siren':     { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'switch.esterno_cam_ir_light': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
+    'switch.esterno_cam_audio':    { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
+    'switch.esterno_plug':         { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'sensor.esterno_wind_average': { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'sensor.esterno_rain_total':   { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'sensor.esterno_luminance':    { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'sensor.esterno_noise':        { area_id: 'esterno', device_id: null,         hidden_by: null },
   },
 
   states: {
@@ -253,6 +266,47 @@ const MOCK_HASS = {
     'switch.led_cucina': {
       state: 'on',
       attributes: { friendly_name: 'LED Cucina' },
+    },
+    // esterno
+    'camera.esterno_cam': {
+      state: 'recording',
+      attributes: { friendly_name: 'Esterno Cam', entity_picture: 'https://placehold.co/640x360/1c1c1e/9e9e9e?text=Camera+snapshot' },
+    },
+    'button.esterno_cam_ptz_up': {
+      state: 'unknown',
+      attributes: { friendly_name: 'Esterno Cam PTZ Up' },
+    },
+    'siren.esterno_cam_siren': {
+      state: 'off',
+      attributes: { friendly_name: 'Esterno Cam Siren' },
+    },
+    'switch.esterno_cam_ir_light': {
+      state: 'on',
+      attributes: { friendly_name: 'Esterno Cam IR Light' },
+    },
+    'switch.esterno_cam_audio': {
+      state: 'on',
+      attributes: { friendly_name: 'Esterno Cam Audio' },
+    },
+    'switch.esterno_plug': {
+      state: 'off',
+      attributes: { friendly_name: 'Esterno Plug' },
+    },
+    'sensor.esterno_wind_average': {
+      state: '2.52',
+      attributes: { friendly_name: 'Esterno Wind Average', device_class: 'wind_speed', unit_of_measurement: 'km/h' },
+    },
+    'sensor.esterno_rain_total': {
+      state: '55.1',
+      attributes: { friendly_name: 'Esterno Rain Total', device_class: 'precipitation', unit_of_measurement: 'mm' },
+    },
+    'sensor.esterno_luminance': {
+      state: '36231',
+      attributes: { friendly_name: 'Esterno Luminance', device_class: 'illuminance', unit_of_measurement: 'lx' },
+    },
+    'sensor.esterno_noise': {
+      state: '-20.7',
+      attributes: { friendly_name: 'Esterno Noise', device_class: 'sound_pressure', unit_of_measurement: 'dB' },
     },
   },
 
@@ -408,6 +462,7 @@ window.addEventListener('load', () => {
       { area: 'kitchen' },
       { area: 'bathroom', mold_threshold: 65 },
       { area: 'cucina' },
+      { area: 'esterno' },
       { area: 'nonexistent_area' },  // error state
     ];
 
@@ -555,6 +610,13 @@ window.addEventListener('load', () => {
 
     // Debug mode — check browser console for [hass-omnibus-card] update logs
     mountStatic(gallery, { area: 'living_room', name: 'Debug mode (check console)', debug: true }, {});
+
+    // Camera preview + controls row — PTZ button, siren, IR light/audio switches
+    // (device-linked to the camera) grouped separately from the generic plug switch
+    mountStatic(gallery, { area: 'esterno', name: 'Camera + controls' }, {});
+
+    // show_camera: false — preview hidden, controls row unaffected
+    mountStatic(gallery, { area: 'esterno', name: 'show_camera: false', show_camera: false }, {});
 
     // Real sensors — soggiorno THS + Bresser (normal values)
     mountStatic(gallery, {

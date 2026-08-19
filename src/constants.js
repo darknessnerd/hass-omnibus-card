@@ -26,6 +26,10 @@ export const ICON_BY_DC = {
   energy:       'mdi:lightning-bolt',
   battery:      { on: 'mdi:battery-alert', off: 'mdi:battery' },
   connectivity: 'mdi:wifi',
+  wind_speed:    'mdi:weather-windy',
+  precipitation: 'mdi:weather-rainy',
+  illuminance:   'mdi:brightness-6',
+  sound_pressure:'mdi:volume-high',
 };
 
 export const ICON_BY_DOMAIN = {
@@ -41,4 +45,7 @@ export const ICON_BY_DOMAIN = {
   device_tracker: 'mdi:map-marker',
   sensor:         'mdi:eye',
   input_select:   'mdi:format-list-bulleted',
+  siren:          { on: 'mdi:bullhorn', off: 'mdi:bullhorn-outline' },
+  button:         'mdi:gesture-tap-button',
+  camera:         'mdi:cctv',
 };

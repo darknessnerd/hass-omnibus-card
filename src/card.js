@@ -75,7 +75,7 @@ export class HassOmnibusCard extends HTMLElement {
 
     return base
       .map(({ entityId, state }) =>
-        `${entityId}=${state.state}|${state.attributes?.rgb_color ?? ''}|${state.attributes?.current_temperature ?? ''}`)
+        `${entityId}=${state.state}|${state.attributes?.rgb_color ?? ''}|${state.attributes?.current_temperature ?? ''}|${state.attributes?.entity_picture ?? ''}`)
       .sort()
       .join(';');
   }

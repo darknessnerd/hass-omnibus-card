@@ -287,6 +287,75 @@ export const CARD_STYLES = `
     white-space: nowrap;
   }
 
+  /* ── Camera preview ── */
+
+  .camera-preview {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    aspect-ratio: 16 / 9;
+    background: var(--secondary-background-color, rgba(128, 128, 128, 0.12));
+    cursor: pointer;
+  }
+
+  .camera-preview.offline {
+    opacity: 0.55;
+  }
+
+  .camera-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .camera-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: var(--secondary-text-color);
+  }
+
+  .camera-placeholder ha-icon { --mdc-icon-size: 32px; }
+
+  .camera-rec-dot {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #f44336;
+    box-shadow: 0 0 6px rgba(244, 67, 54, 0.8);
+    animation: occ-blink 1.5s ease-in-out infinite;
+  }
+
+  /* ── Controls row ── */
+
+  .controls-row {
+    margin-top: 8px;
+  }
+
+  .controls-label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--secondary-text-color);
+    opacity: 0.6;
+    margin-bottom: 4px;
+  }
+
+  .controls-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
   /* ── Alarm bar ── */
 
   .alarm-bar {

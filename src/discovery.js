@@ -20,7 +20,7 @@ export function getAreaEntities(hass, areaId) {
     const direct    = entry.area_id === areaId;
     const viaDevice = entry.device_id && devices[entry.device_id]?.area_id === areaId;
 
-    if (direct || viaDevice) acc.push({ entityId, state: states[entityId] });
+    if (direct || viaDevice) acc.push({ entityId, state: states[entityId], deviceId: entry.device_id ?? null });
     return acc;
   }, []);
 }
@@ -40,7 +40,7 @@ export function filterEntities(areaEntities, config, hass) {
     return config.entities
       .map(entityId => {
         const state = hass.states?.[entityId];
-        return state ? { entityId, state } : null;
+        return state ? { entityId, state, deviceId: hass.entities?.[entityId]?.device_id ?? null } : null;
       })
       .filter(Boolean);
   }
@@ -53,7 +53,7 @@ export function filterEntities(areaEntities, config, hass) {
   for (const entityId of add) {
     if (filtered.some(e => e.entityId === entityId)) continue;
     const state = hass.states?.[entityId];
-    if (state) filtered.push({ entityId, state });
+    if (state) filtered.push({ entityId, state, deviceId: hass.entities?.[entityId]?.device_id ?? null });
   }
 
   return filtered;
@@ -70,7 +70,9 @@ export function classify(areaEntities) {
     temperatures: [], humidities: [],
     motions: [], occupancy: [],
     smokes: [], gases: [], moistures: [],
-    batteries: [], problems: [], others: [],
+    batteries: [], problems: [],
+    cameras: [], controls: [],
+    others: [],
   };
 
   for (const item of areaEntities) {
@@ -81,6 +83,7 @@ export function classify(areaEntities) {
 
     if      (domain === 'light')                                                            out.lights.push(item);
     else if (domain === 'climate')                                                          out.climate.push(item);
+    else if (domain === 'camera')                                                           out.cameras.push(item);
     else if (domain === 'sensor'        && dc === 'temperature')                            out.temperatures.push(item);
     else if (domain === 'sensor'        && dc === 'humidity')                               out.humidities.push(item);
     else if (domain === 'binary_sensor' && dc === 'motion')                                 out.motions.push(item);
@@ -91,7 +94,23 @@ export function classify(areaEntities) {
     else if (domain === 'sensor'        && dc === 'battery' && val !== 'unavailable') { out.batteries.push(item); out.others.push(item); }
     else if (val === 'unavailable' || (domain === 'binary_sensor' && ['problem', 'tamper', 'safety'].includes(dc) && val === 'on'))
                                                                                             out.problems.push(item);
+    else if (domain === 'siren' || domain === 'button')                                     out.controls.push(item);
     else                                                                                    out.others.push(item);
+  }
+
+  // Any otherwise-generic entity (switch, select, number, lock, cover, ...) that shares
+  // a device with a discovered camera is a camera control, not a plain room chip.
+  const cameraDeviceIds = new Set(out.cameras.map(c => c.deviceId).filter(Boolean));
+  if (cameraDeviceIds.size) {
+    const stillOthers = [];
+    for (const item of out.others) {
+      if (item.deviceId && cameraDeviceIds.has(item.deviceId)) {
+        out.controls.push(item);
+      } else {
+        stillOthers.push(item);
+      }
+    }
+    out.others = stillOthers;
   }
 
   return out;

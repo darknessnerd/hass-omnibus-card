@@ -470,3 +470,107 @@ test('not occupied — idle dot visible', async ({ page }) => {
   });
   await expect(page.locator('#mount').locator('.occupancy-dot.idle')).toBeVisible();
 });
+
+// ── Camera preview ──────────────────────────────────────────────────────────
+
+const GARAGE = { area: 'garage' };
+
+test('camera — preview image rendered, recording dot visible', async ({ page }) => {
+  await mount(page, GARAGE);
+  const preview = page.locator('#mount').locator('.camera-preview');
+  await expect(preview).toBeVisible();
+  await expect(preview).toHaveAttribute('data-entity', 'camera.garage_cam');
+  await expect(preview.locator('img')).toHaveAttribute('src', /camera_proxy/);
+  await expect(preview.locator('.camera-rec-dot')).toBeVisible();
+  await expect(page.locator('#mount')).toHaveScreenshot('camera-preview.png', SNAP);
+});
+
+test('camera — no camera entity means no preview', async ({ page }) => {
+  await mount(page, CARD);
+  await expect(page.locator('#mount').locator('.camera-preview')).not.toBeVisible();
+});
+
+test('camera — show_camera: false hides preview even with camera entity', async ({ page }) => {
+  await mount(page, { ...GARAGE, show_camera: false });
+  await expect(page.locator('#mount').locator('.camera-preview')).not.toBeVisible();
+});
+
+test('camera — click opens more-info', async ({ page }) => {
+  await mount(page, GARAGE);
+  const moreInfo = page.evaluate(() => new Promise(resolve => {
+    document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
+  }));
+  await page.locator('#mount').locator('.camera-preview').click();
+  expect(await moreInfo).toBe('camera.garage_cam');
+});
+
+// ── Camera controls group ───────────────────────────────────────────────────
+
+test('controls — PTZ button, siren, device-linked switch/lock pulled in, plain switch/sensors stay chips', async ({ page }) => {
+  await mount(page, GARAGE);
+  const controls = page.locator('#mount').locator('.controls-chips .control-chip');
+  await expect(controls).toHaveCount(4); // ptz button + siren + IR-light switch + housing lock (all device-linked to camera)
+  await expect(page.locator('#mount').locator('.control-chip[data-domain="lock"]')).toBeVisible();
+  await expect(page.locator('#mount')).toHaveScreenshot('camera-controls.png', SNAP);
+});
+
+test('controls — device-linked lock click opens more-info (generic fallback, no lock-specific service)', async ({ page }) => {
+  await mount(page, GARAGE);
+  const moreInfo = page.evaluate(() => new Promise(resolve => {
+    document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
+  }));
+  await page.locator('#mount').locator('.control-chip[data-domain="lock"]').click();
+  expect(await moreInfo).toBe('lock.garage_cam_housing');
+});
+
+// ── Camera edge cases ────────────────────────────────────────────────────────
+
+test('camera — second camera in the same area falls back to a chip, not lost', async ({ page }) => {
+  await mount(page, GARAGE);
+  await expect(page.locator('#mount').locator('.camera-preview')).toHaveAttribute('data-entity', 'camera.garage_cam');
+  await expect(page.locator('#mount').locator('.chip[data-entity="camera.garage_cam_2"]')).toBeVisible();
+});
+
+test('camera — unavailable camera dims the preview and marks it offline', async ({ page }) => {
+  await mount(page, GARAGE, {
+    'camera.garage_cam': { state: 'unavailable', attributes: { friendly_name: 'Garage Cam', entity_picture: '/api/camera_proxy/camera.garage_cam?token=abc' } },
+  });
+  const preview = page.locator('#mount').locator('.camera-preview');
+  await expect(preview).toHaveClass(/offline/);
+  await expect(preview).toHaveAttribute('title', /offline/);
+  await expect(preview.locator('.camera-rec-dot')).not.toBeVisible();
+});
+
+// ── Weather sensor icons ─────────────────────────────────────────────────────
+
+test('weather sensors — wind/rain/illuminance/noise get dedicated device_class icons', async ({ page }) => {
+  await mount(page, GARAGE);
+  const iconFor = entityId => page.locator('#mount').locator(`.chip[data-entity="${entityId}"] ha-icon`).getAttribute('icon');
+  expect(await iconFor('sensor.garage_wind')).toBe('mdi:weather-windy');
+  expect(await iconFor('sensor.garage_rain')).toBe('mdi:weather-rainy');
+  expect(await iconFor('sensor.garage_illuminance')).toBe('mdi:brightness-6');
+  expect(await iconFor('sensor.garage_noise')).toBe('mdi:volume-high');
+});
+
+test('controls — button click presses button service, not more-info', async ({ page }) => {
+  await mount(page, GARAGE);
+  await page.locator('#mount').locator('.control-chip[data-domain="button"]').click();
+  const calls = await page.evaluate(() => window.__serviceCalls);
+  expect(calls).toEqual([{ domain: 'button', service: 'press', data: {}, target: { entity_id: 'button.garage_cam_ptz_up' } }]);
+});
+
+test('controls — siren click toggles siren service, not more-info', async ({ page }) => {
+  await mount(page, GARAGE);
+  await page.locator('#mount').locator('.control-chip[data-domain="siren"]').click();
+  const calls = await page.evaluate(() => window.__serviceCalls);
+  expect(calls).toEqual([{ domain: 'siren', service: 'toggle', data: {}, target: { entity_id: 'siren.garage_alarm' } }]);
+});
+
+test('controls — device-linked switch click opens more-info (no dedicated switch service)', async ({ page }) => {
+  await mount(page, GARAGE);
+  const moreInfo = page.evaluate(() => new Promise(resolve => {
+    document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
+  }));
+  await page.locator('#mount').locator('.control-chip[data-domain="switch"]').click();
+  expect(await moreInfo).toBe('switch.garage_cam_ir_light');
+});
