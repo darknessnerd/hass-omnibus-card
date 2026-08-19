@@ -288,7 +288,7 @@ debug: true
 
 Opens browser DevTools → Console to see `[hass-omnibus-card] update { area, hash, viewModel }` on every render. `viewModel` includes `tempVal`, `humVal`, full entity lists — useful for diagnosing sensor value errors. Silent in production (`debug` absent or `false`).
 
-The sparkline overlays three small labels on the card: max value (top-right), min value (bottom-right), and time window (bottom-left). Threshold zones use SVG `clipPath` — only the portion of the fill that actually exceeds/dips below a threshold is colored, so zone coloring tracks the real data.
+The sparkline overlays three small labels on the card: `↑ max` (top-right), `↓ min` (bottom-right), and time window (bottom-left). When `threshold_high` or `threshold_low` are set, the threshold value (e.g. `22.0°C`) is also printed directly on the dashed marker line, left-aligned and centered on the line. Threshold zones use SVG `clipPath` — only the portion of the fill that actually exceeds/dips below a threshold is colored, so zone coloring tracks the real data.
 
 When all history points are identical (e.g. a brand-new sensor with only one reading) and no `y_min`/`y_max` is set, the sparkline is hidden — there is no meaningful shape to draw. Set `y_min: 0` to force the chart to render with the value positioned relative to zero.
 
@@ -340,8 +340,8 @@ cards:
 | Problems detected | Red alert badge with count |
 | Alarm active (smoke/gas/water) | Card pulses red; alarm bar with badges appears |
 | Mold risk | Green mold badge in alarm bar |
-| History value above `threshold_high` | Fill area above threshold line turns `color_high` (red by default); dashed marker line drawn |
-| History value below `threshold_low` | Fill area below threshold line turns `color_low` (blue by default); dashed marker line drawn |
+| History value above `threshold_high` | Fill area above threshold line turns `color_high` (red by default); dashed marker line with threshold value label drawn |
+| History value below `threshold_low` | Fill area below threshold line turns `color_low` (blue by default); dashed marker line with threshold value label drawn |
 | `y_min` / `y_max` set | Sparkline Y axis anchored to fixed floor/ceiling; data never clips, scale expands if data exceeds bounds |
 | Area not found | Dashed red error card with explanation |
 
@@ -350,12 +350,11 @@ cards:
 ## Development & contributing
 
 ```bash
-npm install          # install dependencies (Vite + Playwright)
-npm run dev          # start live-reload dev server → http://localhost:5173/dev.html
-npm run build        # bundle src/ → dist/hass-omnibus-card.js
-npm test             # run 39 E2E tests (Playwright + Chromium)
-npm run test:update  # regenerate baselines after intentional visual changes
-npm run test:ui      # Playwright visual UI for debugging test failures
+npm install             # install dependencies (Vite + Playwright)
+npm run dev             # start live-reload dev server → http://localhost:5173/dev.html
+npm run build           # bundle src/ → dist/hass-omnibus-card.js
+npm run test:docker     # run 39 E2E tests in Docker (Playwright + Chromium, matches CI)
+npm run test:update-ci  # regenerate baselines in Docker after intentional visual changes
 ```
 
 Source is split into single-responsibility modules under `src/`. See [DEVELOPMENT.md](DEVELOPMENT.md) for architecture, module guide, and how to extend the card.

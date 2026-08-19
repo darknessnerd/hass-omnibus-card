@@ -20,8 +20,8 @@ if [ -n "$DIST_STATUS" ]; then
   exit 1
 fi
 
-echo "[pre-push] Running E2E tests..."
-if ! npm test; then
+echo "[pre-push] Running E2E tests (Docker)..."
+if ! npm run test:docker; then
   echo "[pre-push] Tests failed. Push blocked."
   exit 1
 fi

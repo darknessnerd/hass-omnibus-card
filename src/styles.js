@@ -49,20 +49,31 @@ export const CARD_STYLES = `
     z-index: 0;
   }
 
-  .chart-stat {
+  .chart-stat, .chart-threshold {
     position: absolute;
-    font-size: 9px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--secondary-text-color, #888);
-    opacity: 0.5;
+    opacity: 0.75;
+    background: rgba(0,0,0,0.18);
+    border-radius: 3px;
+    padding: 1px 4px;
+    backdrop-filter: blur(3px);
     line-height: 1;
     letter-spacing: 0.02em;
     white-space: nowrap;
   }
 
+  .chart-stat { font-size: 8px; }
+
   .stat-max    { top: 5px;    right: 7px; }
   .stat-min    { bottom: 5px; right: 7px; }
   .stat-period { bottom: 5px; left:  7px; }
+
+  .chart-threshold {
+    left: 7px;
+    font-size: 9px;
+    transform: translateY(-50%);
+  }
 
   .card-content {
     position: relative;

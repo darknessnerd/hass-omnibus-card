@@ -132,7 +132,7 @@ flowchart TD
   ha["User's HA instance"]
 
   pr["pull request / push to main"]
-  ci_wf["ci.yml\nbuild · check dist · npm test"]
+  ci_wf["ci.yml\nbuild · check dist · npm run test:docker"]
   tests["37 Playwright\ntests"]
   pass["✅ pass"]
 
@@ -192,7 +192,7 @@ card-ha/
 ├─ dev.html                    # interactive dev harness (Iconify icons, scenario buttons)
 ├─ playwright.config.js        # Playwright: Chromium, Vite web server, snapshot paths
 ├─ vite.config.js              # Vite lib mode: src/index.js → dist/hass-omnibus-card.js
-└─ package.json                # scripts: dev, build, test, test:update, test:update-ci, test:ui
+└─ package.json                # scripts: dev, build, test:docker, test:update-ci
 ```
 
 ---
@@ -546,7 +546,7 @@ npm run build
 
 1. `npm run build` — rebuilds dist
 2. Checks `dist/hass-omnibus-card.js` is committed — blocks push if out of sync
-3. `npm test` — runs 37 Playwright snapshot tests
+3. `npm run test:docker` — runs Playwright snapshot tests in Docker (matches CI)
 
 `npm install` / `npm run prepare` installs the hook into `.git/hooks/` automatically. New contributors get it on first install.
 
@@ -557,8 +557,7 @@ npm run build
 1. `npm ci` — clean install
 2. `npm run build` — Vite bundles `src/` → `dist/hass-omnibus-card.js`
 3. `git diff --exit-code dist/hass-omnibus-card.js` — fails if built output differs from committed file
-4. `npx playwright install chromium` — install browser
-5. `npm test` — run 39 snapshot tests against committed baselines
+4. `npm run test:docker` — run snapshot tests against committed baselines, inside Docker
 
 Step 3 enforces that `dist/` is always in sync with `src/`. If you change source and forget to build+commit before pushing, CI catches it.
 
@@ -572,13 +571,13 @@ If a test fails, the Playwright HTML report is uploaded as a GitHub Actions arti
 ### Run the tests
 
 ```bash
-npm test                    # compare against committed baselines — 39 tests
-npm run test:update         # regenerate baselines after intentional visual changes (local OS)
+npm run test:docker         # compare against committed baselines — runs in Docker, matches CI
 npm run test:update-ci      # regenerate baselines inside Docker (matches CI/Ubuntu environment)
-npm run test:ui             # open Playwright interactive UI for debugging failures
 ```
 
-Tests start the Vite dev server automatically (reuses an existing one locally, always starts fresh in CI).
+Tests run inside the `mcr.microsoft.com/playwright` Docker image so font rendering and browser
+version always match CI — no local Playwright/browser install needed. The Vite dev server starts
+automatically inside the container.
 
 ### How snapshot testing works
 
@@ -616,7 +615,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 2. Call `mount(page, config, stateOverrides)` with the specific state
 3. Assert DOM state with `expect(locator).toBeVisible()` / `.toHaveClass()` etc.
 4. Call `toHaveScreenshot('my-scenario.png', SNAP)` to add a visual assertion
-5. Run `npm run test:update` to write the baseline PNG
+5. Run `npm run test:update-ci` to write the baseline PNG
 6. Commit the new `*.png` alongside the test
 
 ```javascript
@@ -665,7 +664,7 @@ HACS tracks this project via `hacs.json` and GitHub Releases.
 
 ### Release Workflow
 
-1.  **Verify**: Run `npm run test:docker` (or `npm test`) to ensure all tests pass.
+1.  **Verify**: Run `npm run test:docker` to ensure all tests pass.
 2.  **Version**: Run `npm version <patch|minor|major>`. 
     *   This automatically builds the project, syncs `README.md`, stages `dist/` and `README.md`, and creates a git commit and tag.
 3.  **Push**: `git push && git push --tags`.

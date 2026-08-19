@@ -350,6 +350,51 @@ test('history chart — y_min and y_max both set', async ({ page }) => {
   await expect(page.locator('#mount')).toHaveScreenshot('history-y-min-max.png', SNAP);
 });
 
+// ── History chart overlay labels ──────────────────────────────────────────────
+
+test('history chart overlay — stat-max/min show ↑/↓ prefixes', async ({ page }) => {
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('#mount').locator('.stat-max')).toContainText(/^↑\s/);
+  await expect(page.locator('#mount').locator('.stat-min')).toContainText(/^↓\s/);
+});
+
+test('history chart overlay — threshold_high label visible and shows value', async ({ page }) => {
+  await mount(page, {
+    area: 'living_room',
+    history_chart: { entity_id: 'sensor.temperature', threshold_high: 22 },
+  });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  const label = page.locator('#mount').locator('.chart-threshold');
+  await expect(label).toHaveCount(1);
+  await expect(label).toContainText('22.0°C');
+});
+
+test('history chart overlay — both threshold labels rendered when high and low set', async ({ page }) => {
+  await mount(page, {
+    area: 'living_room',
+    history_chart: { entity_id: 'sensor.temperature', threshold_high: 22, threshold_low: 18 },
+  });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('#mount').locator('.chart-threshold')).toHaveCount(2);
+});
+
+test('history chart overlay — no threshold labels without thresholds configured', async ({ page }) => {
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('#mount').locator('.chart-threshold')).toHaveCount(0);
+});
+
+test('history chart overlay — threshold outside data range suppresses label', async ({ page }) => {
+  // sensor.temperature data oscillates ~17-23°C — 100 is far outside range → yPct <= 0
+  await mount(page, {
+    area: 'living_room',
+    history_chart: { entity_id: 'sensor.temperature', threshold_high: 100 },
+  });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('#mount').locator('.chart-threshold')).toHaveCount(0);
+});
+
 // ── Debug mode ────────────────────────────────────────────────────────────────
 
 test('debug: true — console.debug fires on render', async ({ page }) => {

@@ -8,15 +8,21 @@
  *   - fill in between            → base color
  * Thresholds outside the data range are clamped and produce zero-height rects.
  */
+
+/** Shared scale: computes effective min/max/range from data bounds + hc y_min/y_max. */
+export function computeScale(hc, dataMin, dataMax) {
+  const min = hc?.y_min != null ? Math.min(hc.y_min, dataMin) : dataMin;
+  const max = hc?.y_max != null ? Math.max(hc.y_max, dataMax) : dataMax;
+  return { min, max, range: max - min };
+}
+
 export function sparklineSvg(points, color, hc = null) {
   if (!points?.length || points.length < 2) return '';
 
   const W = 300, H = 60;
   const dataMin = Math.min(...points);
   const dataMax = Math.max(...points);
-  const min   = hc?.y_min != null ? Math.min(hc.y_min, dataMin) : dataMin;
-  const max   = hc?.y_max != null ? Math.max(hc.y_max, dataMax) : dataMax;
-  const range = max - min;
+  const { min, max, range } = computeScale(hc, dataMin, dataMax);
 
   // All points identical and no y bounds set → no meaningful shape to draw
   if (range === 0 && hc?.y_min == null && hc?.y_max == null) return '';

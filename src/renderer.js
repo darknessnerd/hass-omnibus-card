@@ -14,7 +14,7 @@ import { getAreaEntities, classify, filterEntities } from './discovery.js';
 import { average, anyOn, activeLights, rgbColor } from './aggregators.js';
 import { friendlyLabel, entityIcon }  from './utils.js';
 import { fireMoreInfo, navigate }     from './events.js';
-import { sparklineSvg }              from './sparkline.js';
+import { sparklineSvg, computeScale } from './sparkline.js';
 
 
 // ── View model ─────────────────────────────────────────────────────────────
@@ -195,13 +195,33 @@ function renderErrorCard(areaId) {
     </ha-card>`;
 }
 
-function renderChartOverlay({ historyMin, historyMax, historyUnit: u, historyHours }) {
+function renderChartOverlay({ historyMin, historyMax, historyUnit: u, historyHours, historyChart: hc }) {
   if (historyMin === null) return '';
+
+  const thresholdLabels = [];
+  if (hc?.threshold_high != null || hc?.threshold_low != null) {
+    const { min: scaleMin, range } = computeScale(hc, historyMin, historyMax);
+    const scaleRange = range || 1;
+    const toYPct     = v => (1 - (v - scaleMin) / scaleRange) * 100;
+
+    if (hc.threshold_high != null) {
+      const yPct = toYPct(hc.threshold_high);
+      if (yPct > 0 && yPct < 100)
+        thresholdLabels.push(`<span class="chart-threshold" style="top:${yPct.toFixed(1)}%">${hc.threshold_high.toFixed(1)}${u}</span>`);
+    }
+    if (hc.threshold_low != null) {
+      const yPct = toYPct(hc.threshold_low);
+      if (yPct > 0 && yPct < 100)
+        thresholdLabels.push(`<span class="chart-threshold" style="top:${yPct.toFixed(1)}%">${hc.threshold_low.toFixed(1)}${u}</span>`);
+    }
+  }
+
   return `
     <div class="chart-overlay">
-      <span class="chart-stat stat-max">${historyMax.toFixed(1)}${u}</span>
+      <span class="chart-stat stat-max">↑ ${historyMax.toFixed(1)}${u}</span>
       <span class="chart-stat stat-period">${historyHours}h</span>
-      <span class="chart-stat stat-min">${historyMin.toFixed(1)}${u}</span>
+      <span class="chart-stat stat-min">↓ ${historyMin.toFixed(1)}${u}</span>
+      ${thresholdLabels.join('')}
     </div>`;
 }
 
