@@ -8,6 +8,10 @@
 <!-- MDI icons via Iconify -->
 <script src="https://cdn.jsdelivr.net/npm/iconify-icon@2/dist/iconify-icon.min.js"></script>
 
+<!-- constants.js references __VERSION__, normally replaced by Vite's `define` at build/dev-serve time.
+     This file is served as-is (no Vite) when opened directly or via GH Pages, so stub it here. -->
+<script>window.__VERSION__ = 'dev';</script>
+
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
