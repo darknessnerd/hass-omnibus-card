@@ -150,10 +150,17 @@ const MOCK_HASS = {
     'switch.led_cucina':                 { area_id: 'cucina', device_id: null, hidden_by: null },
     // esterno — mirrors real HA setup from debug log: security camera + weather station
     'camera.esterno_cam':          { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'button.esterno_cam_ptz_up':   { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'button.esterno_cam_ptz_up':    { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'button.esterno_cam_ptz_down':  { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'button.esterno_cam_ptz_left':  { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'button.esterno_cam_ptz_right': { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'button.esterno_cam_reboot':    { area_id: 'esterno', device_id: null,         hidden_by: null },
     'siren.esterno_cam_siren':     { area_id: 'esterno', device_id: null,         hidden_by: null },
     'switch.esterno_cam_ir_light': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
     'switch.esterno_cam_audio':    { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
+    'sensor.esterno_cam_ip':       { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
+    'image.esterno_cam_snapshot':  { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
+    'update.esterno_cam_firmware': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
     'switch.esterno_plug':         { area_id: 'esterno', device_id: null,         hidden_by: null },
     'sensor.esterno_wind_average': { area_id: 'esterno', device_id: null,         hidden_by: null },
     'sensor.esterno_rain_total':   { area_id: 'esterno', device_id: null,         hidden_by: null },
@@ -276,6 +283,22 @@ const MOCK_HASS = {
       state: 'unknown',
       attributes: { friendly_name: 'Esterno Cam PTZ Up' },
     },
+    'button.esterno_cam_ptz_down': {
+      state: 'unknown',
+      attributes: { friendly_name: 'Esterno Cam PTZ Down' },
+    },
+    'button.esterno_cam_ptz_left': {
+      state: 'unknown',
+      attributes: { friendly_name: 'Esterno Cam PTZ Left' },
+    },
+    'button.esterno_cam_ptz_right': {
+      state: 'unknown',
+      attributes: { friendly_name: 'Esterno Cam PTZ Right' },
+    },
+    'button.esterno_cam_reboot': {
+      state: 'unknown',
+      attributes: { friendly_name: 'Esterno Cam Reboot' },
+    },
     'siren.esterno_cam_siren': {
       state: 'off',
       attributes: { friendly_name: 'Esterno Cam Siren' },
@@ -287,6 +310,19 @@ const MOCK_HASS = {
     'switch.esterno_cam_audio': {
       state: 'on',
       attributes: { friendly_name: 'Esterno Cam Audio' },
+    },
+    // read-only entities on the camera's own device — must stay chips, not Controls
+    'sensor.esterno_cam_ip': {
+      state: '192.168.178.24',
+      attributes: { friendly_name: 'Esterno Cam IP' },
+    },
+    'image.esterno_cam_snapshot': {
+      state: '2026-08-19T15:17:47',
+      attributes: { friendly_name: 'Esterno Cam Snapshot' },
+    },
+    'update.esterno_cam_firmware': {
+      state: 'on',
+      attributes: { friendly_name: 'Esterno Cam Firmware' },
     },
     'switch.esterno_plug': {
       state: 'off',

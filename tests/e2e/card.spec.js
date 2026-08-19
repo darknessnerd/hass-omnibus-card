@@ -473,7 +473,10 @@ test('not occupied — idle dot visible', async ({ page }) => {
 
 // ── Camera preview ──────────────────────────────────────────────────────────
 
-const GARAGE = { area: 'garage' };
+// max_entities raised — the garage fixture models a real multi-entity camera device
+// (ptz/switches/sensors/image/update) plus a weather station; default cap (6) would
+// clip chips these tests need to assert on. Cap behavior itself is tested elsewhere.
+const GARAGE = { area: 'garage', max_entities: 20 };
 
 test('camera — preview image rendered, recording dot visible', async ({ page }) => {
   await mount(page, GARAGE);
@@ -506,12 +509,31 @@ test('camera — click opens more-info', async ({ page }) => {
 
 // ── Camera controls group ───────────────────────────────────────────────────
 
-test('controls — PTZ button, siren, device-linked switch/lock pulled in, plain switch/sensors stay chips', async ({ page }) => {
+test('controls — siren, generic button, device-linked switch/lock pulled in; PTZ buttons form their own group', async ({ page }) => {
   await mount(page, GARAGE);
-  const controls = page.locator('#mount').locator('.controls-chips .control-chip');
-  await expect(controls).toHaveCount(4); // ptz button + siren + IR-light switch + housing lock (all device-linked to camera)
+  // ptz_up + ptz_down are grouped into one ptz-chip; reboot/siren/switch/lock stay individual control-chips
+  const controls = page.locator('#mount').locator('.controls-chips .control-chip:not(.ptz-chip)');
+  await expect(controls).toHaveCount(4); // reboot button + siren + IR-light switch + housing lock
   await expect(page.locator('#mount').locator('.control-chip[data-domain="lock"]')).toBeVisible();
+  await expect(page.locator('#mount').locator('.ptz-chip .ptz-seg')).toHaveCount(2);
   await expect(page.locator('#mount')).toHaveScreenshot('camera-controls.png', SNAP);
+});
+
+test('controls — PTZ segment click presses the specific direction button', async ({ page }) => {
+  await mount(page, GARAGE);
+  await page.locator('#mount').locator('.ptz-seg[data-direction="up"]').click();
+  const calls = await page.evaluate(() => window.__serviceCalls);
+  expect(calls).toEqual([{ domain: 'button', service: 'press', data: {}, target: { entity_id: 'button.garage_cam_ptz_up' } }]);
+});
+
+test('controls — PTZ segment click falls back to more-info when callService is unavailable', async ({ page }) => {
+  await mount(page, GARAGE);
+  await page.evaluate(() => { document.querySelector('hass-omnibus-card')._hass.callService = null; });
+  const moreInfo = page.evaluate(() => new Promise(resolve => {
+    document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
+  }));
+  await page.locator('#mount').locator('.ptz-seg[data-direction="up"]').click();
+  expect(await moreInfo).toBe('button.garage_cam_ptz_up');
 });
 
 test('controls — device-linked lock click opens more-info (generic fallback, no lock-specific service)', async ({ page }) => {
@@ -521,6 +543,53 @@ test('controls — device-linked lock click opens more-info (generic fallback, n
   }));
   await page.locator('#mount').locator('.control-chip[data-domain="lock"]').click();
   expect(await moreInfo).toBe('lock.garage_cam_housing');
+});
+
+test('controls — read-only sensor/image sharing the camera device stay chips, not controls', async ({ page }) => {
+  // real ezviz camera device exposes ip/alarm-code sensors and a motion snapshot image
+  // alongside the actual switches/buttons — neither is operable, so the device-link
+  // sweep must not pull them into Controls
+  await mount(page, GARAGE);
+  for (const entityId of ['sensor.garage_cam_ip', 'image.garage_cam_snapshot']) {
+    const chip = page.locator('#mount').locator(`.chip[data-entity="${entityId}"]`);
+    await expect(chip).toBeVisible();
+    await expect(chip).not.toHaveClass(/control-chip/);
+  }
+});
+
+// ── Firmware update badge ────────────────────────────────────────────────────
+
+test('update badge — firmware update available renders header badge, not a plain chip', async ({ page }) => {
+  await mount(page, GARAGE);
+  const badge = page.locator('#mount').locator('.badge-update');
+  await expect(badge).toBeVisible();
+  await expect(badge).toHaveAttribute('data-entity', 'update.garage_cam_firmware');
+  await expect(page.locator('#mount').locator('.chip[data-entity="update.garage_cam_firmware"]')).toHaveCount(0);
+});
+
+test('update badge — no badge when no update is pending', async ({ page }) => {
+  await mount(page, GARAGE, {
+    'update.garage_cam_firmware': { state: 'off', attributes: { friendly_name: 'Garage Cam Firmware' } },
+  });
+  await expect(page.locator('#mount').locator('.badge-update')).not.toBeVisible();
+});
+
+test('update badge — click opens more-info', async ({ page }) => {
+  await mount(page, GARAGE);
+  const moreInfo = page.evaluate(() => new Promise(resolve => {
+    document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
+  }));
+  await page.locator('#mount').locator('.badge-update').click();
+  expect(await moreInfo).toBe('update.garage_cam_firmware');
+});
+
+test('update badge — unavailable update entity counts as a problem, not silently dropped', async ({ page }) => {
+  await mount(page, GARAGE, {
+    'update.garage_cam_firmware': { state: 'unavailable', attributes: { friendly_name: 'Garage Cam Firmware' } },
+  });
+  await expect(page.locator('#mount').locator('.badge-update')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.chip[data-entity="update.garage_cam_firmware"]')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.badge-problems')).toBeVisible();
 });
 
 // ── Camera edge cases ────────────────────────────────────────────────────────
@@ -543,20 +612,35 @@ test('camera — unavailable camera dims the preview and marks it offline', asyn
 
 // ── Weather sensor icons ─────────────────────────────────────────────────────
 
-test('weather sensors — wind/rain/illuminance/noise get dedicated device_class icons', async ({ page }) => {
+test('weather sensors — grouped into one weather-chip, dedicated device_class icons + values', async ({ page }) => {
   await mount(page, GARAGE);
-  const iconFor = entityId => page.locator('#mount').locator(`.chip[data-entity="${entityId}"] ha-icon`).getAttribute('icon');
+  await expect(page.locator('#mount').locator('.weather-chip')).toHaveCount(1);
+  await expect(page.locator('#mount').locator('.weather-chip .weather-seg')).toHaveCount(4);
+  await expect(page.locator('#mount').locator('.chip[data-entity="sensor.garage_wind"]:not(.weather-seg)')).toHaveCount(0); // not also a plain chip
+
+  const iconFor = entityId => page.locator('#mount').locator(`.weather-seg[data-entity="${entityId}"] ha-icon`).getAttribute('icon');
   expect(await iconFor('sensor.garage_wind')).toBe('mdi:weather-windy');
   expect(await iconFor('sensor.garage_rain')).toBe('mdi:weather-rainy');
   expect(await iconFor('sensor.garage_illuminance')).toBe('mdi:brightness-6');
   expect(await iconFor('sensor.garage_noise')).toBe('mdi:volume-high');
+
+  await expect(page.locator('#mount').locator('.weather-seg[data-entity="sensor.garage_wind"] .group-seg-value')).toHaveText('2.5km/h');
 });
 
-test('controls — button click presses button service, not more-info', async ({ page }) => {
+test('weather-chip segment click opens more-info', async ({ page }) => {
+  await mount(page, GARAGE);
+  const moreInfo = page.evaluate(() => new Promise(resolve => {
+    document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
+  }));
+  await page.locator('#mount').locator('.weather-seg[data-entity="sensor.garage_wind"]').click();
+  expect(await moreInfo).toBe('sensor.garage_wind');
+});
+
+test('controls — generic (non-PTZ) button click presses button service, not more-info', async ({ page }) => {
   await mount(page, GARAGE);
   await page.locator('#mount').locator('.control-chip[data-domain="button"]').click();
   const calls = await page.evaluate(() => window.__serviceCalls);
-  expect(calls).toEqual([{ domain: 'button', service: 'press', data: {}, target: { entity_id: 'button.garage_cam_ptz_up' } }]);
+  expect(calls).toEqual([{ domain: 'button', service: 'press', data: {}, target: { entity_id: 'button.garage_cam_reboot' } }]);
 });
 
 test('controls — siren click toggles siren service, not more-info', async ({ page }) => {

@@ -296,13 +296,44 @@ Entities that exist purely to operate a camera (PTZ buttons, siren, IR/status li
 Grouping rule:
 
 * `siren` and `button` domain entities always join Controls, regardless of device.
-* Any other otherwise-generic entity (switch, select, number, lock, cover, …) joins Controls only when it shares a *device* with a discovered camera — this avoids pulling unrelated switches (e.g. a nearby smart plug) into the group just because they're in the same area, while still covering camera-accessory domains beyond the original switch/select/number set.
+* Any other otherwise-generic *operable* entity (switch, select, number, lock, cover, …) joins Controls only when it shares a *device* with a discovered camera — this avoids pulling unrelated switches (e.g. a nearby smart plug) into the group just because they're in the same area, while still covering camera-accessory domains beyond the original switch/select/number set.
+* Read-only domains (`sensor`, `binary_sensor`, `image`, `update`) never join Controls, even when the camera's own device exposes them (e.g. an IP-address sensor, a motion-snapshot `image` entity, or a firmware `update` entity on the camera device) — they're informational, not something to operate, so they stay in the chip strip.
 
 Interaction differs by domain:
 
 * `button` → pressed directly (`button.press`)
 * `siren` → toggled directly (`siren.toggle`)
 * everything else → opens the standard more-info dialog
+
+### PTZ pad — one chip instead of four
+
+A real multi-entity camera device can expose a dozen-plus operable entities (buttons, switches, a select, a number) — grouping them all as individual Controls chips is still cluttered. PTZ buttons are the clearest sub-case: four buttons that all do one job (pan/tilt), so they collapse further into a single directional-pad chip.
+
+* `button` entities whose `entity_id` ends in a recognized PTZ direction suffix (`_ptz_up/down/left/right` — English, or `_ptz_su/giu/sinistra/destra` — Italian) are pulled out of the plain Controls chips into one pad chip containing an arrow segment per direction found (not necessarily all four).
+* Each arrow segment is independently clickable and presses its own button entity — grouping is visual only, not a new aggregate action.
+* Detection matches on `entity_id`, which is a stable, unlocalized integration slug — unlike `friendly_name`, which is user- and language-dependent.
+* Non-PTZ buttons on the same device (e.g. a reboot button) are unaffected and still render as individual Controls chips.
+
+---
+
+## Weather Chip — one chip instead of one per reading
+
+A weather station reports several readings (wind, rain, illuminance, noise…) that individually would be five-plus near-identical chips in the strip. They group into a single chip instead — one icon+value segment per reading, each independently clickable (opens more-info).
+
+* Applies to `sensor` entities with `device_class: wind_speed / precipitation / illuminance / sound_pressure`.
+* There's no standard HA device_class for UV index, so UV sensors stay ungrouped, individual chips.
+* This is purely a *display* grouping — each segment is still its own entity underneath, clickable independently, no aggregation of values.
+
+---
+
+## Firmware Update Badge
+
+`update.*` entities reporting an update available (`state: on`) surface as a header badge — the same visual pattern as the low-battery badge — instead of sitting as an easy-to-miss plain chip.
+
+* Badge shows a count when more than one update is pending.
+* Tap opens more-info for the (first) pending update.
+* An `update` entity with `state: off` (no update pending) produces no badge and no chip — it's simply not shown, consistent with how the battery badge only appears below threshold.
+* An `update` entity with `state: unavailable` counts toward the problem badge instead of disappearing entirely — it's diverted to its own bucket only when not unavailable, same guard the battery bucket uses.
 
 ---
 

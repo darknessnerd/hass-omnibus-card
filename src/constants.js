@@ -49,3 +49,10 @@ export const ICON_BY_DOMAIN = {
   button:         'mdi:gesture-tap-button',
   camera:         'mdi:cctv',
 };
+
+export const PTZ_ICON = {
+  up:    'mdi:arrow-up-bold',
+  down:  'mdi:arrow-down-bold',
+  left:  'mdi:arrow-left-bold',
+  right: 'mdi:arrow-right-bold',
+};

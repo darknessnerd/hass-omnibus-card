@@ -623,7 +623,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 - **Animations and transitions are disabled** in `tests/fixture.html` for deterministic screenshots.
 - **Icons use a box stub** (not Iconify CDN) — a solid-color rectangle per icon. Snapshots show layout and color, not specific icon glyphs. No CDN dependency, no flaky rendering.
 
-### What is covered (66 tests)
+### What is covered (74 tests)
 
 | Category | Tests |
 |---|---|
@@ -643,7 +643,11 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 | Entity filtering | `exclude_entities` on classified entity, on chip-strip entity; `add_entities` from outside area; `entities` whitelist overrides area discovery |
 | History chart | SVG rendered when configured; absent when not configured; gradient thresholds (both); high-threshold only |
 | Camera preview | Snapshot image + recording dot rendered; hidden with no camera entity; hidden with `show_camera: false`; click opens more-info; dims + "(offline)" title when `unavailable`; a second camera in the area falls back to a chip instead of being lost |
-| Camera controls | PTZ button + siren + device-linked switch/lock grouped into Controls (domain-agnostic device-link rule), plain switch/sensors stay chips; button click calls `button.press`; siren click calls `siren.toggle`; device-linked switch/lock click opens more-info |
+| Camera controls | siren + generic button + device-linked switch/lock grouped into Controls; device-linked `sensor`/`image` stay chips (read-only, not swept in); button click calls `button.press`; siren click calls `siren.toggle`; device-linked switch/lock click opens more-info |
+| PTZ pad | `_ptz_up/down/left/right` buttons collapse into one pad chip with N arrow segments; each segment presses its own button; non-PTZ button on the same device stays a separate Controls chip |
+| Weather chip | wind/rain/illuminance/noise sensors collapse into one chip with icon+value segments; segment click opens more-info; not also rendered as plain chips |
+| Firmware update badge | `update.*` with `state: on` shows header badge (not a chip); `state: off` shows neither; badge click opens more-info; `state: unavailable` counts as a problem instead of vanishing |
+| PTZ fallback | pad segment click falls back to more-info when `callService` is unavailable, matching the plain Controls button/siren behavior |
 | Weather sensor icons | `wind_speed`/`precipitation`/`illuminance`/`sound_pressure` device classes resolve to dedicated mdi icons |
 
 ### Adding a new test

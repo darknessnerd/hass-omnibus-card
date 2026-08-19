@@ -38,7 +38,9 @@ area: living_room          entities: [light.x, sensor.y]
       ├─ smoke/gas/water ─► pulsing alarm bar
       ├─ battery ─────────► chip strip + low-battery badge (badge only when ≤ threshold)
       ├─ camera ──────────► snapshot preview banner (tap → more-info / live view)
-      ├─ siren/button ────► controls row (siren: tap toggles; button: tap presses)
+      ├─ siren/button ────► controls row (siren: tap toggles; button: tap presses; PTZ buttons group into one pad)
+      ├─ weather sensors ─► one grouped chip (wind/rain/illuminance/noise, icon + value per reading)
+      ├─ update ──────────► header badge when an update is pending (like the battery badge)
       ├─ additional camera device-linked entity (switch, select, number, lock…) ─► controls row
       └─ everything else ─► entity chip strip
       │
@@ -71,8 +73,10 @@ area: living_room          entities: [light.x, sensor.y]
 | History Y axis | `y_min` / `y_max` pin the sparkline scale floor/ceiling — data never clips, scale expands to fit |
 | Debug logging | `debug: true` emits console.debug on every render with entity states and view-model snapshot |
 | Camera preview | First `camera.*` entity in the area renders as a snapshot banner (uses the entity's own `entity_picture`); tap opens more-info; red dot while `state: recording`; dimmed + "(offline)" title while `state: unavailable`; disable with `show_camera: false`. Additional cameras in the same area still appear as regular chips |
-| Camera controls | `siren`/`button` entities always group into a dedicated "Controls" row; any other generic entity (switch, select, number, lock…) sharing a *device* with a discovered camera joins them. Tap: button → `button.press`, siren → `siren.toggle`, everything else → more-info |
-| Weather sensor icons | `device_class: wind_speed / precipitation / illuminance / sound_pressure` get proper mdi icons in the chip strip instead of the generic fallback |
+| Camera controls | `siren`/`button` entities always group into a dedicated "Controls" row; any other *operable* entity (switch, select, number, lock…) sharing a *device* with a discovered camera joins them — read-only domains (`sensor`, `binary_sensor`, `image`, `update`) never do, even on the same device. Tap: button → `button.press`, siren → `siren.toggle`, everything else → more-info |
+| PTZ pad | `button` entities matching a PTZ naming pattern (`*_ptz_up/down/left/right`, English or Italian) collapse into a single directional-pad chip instead of one chip per direction; each arrow segment presses its own button |
+| Weather chip | `sensor` entities with `device_class: wind_speed / precipitation / illuminance / sound_pressure` collapse into a single chip — one icon+value segment per reading — instead of a chip per sensor |
+| Firmware update badge | Any `update.*` entity reporting an update available (`state: on`) shows a header badge (count if more than one), mirroring the low-battery badge; tap opens more-info |
 
 ---
 
@@ -195,9 +199,12 @@ debug: false                   # true → console.debug on every render with ent
 | Any entity with state `unavailable` | Problem badge |
 | `camera.*` (first found) | Camera snapshot preview banner |
 | `camera.*` (any additional) | Entity chip strip |
-| `siren.*`, `button.*` | Controls row (always, regardless of device) |
-| Any other domain sharing a *device* with a discovered camera | Controls row |
-| `sensor` + `device_class: wind_speed/precipitation/illuminance/sound_pressure` | Entity chip strip, with a dedicated icon |
+| `button.*` matching a PTZ naming pattern (`*_ptz_up/down/left/right`, EN or IT) | Grouped into one directional-pad chip in the Controls row |
+| `siren.*`, `button.*` (non-PTZ) | Controls row (always, regardless of device) |
+| Any other *operable* domain sharing a *device* with a discovered camera | Controls row |
+| `sensor`/`binary_sensor`/`image` sharing a *device* with a discovered camera | Entity chip strip (never Controls — read-only, no service to call) |
+| `update.*` | Header badge when an update is pending (`state: on`); never a chip; `unavailable` counts as a problem instead |
+| `sensor` + `device_class: wind_speed/precipitation/illuminance/sound_pressure` | Grouped into one weather chip (icon + value per reading) |
 | Everything else | Entity chip strip (capped at `max_entities`) |
 
 ---
@@ -303,7 +310,7 @@ type: custom:hass-omnibus-card
 area: esterno
 ```
 
-The camera entity's snapshot renders as a banner at the top of the card. PTZ buttons, the siren, and any other entity sharing a device with the camera (IR light, status light, audio, sensitivity, alert sound…) group into a "Controls" row below the chip strip — tap a button to press it, tap the siren to toggle it, tap anything else to open more-info.
+The camera entity's snapshot renders as a banner at the top of the card. The siren, and any other entity sharing a device with the camera (IR light, status light, audio, sensitivity, alert sound…) group into a "Controls" row below the chip strip — tap a button to press it, tap the siren to toggle it, tap anything else to open more-info. PTZ buttons (`*_ptz_up/down/left/right`) collapse into a single directional-pad chip inside that row instead of one chip per direction. A pending firmware `update.*` entity shows as a header badge instead of a chip.
 
 Hide just the preview and keep the controls:
 
@@ -381,6 +388,9 @@ cards:
 | Area not found | Dashed red error card with explanation |
 | Camera recording | Pulsing red dot on the snapshot preview banner |
 | Camera controls present | "Controls" label + chip row below the chip strip |
+| PTZ buttons present | Single directional-pad chip (one arrow segment per direction) inside the Controls row |
+| Weather sensors present | Single grouped chip (one icon+value segment per reading) in the entity chip strip |
+| Update pending | Blue header badge (count if more than one) |
 
 ---
 
@@ -407,6 +417,8 @@ Source is split into single-responsibility modules under `src/`. See [DEVELOPMEN
 - The camera preview uses the camera entity's own `entity_picture` (a live snapshot proxy URL) rather than a dedicated `image.*` helper entity — it refreshes whenever the camera's state/attributes change.
 - Camera-linked control grouping requires the entity to share a *device* (`device_id`) with the camera entity; entities only sharing an area are left as regular chips.
 - Only the first `camera.*` entity discovered in an area gets the preview banner; any others fall back to the chip strip.
+- PTZ grouping matches `button` entity IDs ending in `_ptz_up/down/left/right` (English) or `_ptz_su/giu/sinistra/destra` (Italian) — a pattern match on the stable, unlocalized `entity_id` slug, not the `friendly_name`. Other languages or naming conventions won't group and stay individual Controls chips.
+- The weather chip only groups `sensor` entities with `device_class: wind_speed/precipitation/illuminance/sound_pressure`; there's no standard HA device_class for UV index, so those stay ungrouped chips.
 
 ---
 

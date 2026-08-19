@@ -188,6 +188,18 @@ export const CARD_STYLES = `
     background: rgba(244, 67, 54, 0.28);
   }
 
+  .badge-update {
+    background: rgba(3, 169, 244, 0.15);
+    color: var(--primary-color, #03a9f4);
+    cursor: pointer;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .badge-update:hover {
+    background: rgba(3, 169, 244, 0.28);
+  }
+
   /* Occupancy dot — always visible when sensors exist */
   .occupancy-dot {
     width: 9px;
@@ -286,6 +298,40 @@ export const CARD_STYLES = `
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+  /* ── Group chips (PTZ pad, weather readings) — one pill, many segments ── */
+
+  .group-chip {
+    padding: 2px 3px;
+    gap: 0;
+    cursor: default;
+  }
+
+  .group-chip:hover {
+    background: var(--secondary-background-color, rgba(128, 128, 128, 0.12));
+    color: var(--secondary-text-color);
+  }
+
+  .group-seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 6px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .group-seg:hover {
+    background: var(--primary-color, #03a9f4);
+    color: white;
+  }
+
+  .group-seg ha-icon { --mdc-icon-size: 13px; }
+
+  .group-seg-value { font-size: 0.72rem; }
+
+  .ptz-chip .group-seg { padding: 3px 5px; }
 
   /* ── Camera preview ── */
 

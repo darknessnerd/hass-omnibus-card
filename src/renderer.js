@@ -8,7 +8,7 @@
  * Adding a new section only requires: a new template fn + one line in renderCard().
  */
 
-import { CLIMATE_MAP, ACTIVE_STATES } from './constants.js';
+import { CLIMATE_MAP, ACTIVE_STATES, PTZ_ICON } from './constants.js';
 import { CARD_STYLES }                from './styles.js';
 import { getAreaEntities, classify, filterEntities } from './discovery.js';
 import { average, anyOn, activeLights, rgbColor, lowestBattery } from './aggregators.js';
@@ -51,6 +51,8 @@ export function buildViewModel(hass, config, historyPoints = null) {
   const camera       = c.cameras[0] ?? null;
   const extraCameras = c.cameras.slice(1);
 
+  const pendingUpdates = c.updates.filter(u => u.state.state === 'on');
+
   return {
     areaName:     config.name || area?.name || areaId || '',
     cardIcon:     config.icon || area?.icon || 'mdi:home',
@@ -87,6 +89,12 @@ export function buildViewModel(hass, config, historyPoints = null) {
     waterOn:  anyOn(c.moistures),
     moldRisk: humVal !== null && humVal >= moldThreshold,
 
+    updateCount:  pendingUpdates.length,
+    updateEntity: pendingUpdates[0]?.entityId ?? null,
+    updateTitle:  pendingUpdates.length
+      ? `${pendingUpdates.length} update${pendingUpdates.length !== 1 ? 's' : ''} available: ${pendingUpdates.map(u => u.state.attributes?.friendly_name ?? u.entityId).join(', ')}`
+      : '',
+
     hasCamera:    config.show_camera !== false && !!camera,
     cameraEntity: camera?.entityId ?? null,
     cameraImage:  camera?.state.attributes?.entity_picture ?? null,
@@ -104,6 +112,29 @@ export function buildViewModel(hass, config, historyPoints = null) {
           label:    friendlyLabel(entityId, state),
           title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
         }))
+      : [],
+
+    // grouped into one pill instead of one chip per PTZ button / weather reading
+    ptzItems: config.show_entities !== false
+      ? c.ptz.map(({ entityId, state, direction }) => ({
+          entityId,
+          direction,
+          icon:  PTZ_ICON[direction],
+          title: state.attributes?.friendly_name ?? entityId,
+        }))
+      : [],
+    weatherItems: config.show_entities !== false
+      ? c.weathers.map(({ entityId, state }) => {
+          const num  = parseFloat(state.state);
+          const unit = state.attributes?.unit_of_measurement ?? '';
+          return {
+            entityId,
+            icon:  entityIcon(entityId, state),
+            value: isNaN(num) ? state.state : num.toFixed(1),
+            unit,
+            title: `${state.attributes?.friendly_name ?? entityId} — ${state.state}${unit}`,
+          };
+        })
       : [],
 
     historyPoints: hc?.entity_id ? historyPoints : null,
@@ -131,7 +162,8 @@ export function buildViewModel(hass, config, historyPoints = null) {
 // ── Template functions (ViewModel → HTML string) ────────────────────────────
 
 function renderHeader({ areaName, cardIcon, hasLights, lightCount, offlineLights, occupied, hasOccupancySensors, problemCount,
-                         showBatteryBadge, batteryValue, batteryIcon: batteryIconName, batteryEntity, batteryTitle }) {
+                         showBatteryBadge, batteryValue, batteryIcon: batteryIconName, batteryEntity, batteryTitle,
+                         updateCount, updateEntity, updateTitle }) {
   const lightsOff     = lightCount === 0;
   const lightTitle    = lightsOff
     ? (offlineLights > 0 ? `${offlineLights} light${offlineLights !== 1 ? 's' : ''} offline` : 'Lights off')
@@ -163,6 +195,13 @@ function renderHeader({ areaName, cardIcon, hasLights, lightCount, offlineLights
                title="${problemCount} problem${problemCount !== 1 ? 's' : ''}">
             <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
             ${problemCount > 1 ? `<span>${problemCount}</span>` : ''}
+          </div>` : ''}
+        ${updateCount > 0 ? `
+          <div class="badge badge-update"
+               data-entity="${updateEntity}"
+               title="${updateTitle}">
+            <ha-icon icon="mdi:package-up"></ha-icon>
+            ${updateCount > 1 ? `<span>${updateCount}</span>` : ''}
           </div>` : ''}
       </div>
     </div>`;
@@ -203,10 +242,23 @@ function renderEnvRow({ tempVal, humVal, tempUnit, tempEntities, humEntities, cl
     </div>`;
 }
 
-function renderChips({ chipItems }) {
-  if (!chipItems.length) return '';
+function renderWeatherChip({ weatherItems }) {
+  if (!weatherItems.length) return '';
+  return `
+    <div class="chip group-chip weather-chip" title="Weather">
+      ${weatherItems.map(({ entityId, icon, value, unit, title }) => `
+        <span class="group-seg weather-seg" data-entity="${entityId}" title="${title}">
+          <ha-icon icon="${icon}"></ha-icon>
+          <span class="group-seg-value">${value}${unit}</span>
+        </span>`).join('')}
+    </div>`;
+}
+
+function renderChips({ chipItems, weatherItems }) {
+  if (!chipItems.length && !weatherItems.length) return '';
   return `
     <div class="entity-chips">
+      ${renderWeatherChip({ weatherItems })}
       ${chipItems.map(({ entityId, isActive, icon, label, title }) => `
         <div class="chip${isActive ? ' on' : ''}" data-entity="${entityId}" title="${title}">
           <ha-icon icon="${icon}"></ha-icon>
@@ -227,12 +279,24 @@ function renderCameraPreview({ hasCamera, cameraImage, cameraIcon, cameraEntity,
     </div>`;
 }
 
-function renderControls({ controlItems }) {
-  if (!controlItems.length) return '';
+function renderPtzChip({ ptzItems }) {
+  if (!ptzItems.length) return '';
+  return `
+    <div class="chip group-chip control-chip ptz-chip" title="PTZ">
+      ${ptzItems.map(({ entityId, direction, icon, title }) => `
+        <span class="group-seg ptz-seg" data-entity="${entityId}" data-direction="${direction}" title="${title}">
+          <ha-icon icon="${icon}"></ha-icon>
+        </span>`).join('')}
+    </div>`;
+}
+
+function renderControls({ controlItems, ptzItems }) {
+  if (!controlItems.length && !ptzItems.length) return '';
   return `
     <div class="controls-row">
       <span class="controls-label">Controls</span>
       <div class="controls-chips">
+        ${renderPtzChip({ ptzItems })}
         ${controlItems.map(({ entityId, domain, isActive, icon, label, title }) => `
           <div class="chip control-chip${isActive ? ' on' : ''}" data-entity="${entityId}" data-domain="${domain}" title="${title}">
             <ha-icon icon="${icon}"></ha-icon>
@@ -343,9 +407,24 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
     shadowRoot.querySelector('ha-card').addEventListener('click', e => {
       if (!e.target.closest('.chip') && !e.target.closest('.env-chip')
           && !e.target.closest('.badge-lights') && !e.target.closest('.badge-battery')
-          && !e.target.closest('.camera-preview')) navigate(navPath);
+          && !e.target.closest('.badge-update') && !e.target.closest('.camera-preview')) navigate(navPath);
     });
   }
+
+  shadowRoot.querySelectorAll('.ptz-seg[data-entity]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      if (host._hass?.callService) host._hass.callService('button', 'press', {}, { entity_id: el.dataset.entity });
+      else fireMoreInfo(host, el.dataset.entity);
+    });
+  });
+
+  shadowRoot.querySelectorAll('.weather-seg[data-entity]').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
+  });
+
+  const updateBadge = shadowRoot.querySelector('.badge-update[data-entity]');
+  if (updateBadge) updateBadge.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, updateBadge.dataset.entity); });
 
   const cameraPreview = shadowRoot.querySelector('.camera-preview[data-entity]');
   if (cameraPreview) cameraPreview.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, cameraPreview.dataset.entity); });
