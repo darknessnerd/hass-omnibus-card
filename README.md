@@ -6,7 +6,8 @@ A compact, intelligent Home Assistant Lovelace card that summarizes an entire ro
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.10.0-green.svg)](src/constants.js)
-[![CI](https://github.com/yourusername/hass-omnibus-card/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/hass-omnibus-card/actions/workflows/ci.yml)
+[![CI](https://github.com/darknessnerd/hass-omnibus-card/actions/workflows/ci.yml/badge.svg)](https://github.com/darknessnerd/hass-omnibus-card/actions/workflows/ci.yml)
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://darknessnerd.github.io/hass-omnibus-card/dev.html)
 
 > **Development:** `npm install && npm run dev` — opens a live-reload test harness in the browser. No Home Assistant required. See [DEVELOPMENT.md](DEVELOPMENT.md).
 
