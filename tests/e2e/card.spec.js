@@ -411,6 +411,39 @@ test('debug: false (default) — no console.debug', async ({ page }) => {
   expect(debugMessages.filter(m => m.includes('[hass-omnibus-card]'))).toHaveLength(0);
 });
 
+// ── Battery badge ─────────────────────────────────────────────────────────────
+
+test('battery — chip shown, no low badge when above threshold', async ({ page }) => {
+  await mount(page, { area: 'living_room', entities: ['sensor.battery_test'] });
+  await expect(page.locator('#mount').locator('.chip')).toHaveCount(1);
+  await expect(page.locator('#mount').locator('.badge-battery')).not.toBeVisible();
+});
+
+test('battery — low badge appears at/below default threshold (20%), chip still shown', async ({ page }) => {
+  await mount(page, { area: 'living_room', entities: ['sensor.battery_test'] }, {
+    'sensor.battery_test': { state: '15', attributes: { friendly_name: 'Battery Test', device_class: 'battery', unit_of_measurement: '%' } },
+  });
+  await expect(page.locator('#mount').locator('.badge-battery')).toBeVisible();
+  await expect(page.locator('#mount').locator('.badge-battery > span')).toHaveText('15%');
+  await expect(page.locator('#mount').locator('.chip')).toHaveCount(1);
+});
+
+test('battery — custom battery_low_threshold respected', async ({ page }) => {
+  await mount(page, { area: 'living_room', entities: ['sensor.battery_test'], battery_low_threshold: 50 }, {
+    'sensor.battery_test': { state: '45', attributes: { friendly_name: 'Battery Test', device_class: 'battery', unit_of_measurement: '%' } },
+  });
+  await expect(page.locator('#mount').locator('.badge-battery')).toBeVisible();
+});
+
+test('battery — unavailable sensor counted as problem, not battery chip', async ({ page }) => {
+  await mount(page, { area: 'living_room', entities: ['sensor.battery_test'] }, {
+    'sensor.battery_test': { state: 'unavailable', attributes: { friendly_name: 'Battery Test', device_class: 'battery', unit_of_measurement: '%' } },
+  });
+  await expect(page.locator('#mount').locator('.badge-problems')).toBeVisible();
+  await expect(page.locator('#mount').locator('.badge-battery')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.chip')).toHaveCount(0);
+});
+
 // ── Light badge enhancements ───────────────────────────────────────────────
 
 test('lights off — badge has .off class', async ({ page }) => {

@@ -88,7 +88,7 @@ export function classify(areaEntities) {
     else if (domain === 'binary_sensor' && dc === 'smoke')                                  out.smokes.push(item);
     else if (domain === 'binary_sensor' && dc === 'gas')                                    out.gases.push(item);
     else if (domain === 'binary_sensor' && dc === 'moisture')                               out.moistures.push(item);
-    else if (domain === 'sensor'        && dc === 'battery')                                out.batteries.push(item);
+    else if (domain === 'sensor'        && dc === 'battery' && val !== 'unavailable') { out.batteries.push(item); out.others.push(item); }
     else if (val === 'unavailable' || (domain === 'binary_sensor' && ['problem', 'tamper', 'safety'].includes(dc) && val === 'on'))
                                                                                             out.problems.push(item);
     else                                                                                    out.others.push(item);

@@ -36,7 +36,7 @@ area: living_room          entities: [light.x, sensor.y]
       ├─ humidity ────────► averaged + mold risk threshold
       ├─ motion/occupancy ► occupied indicator dot
       ├─ smoke/gas/water ─► pulsing alarm bar
-      ├─ battery ─────────► low-battery badge (only when ≤ threshold)
+      ├─ battery ─────────► chip strip + low-battery badge (badge only when ≤ threshold)
       └─ everything else ─► entity chip strip
       │
       ▼
@@ -55,7 +55,7 @@ area: living_room          entities: [light.x, sensor.y]
 | Light indicator | Always-visible badge — colored when on, grey when off; tap to toggle; offline dot when any light unavailable |
 | Climate state | Heat/cool/auto/dry/fan icons with live temperature |
 | Safety alarms | Smoke, gas, water — pulsing alarm bar, high priority |
-| Battery badge | Appears only when a battery sensor drops to/below `battery_low_threshold`; shows lowest charge + level-based icon |
+| Battery badge | Battery sensors always show as chips; a low-battery badge (lowest charge + level-based icon) additionally appears when any drops to/below `battery_low_threshold` |
 | Mold risk | Humidity above configurable threshold → warning badge |
 | Problem counter | Unavailable entities + problem/tamper binary sensors |
 | Entity chip strip | Interactive chips for remaining entities — tap opens more-info |
@@ -181,7 +181,7 @@ debug: false                   # true → console.debug on every render with ent
 | `binary_sensor` + `device_class: smoke` | Alarm bar |
 | `binary_sensor` + `device_class: gas` | Alarm bar |
 | `binary_sensor` + `device_class: moisture` | Alarm bar |
-| `sensor` + `device_class: battery` | Battery badge (header) — only when ≤ `battery_low_threshold` |
+| `sensor` + `device_class: battery` | Entity chip strip (always) + battery badge (header) when ≤ `battery_low_threshold` |
 | `binary_sensor` + `device_class: problem/tamper/safety` (on) | Problem badge |
 | Any entity with state `unavailable` | Problem badge |
 | Everything else | Entity chip strip (capped at `max_entities`) |
