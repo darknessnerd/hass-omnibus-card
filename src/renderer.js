@@ -11,8 +11,8 @@
 import { CLIMATE_MAP, ACTIVE_STATES } from './constants.js';
 import { CARD_STYLES }                from './styles.js';
 import { getAreaEntities, classify, filterEntities } from './discovery.js';
-import { average, anyOn, activeLights, rgbColor } from './aggregators.js';
-import { friendlyLabel, entityIcon }  from './utils.js';
+import { average, anyOn, activeLights, rgbColor, lowestBattery } from './aggregators.js';
+import { friendlyLabel, entityIcon, batteryIcon }  from './utils.js';
 import { fireMoreInfo, navigate }     from './events.js';
 import { sparklineSvg, computeScale } from './sparkline.js';
 
@@ -43,6 +43,9 @@ export function buildViewModel(hass, config, historyPoints = null) {
   const navPath     = config.navigate_to || config.tap_action?.navigation_path || null;
   const hc          = config.history_chart ?? null;
 
+  const batteryLowThreshold = config.battery_low_threshold ?? 20;
+  const lowBattery = lowestBattery(c.batteries);
+
   return {
     areaName:     config.name || area?.name || areaId || '',
     cardIcon:     config.icon || area?.icon || 'mdi:home',
@@ -55,6 +58,14 @@ export function buildViewModel(hass, config, historyPoints = null) {
     occupied:            anyOn(c.motions) || anyOn(c.occupancy),
     hasOccupancySensors: c.motions.length > 0 || c.occupancy.length > 0,
     problemCount: c.problems.length,
+
+    showBatteryBadge: lowBattery != null && lowBattery.value <= batteryLowThreshold,
+    batteryValue:     lowBattery?.value ?? null,
+    batteryIcon:      lowBattery ? batteryIcon(lowBattery.value) : null,
+    batteryEntity:    lowBattery?.entityId ?? null,
+    batteryTitle:     lowBattery
+      ? `${c.batteries.length > 1 ? `Lowest of ${c.batteries.length} — ` : ''}${lowBattery.state.attributes?.friendly_name ?? lowBattery.entityId}: ${lowBattery.value}%`
+      : '',
 
     tempVal,
     humVal,
@@ -95,7 +106,8 @@ export function buildViewModel(hass, config, historyPoints = null) {
 
 // ── Template functions (ViewModel → HTML string) ────────────────────────────
 
-function renderHeader({ areaName, cardIcon, hasLights, lightCount, offlineLights, occupied, hasOccupancySensors, problemCount }) {
+function renderHeader({ areaName, cardIcon, hasLights, lightCount, offlineLights, occupied, hasOccupancySensors, problemCount,
+                         showBatteryBadge, batteryValue, batteryIcon: batteryIconName, batteryEntity, batteryTitle }) {
   const lightsOff     = lightCount === 0;
   const lightTitle    = lightsOff
     ? (offlineLights > 0 ? `${offlineLights} light${offlineLights !== 1 ? 's' : ''} offline` : 'Lights off')
@@ -115,6 +127,13 @@ function renderHeader({ areaName, cardIcon, hasLights, lightCount, offlineLights
             ${lightCount > 1 ? `<span>${lightCount}</span>` : ''}
           </div>` : ''}
         ${hasOccupancySensors ? `<div class="occupancy-dot ${occupied ? '' : 'idle'}" title="${occupied ? 'Occupied' : 'Not occupied'}"></div>` : ''}
+        ${showBatteryBadge ? `
+          <div class="badge badge-battery"
+               data-entity="${batteryEntity}"
+               title="${batteryTitle}">
+            <ha-icon icon="${batteryIconName}"></ha-icon>
+            <span>${batteryValue}%</span>
+          </div>` : ''}
         ${problemCount > 0 ? `
           <div class="badge badge-problems"
                title="${problemCount} problem${problemCount !== 1 ? 's' : ''}">
@@ -269,7 +288,8 @@ export function render(shadowRoot, host, vm) {
 function bindEvents(shadowRoot, host, { navPath, chipItems }) {
   if (navPath) {
     shadowRoot.querySelector('ha-card').addEventListener('click', e => {
-      if (!e.target.closest('.chip') && !e.target.closest('.env-chip') && !e.target.closest('.badge-lights')) navigate(navPath);
+      if (!e.target.closest('.chip') && !e.target.closest('.env-chip')
+          && !e.target.closest('.badge-lights') && !e.target.closest('.badge-battery')) navigate(navPath);
     });
   }
 
@@ -280,6 +300,9 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
       host._hass.callService('light', 'toggle', {}, { area_id: host._config.area });
     });
   }
+
+  const batteryBadge = shadowRoot.querySelector('.badge-battery[data-entity]');
+  if (batteryBadge) batteryBadge.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, batteryBadge.dataset.entity); });
 
   shadowRoot.querySelectorAll('.env-chip[data-entity]').forEach(el => {
     const eid = el.dataset.entity;

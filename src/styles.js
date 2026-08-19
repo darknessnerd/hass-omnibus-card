@@ -176,6 +176,18 @@ export const CARD_STYLES = `
     color: var(--error-color, #f44336);
   }
 
+  .badge-battery {
+    background: rgba(244, 67, 54, 0.15);
+    color: var(--error-color, #f44336);
+    cursor: pointer;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .badge-battery:hover {
+    background: rgba(244, 67, 54, 0.28);
+  }
+
   /* Occupancy dot — always visible when sensors exist */
   .occupancy-dot {
     width: 9px;

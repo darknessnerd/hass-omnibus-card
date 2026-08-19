@@ -369,7 +369,7 @@ The card uses HA CSS custom properties so it inherits the active theme automatic
 | `--secondary-background-color` | Chip backgrounds |
 | `--ha-card-background` | Card base background |
 | `--card-background-color` | Fallback card background |
-| `--error-color` | Problem badge, error card border |
+| `--error-color` | Problem badge, error card border, battery badge |
 | `--success-color` | Occupancy dot (occupied state) |
 | `--warning-color` | Light badge offline indicator dot |
 | `--disabled-text-color` | Light badge `.off` state; occupancy dot `.idle` state |
@@ -435,6 +435,40 @@ ${renderFanBadge(vm)}
 ```
 
 **Step 6** — update `_buildHash()` in `src/card.js` if the entity type has attributes that change without changing `state`.
+
+---
+
+## Icon conventions
+
+All icons are `mdi:<name>` strings resolved at runtime by Home Assistant's own
+`<ha-icon>` — this project has no icon package dependency and never renders raw
+SVG. Browse/search the full set at
+[pictogrammers.com/library/mdi](https://pictogrammers.com/library/mdi/) before
+picking a name; copy the name exactly as shown there (lowercase, hyphenated).
+
+Icon resolution lives in `src/utils.js` → `entityIcon()`, backed by two maps in
+`src/constants.js`:
+
+- `ICON_BY_DC` — keyed by `device_class` (checked first)
+- `ICON_BY_DOMAIN` — keyed by entity domain (fallback)
+
+Each map entry is either:
+- a plain string — same icon regardless of state (e.g. `motion: 'mdi:motion-sensor'`)
+- an `{ on, off }` object — swapped by `ACTIVE_STATES` membership (e.g.
+  `door: { on: 'mdi:door-open', off: 'mdi:door-closed' }`)
+
+For icons that vary across more than two states — a *level* rather than a
+boolean — skip the map and write a small resolver function instead. The
+battery badge is the reference example: `src/utils.js` → `batteryIcon(level)`
+rounds the charge percentage to the nearest mdi step and returns
+`mdi:battery-10` … `mdi:battery-90`, plain `mdi:battery` at 100%, and
+`mdi:battery-alert-variant-outline` near empty — all real names from the mdi
+set, so no new assets are ever needed. `entityIcon()` calls it directly for
+`sensor` + `device_class: battery` instead of going through `ICON_BY_DC`.
+
+Use this same pattern (dedicated resolver fn, called before the generic maps
+in `entityIcon()`) for any future entity type whose icon depends on a
+numeric/enum state rather than a simple on/off.
 
 ---
 

@@ -36,6 +36,7 @@ area: living_room          entities: [light.x, sensor.y]
       ├─ humidity ────────► averaged + mold risk threshold
       ├─ motion/occupancy ► occupied indicator dot
       ├─ smoke/gas/water ─► pulsing alarm bar
+      ├─ battery ─────────► low-battery badge (only when ≤ threshold)
       └─ everything else ─► entity chip strip
       │
       ▼
@@ -54,6 +55,7 @@ area: living_room          entities: [light.x, sensor.y]
 | Light indicator | Always-visible badge — colored when on, grey when off; tap to toggle; offline dot when any light unavailable |
 | Climate state | Heat/cool/auto/dry/fan icons with live temperature |
 | Safety alarms | Smoke, gas, water — pulsing alarm bar, high priority |
+| Battery badge | Appears only when a battery sensor drops to/below `battery_low_threshold`; shows lowest charge + level-based icon |
 | Mold risk | Humidity above configurable threshold → warning badge |
 | Problem counter | Unavailable entities + problem/tamper binary sensors |
 | Entity chip strip | Interactive chips for remaining entities — tap opens more-info |
@@ -145,7 +147,8 @@ show_entities: true        # Show the entity chip strip (default: true)
 max_entities: 6            # Max chips to display (default: 6)
 
 # ── Environmental thresholds ──────────────────────────────────────────
-mold_threshold: 70         # Humidity % above which mold risk badge appears (default: 70)
+mold_threshold: 70            # Humidity % above which mold risk badge appears (default: 70)
+battery_low_threshold: 20     # Charge % at/below which the battery badge appears (default: 20)
 
 # ── History chart ─────────────────────────────────────────────────────
 history_chart:
@@ -178,6 +181,7 @@ debug: false                   # true → console.debug on every render with ent
 | `binary_sensor` + `device_class: smoke` | Alarm bar |
 | `binary_sensor` + `device_class: gas` | Alarm bar |
 | `binary_sensor` + `device_class: moisture` | Alarm bar |
+| `sensor` + `device_class: battery` | Battery badge (header) — only when ≤ `battery_low_threshold` |
 | `binary_sensor` + `device_class: problem/tamper/safety` (on) | Problem badge |
 | Any entity with state `unavailable` | Problem badge |
 | Everything else | Entity chip strip (capped at `max_entities`) |

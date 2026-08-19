@@ -24,7 +24,7 @@ export const ICON_BY_DC = {
   presence:     'mdi:home-account',
   power:        'mdi:flash',
   energy:       'mdi:lightning-bolt',
-  battery:      'mdi:battery',
+  battery:      { on: 'mdi:battery-alert', off: 'mdi:battery' },
   connectivity: 'mdi:wifi',
 };
 

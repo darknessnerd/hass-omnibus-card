@@ -20,6 +20,17 @@ export function activeLights(lights) {
   return lights.filter(l => l.state.state === 'on');
 }
 
+/** Battery entity with the lowest charge percentage; null when none have a numeric state. */
+export function lowestBattery(items) {
+  let lowest = null;
+  for (const item of items) {
+    const value = parseFloat(item.state.state);
+    if (isNaN(value)) continue;
+    if (!lowest || value < lowest.value) lowest = { value, entityId: item.entityId, state: item.state };
+  }
+  return lowest;
+}
+
 /** Returns a CSS rgb() string from the first on-light with an rgb_color attribute. */
 export function rgbColor(onLights) {
   for (const l of onLights) {

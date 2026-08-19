@@ -123,6 +123,8 @@ const MOCK_HASS = {
     'sensor.humidity':         { area_id: null, device_id: 'dev_lr_sensor', hidden_by: null },
     'binary_sensor.motion':    { area_id: 'living_room', device_id: null,   hidden_by: null },
     'binary_sensor.window':    { area_id: 'living_room', device_id: null,   hidden_by: null },
+    'sensor.window_battery':   { area_id: 'living_room', device_id: null,   hidden_by: null },
+    'sensor.remote_battery':   { area_id: 'living_room', device_id: null,   hidden_by: null },
     'media_player.tv':         { area_id: 'living_room', device_id: null,   hidden_by: null },
     'climate.hvac':            { area_id: 'living_room', device_id: null,   hidden_by: null },
     // bedroom — direct area
@@ -171,6 +173,14 @@ const MOCK_HASS = {
     'binary_sensor.window': {
       state: 'off',
       attributes: { friendly_name: 'Window', device_class: 'window' },
+    },
+    'sensor.window_battery': {
+      state: '78',
+      attributes: { friendly_name: 'Window Sensor Battery', device_class: 'battery', unit_of_measurement: '%' },
+    },
+    'sensor.remote_battery': {
+      state: '42',
+      attributes: { friendly_name: 'Remote Battery', device_class: 'battery', unit_of_measurement: '%' },
     },
     'media_player.tv': {
       state: 'playing',
@@ -278,6 +288,8 @@ const SCENARIOS = {
     MOCK_HASS.states['binary_sensor.motion'].state = 'on';
     MOCK_HASS.states['sensor.bath_humidity'].state = '78';
     MOCK_HASS.states['light.ceiling'].state = 'on';
+    MOCK_HASS.states['sensor.window_battery'].state = '78';
+    MOCK_HASS.states['sensor.remote_battery'].state = '42';
   },
   alarm: () => {
     MOCK_HASS.states['binary_sensor.smoke_det'].state = 'on';
@@ -296,6 +308,9 @@ const SCENARIOS = {
   },
   light_offline: () => {
     MOCK_HASS.states['light.ceiling'].state = 'unavailable';
+  },
+  battery_low: () => {
+    MOCK_HASS.states['sensor.remote_battery'].state = '4';
   },
 };
 
@@ -344,6 +359,7 @@ function mountStatic(container, config, stateOverrides, callWSOverride) {
   <button onclick="applyScenario('mold')">Mold risk (bath)</button>
   <button onclick="applyScenario('lights_off')">Lights off</button>
   <button onclick="applyScenario('light_offline')">Light offline</button>
+  <button onclick="applyScenario('battery_low')">Battery low</button>
 </div>
 
 <div class="section">
@@ -518,6 +534,18 @@ window.addEventListener('load', () => {
     // Light offline — orange dot on badge
     mountStatic(gallery, { area: 'living_room', name: 'Light offline (dot)' }, {
       'light.ceiling': { state: 'unavailable', attributes: { friendly_name: 'Ceiling' } },
+    });
+
+    // Battery badge — appears only when a battery sensor is at/below battery_low_threshold
+    mountStatic(gallery, { area: 'living_room', name: 'Battery low (badge)' }, {
+      'sensor.window_battery': { state: '78', attributes: { friendly_name: 'Window Sensor Battery', device_class: 'battery', unit_of_measurement: '%' } },
+      'sensor.remote_battery': { state: '4',  attributes: { friendly_name: 'Remote Battery',        device_class: 'battery', unit_of_measurement: '%' } },
+    });
+
+    // Battery badge — hidden, all battery sensors above threshold
+    mountStatic(gallery, { area: 'living_room', name: 'Battery ok (no badge)' }, {
+      'sensor.window_battery': { state: '78', attributes: { friendly_name: 'Window Sensor Battery', device_class: 'battery', unit_of_measurement: '%' } },
+      'sensor.remote_battery': { state: '42', attributes: { friendly_name: 'Remote Battery',        device_class: 'battery', unit_of_measurement: '%' } },
     });
 
     // Occupancy idle — grey dot

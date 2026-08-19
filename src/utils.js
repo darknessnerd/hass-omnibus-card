@@ -21,7 +21,23 @@ export function entityIcon(entityId, state) {
   const isActive = ACTIVE_STATES.has(state.state);
   const resolve  = entry => typeof entry === 'string' ? entry : (isActive ? entry.on : entry.off);
 
+  if (domain === 'sensor' && dc === 'battery') return batteryIcon(parseFloat(state.state));
   if (dc && ICON_BY_DC[dc])       return resolve(ICON_BY_DC[dc]);
   if (ICON_BY_DOMAIN[domain])     return resolve(ICON_BY_DOMAIN[domain]);
   return 'mdi:help-circle-outline';
+}
+
+/**
+ * Resolves an mdi battery glyph for a charge percentage, mirroring HA's own
+ * `battery_icon` helper. Icon names come from the mdi set (see DEVELOPMENT.md
+ * → Icon conventions): battery-unknown, battery-alert-variant-outline,
+ * battery-10..90, battery.
+ */
+export function batteryIcon(level) {
+  if (level == null || isNaN(level)) return 'mdi:battery-unknown';
+
+  const clamped = Math.min(100, Math.max(0, level));
+  if (clamped <= 5)   return 'mdi:battery-alert-variant-outline';
+  if (clamped >= 100) return 'mdi:battery';
+  return `mdi:battery-${Math.min(90, Math.max(10, Math.round(clamped / 10) * 10))}`;
 }
