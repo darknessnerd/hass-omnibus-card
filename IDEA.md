@@ -323,6 +323,8 @@ A weather station reports several readings (wind, rain, illuminance, noise…) t
 * Applies to `sensor` entities with `device_class: wind_speed / precipitation / illuminance / sound_pressure`.
 * There's no standard HA device_class for UV index, so UV sensors stay ungrouped, individual chips.
 * This is purely a *display* grouping — each segment is still its own entity underneath, clickable independently, no aggregation of values.
+* Each segment's icon is color-tinted per device_class (`WEATHER_DC_COLOR` in `constants.js`) and a hairline divider separates segments, so the packed pill still reads as distinct readings rather than one blob.
+* Wind gust/max readings share `device_class: wind_speed` with the running average — same icon and color otherwise — so `entityIcon()` swaps in a distinct icon (`mdi:weather-windy-variant`) when the entity_id ends in `_max`/`_gust`/`_peak` (see `WIND_GUST_ICON` in `constants.js`, matched in `utils.js`).
 
 ---
 

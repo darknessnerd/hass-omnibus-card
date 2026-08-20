@@ -163,6 +163,7 @@ const MOCK_HASS = {
     'update.esterno_cam_firmware': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
     'switch.esterno_plug':         { area_id: 'esterno', device_id: null,         hidden_by: null },
     'sensor.esterno_wind_average': { area_id: 'esterno', device_id: null,         hidden_by: null },
+    'sensor.esterno_wind_max':     { area_id: 'esterno', device_id: null,         hidden_by: null },
     'sensor.esterno_rain_total':   { area_id: 'esterno', device_id: null,         hidden_by: null },
     'sensor.esterno_luminance':    { area_id: 'esterno', device_id: null,         hidden_by: null },
     'sensor.esterno_noise':        { area_id: 'esterno', device_id: null,         hidden_by: null },
@@ -331,6 +332,10 @@ const MOCK_HASS = {
     'sensor.esterno_wind_average': {
       state: '2.52',
       attributes: { friendly_name: 'Esterno Wind Average', device_class: 'wind_speed', unit_of_measurement: 'km/h' },
+    },
+    'sensor.esterno_wind_max': {
+      state: '5.4',
+      attributes: { friendly_name: 'Esterno Wind Max', device_class: 'wind_speed', unit_of_measurement: 'km/h' },
     },
     'sensor.esterno_rain_total': {
       state: '55.1',

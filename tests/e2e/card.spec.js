@@ -690,16 +690,24 @@ test('camera — unavailable camera dims the preview and marks it offline', asyn
 test('weather sensors — grouped into one weather-chip, dedicated device_class icons + values', async ({ page }) => {
   await mount(page, GARAGE);
   await expect(page.locator('#mount').locator('.weather-chip')).toHaveCount(1);
-  await expect(page.locator('#mount').locator('.weather-chip .weather-seg')).toHaveCount(4);
+  await expect(page.locator('#mount').locator('.weather-chip .weather-seg')).toHaveCount(5);
   await expect(page.locator('#mount').locator('.chip[data-entity="sensor.garage_wind"]:not(.weather-seg)')).toHaveCount(0); // not also a plain chip
 
   const iconFor = entityId => page.locator('#mount').locator(`.weather-seg[data-entity="${entityId}"] ha-icon`).getAttribute('icon');
   expect(await iconFor('sensor.garage_wind')).toBe('mdi:weather-windy');
+  expect(await iconFor('sensor.garage_wind_max')).toBe('mdi:weather-windy-variant'); // same device_class, gust icon keyed off entity_id suffix
   expect(await iconFor('sensor.garage_rain')).toBe('mdi:weather-rainy');
   expect(await iconFor('sensor.garage_illuminance')).toBe('mdi:brightness-6');
   expect(await iconFor('sensor.garage_noise')).toBe('mdi:volume-high');
 
-  await expect(page.locator('#mount').locator('.weather-seg[data-entity="sensor.garage_wind"] .group-seg-value')).toHaveText('2.5km/h');
+  const dcFor = entityId => page.locator('#mount').locator(`.weather-seg[data-entity="${entityId}"]`).getAttribute('data-dc');
+  expect(await dcFor('sensor.garage_wind')).toBe('wind_speed');
+  expect(await dcFor('sensor.garage_wind_max')).toBe('wind_speed');
+  expect(await dcFor('sensor.garage_rain')).toBe('precipitation');
+  expect(await dcFor('sensor.garage_illuminance')).toBe('illuminance');
+  expect(await dcFor('sensor.garage_noise')).toBe('sound_pressure');
+
+  await expect(page.locator('#mount').locator('.weather-seg[data-entity="sensor.garage_wind"] .group-seg-value')).toHaveText('2.5 km/h');
 });
 
 test('weather-chip segment click opens more-info', async ({ page }) => {

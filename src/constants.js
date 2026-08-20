@@ -32,6 +32,19 @@ export const ICON_BY_DC = {
   sound_pressure:'mdi:volume-high',
 };
 
+// wind_speed covers both the running average and gust/max readings — same device_class,
+// so entityIcon() swaps this icon in by entity_id suffix to keep the two segments distinct.
+export const WIND_GUST_ICON = 'mdi:weather-windy-variant';
+
+// Icon tint per weather device_class — same treatment as temp/humidity chips,
+// so a glance at the pill tells wind apart from rain/light/sound without reading text.
+export const WEATHER_DC_COLOR = {
+  wind_speed:     '#546e7a',
+  precipitation:  '#0288d1',
+  illuminance:    '#f9a825',
+  sound_pressure: '#8e24aa',
+};
+
 export const ICON_BY_DOMAIN = {
   switch:         { on: 'mdi:toggle-switch',         off: 'mdi:toggle-switch-off-outline' },
   cover:          { on: 'mdi:blinds-open',            off: 'mdi:blinds' },

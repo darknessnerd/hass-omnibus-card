@@ -130,8 +130,10 @@ export function buildViewModel(hass, config, historyPoints = null, controlsColla
       ? c.weathers.map(({ entityId, state }) => {
           const num  = parseFloat(state.state);
           const unit = state.attributes?.unit_of_measurement ?? '';
+          const dc   = state.attributes?.device_class ?? '';
           return {
             entityId,
+            dc,
             icon:  entityIcon(entityId, state),
             value: isNaN(num) ? state.state : num.toFixed(1),
             unit,
@@ -249,10 +251,10 @@ function renderWeatherChip({ weatherItems }) {
   if (!weatherItems.length) return '';
   return `
     <div class="chip group-chip weather-chip" title="Weather">
-      ${weatherItems.map(({ entityId, icon, value, unit, title }) => `
-        <span class="group-seg weather-seg" data-entity="${entityId}" title="${title}">
+      ${weatherItems.map(({ entityId, dc, icon, value, unit, title }) => `
+        <span class="group-seg weather-seg" data-entity="${entityId}" data-dc="${dc}" title="${title}">
           <ha-icon icon="${icon}"></ha-icon>
-          <span class="group-seg-value">${value}${unit}</span>
+          <span class="group-seg-value">${value}${unit ? ' ' + unit : ''}</span>
         </span>`).join('')}
     </div>`;
 }

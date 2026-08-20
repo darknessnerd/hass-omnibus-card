@@ -333,6 +333,19 @@ export const CARD_STYLES = `
 
   .ptz-chip .group-seg { padding: 3px 5px; }
 
+  /* Weather segments: color-tint icons by device_class (same idea as .env-chip.temp/.hum)
+     and a hairline divider so the packed pill reads as distinct readings, not one blob. */
+  .weather-seg:not(:last-child) {
+    border-right: 1px solid var(--divider-color, rgba(128, 128, 128, 0.25));
+  }
+
+  .weather-seg[data-dc="wind_speed"] ha-icon     { color: #546e7a; }
+  .weather-seg[data-dc="precipitation"] ha-icon  { color: #0288d1; }
+  .weather-seg[data-dc="illuminance"] ha-icon    { color: #f9a825; }
+  .weather-seg[data-dc="sound_pressure"] ha-icon { color: #8e24aa; }
+
+  .group-seg:hover ha-icon { color: white; }
+
   /* ── Camera preview ── */
 
   .camera-preview {

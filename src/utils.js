@@ -1,4 +1,8 @@
-import { ACTIVE_STATES, ICON_BY_DC, ICON_BY_DOMAIN } from './constants.js';
+import { ACTIVE_STATES, ICON_BY_DC, ICON_BY_DOMAIN, WIND_GUST_ICON } from './constants.js';
+
+// Matches entity_id suffixes for gust/max wind readings — same device_class as the
+// running average, so the icon variant has to come from the name, not device_class.
+const WIND_GUST_RE = /_(max|gust|peak)$/i;
 
 /**
  * Returns the last word of friendly_name as a compact chip label.
@@ -22,6 +26,7 @@ export function entityIcon(entityId, state) {
   const resolve  = entry => typeof entry === 'string' ? entry : (isActive ? entry.on : entry.off);
 
   if (domain === 'sensor' && dc === 'battery') return batteryIcon(parseFloat(state.state));
+  if (dc === 'wind_speed' && WIND_GUST_RE.test(entityId)) return WIND_GUST_ICON;
   if (dc && ICON_BY_DC[dc])       return resolve(ICON_BY_DC[dc]);
   if (ICON_BY_DOMAIN[domain])     return resolve(ICON_BY_DOMAIN[domain]);
   return 'mdi:help-circle-outline';

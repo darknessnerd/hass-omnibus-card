@@ -648,7 +648,8 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 | Weather chip | wind/rain/illuminance/noise sensors collapse into one chip with icon+value segments; segment click opens more-info; not also rendered as plain chips |
 | Firmware update badge | `update.*` with `state: on` shows header badge (not a chip); `state: off` shows neither; badge click opens more-info; `state: unavailable` counts as a problem instead of vanishing |
 | PTZ fallback | pad segment click falls back to more-info when `callService` is unavailable, matching the plain Controls button/siren behavior |
-| Weather sensor icons | `wind_speed`/`precipitation`/`illuminance`/`sound_pressure` device classes resolve to dedicated mdi icons |
+| Weather sensor icons | `wind_speed`/`precipitation`/`illuminance`/`sound_pressure` device classes resolve to dedicated mdi icons, each color-tinted via `data-dc` + `WEATHER_DC_COLOR` |
+| Wind gust icon variant | `wind_speed` entity_id ending `_max`/`_gust`/`_peak` resolves to `WIND_GUST_ICON` instead of the plain wind icon, distinguishing it from the running-average segment in the same weather chip |
 
 ### Adding a new test
 
