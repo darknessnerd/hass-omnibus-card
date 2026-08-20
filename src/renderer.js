@@ -24,7 +24,7 @@ import { sparklineSvg, computeScale } from './sparkline.js';
  * Returns { error } when the area is not found and no name override is set.
  * Pure: no DOM access, no side effects.
  */
-export function buildViewModel(hass, config, historyPoints = null) {
+export function buildViewModel(hass, config, historyPoints = null, controlsCollapsed = false) {
   const areaId = config.area;
   const area   = hass.areas?.[areaId];
 
@@ -113,6 +113,9 @@ export function buildViewModel(hass, config, historyPoints = null) {
           title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
         }))
       : [],
+
+    collapsibleControls: config.collapsible_controls !== false,
+    controlsCollapsed:   config.collapsible_controls !== false && controlsCollapsed,
 
     // grouped into one pill instead of one chip per PTZ button / weather reading
     ptzItems: config.show_entities !== false
@@ -290,11 +293,15 @@ function renderPtzChip({ ptzItems }) {
     </div>`;
 }
 
-function renderControls({ controlItems, ptzItems }) {
+function renderControls({ controlItems, ptzItems, collapsibleControls, controlsCollapsed }) {
   if (!controlItems.length && !ptzItems.length) return '';
   return `
-    <div class="controls-row">
-      <span class="controls-label">Controls</span>
+    <div class="controls-row${controlsCollapsed ? ' collapsed' : ''}">
+      <span class="controls-label${collapsibleControls ? ' clickable' : ''}"
+        ${collapsibleControls ? `role="button" tabindex="0" title="${controlsCollapsed ? 'Expand' : 'Collapse'} controls"` : ''}
+        >Controls${collapsibleControls
+          ? `<ha-icon class="controls-toggle" icon="mdi:chevron-${controlsCollapsed ? 'down' : 'up'}"></ha-icon>`
+          : ''}</span>
       <div class="controls-chips">
         ${renderPtzChip({ ptzItems })}
         ${controlItems.map(({ entityId, domain, isActive, icon, label, title }) => `
@@ -398,8 +405,12 @@ function renderCard(vm) {
  * @param {object}      vm    - view model from buildViewModel()
  */
 export function render(shadowRoot, host, vm) {
+  const focusedClass = shadowRoot.activeElement?.className;
   shadowRoot.innerHTML = vm.error ? renderErrorCard(vm.error) : renderCard(vm);
   if (!vm.error) bindEvents(shadowRoot, host, vm);
+  // full innerHTML rewrite drops focus every render — restore it for keyboard users
+  // toggling the controls-row label, otherwise a second Enter/Space press is lost
+  if (focusedClass) shadowRoot.querySelector(`.${focusedClass.split(' ').join('.')}`)?.focus();
 }
 
 function bindEvents(shadowRoot, host, { navPath, chipItems }) {
@@ -407,7 +418,22 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
     shadowRoot.querySelector('ha-card').addEventListener('click', e => {
       if (!e.target.closest('.chip') && !e.target.closest('.env-chip')
           && !e.target.closest('.badge-lights') && !e.target.closest('.badge-battery')
-          && !e.target.closest('.badge-update') && !e.target.closest('.camera-preview')) navigate(navPath);
+          && !e.target.closest('.badge-update') && !e.target.closest('.camera-preview')
+          && !e.target.closest('.controls-label.clickable')) navigate(navPath);
+    });
+  }
+
+  const controlsLabel = shadowRoot.querySelector('.controls-label.clickable');
+  if (controlsLabel) {
+    controlsLabel.addEventListener('click', e => {
+      e.stopPropagation();
+      host.toggleControlsCollapsed();
+    });
+    controlsLabel.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      e.stopPropagation();
+      host.toggleControlsCollapsed();
     });
   }
 

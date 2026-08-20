@@ -1,4 +1,4 @@
-(function(){"use strict";const O="hass-omnibus-card",se="1.15.0",F=new Set(["on","open","playing","home","unlocked"]),le={heat:["mdi:fire","#ef6c00"],cool:["mdi:snowflake","#0288d1"],auto:["mdi:thermostat-auto","#43a047"],dry:["mdi:water-off-outline","#f9a825"],fan_only:["mdi:fan","#546e7a"],heat_cool:["mdi:fire-circle","#e64a19"],off:["mdi:thermostat-off","var(--secondary-text-color)"]},H={motion:"mdi:motion-sensor",door:{on:"mdi:door-open",off:"mdi:door-closed"},window:{on:"mdi:window-open",off:"mdi:window-closed"},lock:{on:"mdi:lock-open",off:"mdi:lock"},vibration:"mdi:vibrate",plug:"mdi:power-plug",presence:"mdi:home-account",power:"mdi:flash",energy:"mdi:lightning-bolt",battery:{on:"mdi:battery-alert",off:"mdi:battery"},connectivity:"mdi:wifi",wind_speed:"mdi:weather-windy",precipitation:"mdi:weather-rainy",illuminance:"mdi:brightness-6",sound_pressure:"mdi:volume-high"},T={switch:{on:"mdi:toggle-switch",off:"mdi:toggle-switch-off-outline"},cover:{on:"mdi:blinds-open",off:"mdi:blinds"},fan:{on:"mdi:fan",off:"mdi:fan-off"},media_player:{on:"mdi:play-circle",off:"mdi:multimedia"},input_boolean:{on:"mdi:check-circle-outline",off:"mdi:close-circle-outline"},binary_sensor:{on:"mdi:radiobox-marked",off:"mdi:radiobox-blank"},automation:"mdi:robot",script:"mdi:script-text",person:"mdi:account",device_tracker:"mdi:map-marker",sensor:"mdi:eye",input_select:"mdi:format-list-bulleted",siren:{on:"mdi:bullhorn",off:"mdi:bullhorn-outline"},button:"mdi:gesture-tap-button",camera:"mdi:cctv"},ce={up:"mdi:arrow-up-bold",down:"mdi:arrow-down-bold",left:"mdi:arrow-left-bold",right:"mdi:arrow-right-bold"};function N(t,e){const{entities:a={},devices:n={},states:i={}}=t;return Object.keys(i).reduce((s,c)=>{var o;const r=a[c];if(!r||r.hidden_by)return s;const l=r.area_id===e,p=r.device_id&&((o=n[r.device_id])==null?void 0:o.area_id)===e;return(l||p)&&s.push({entityId:c,state:i[c],deviceId:r.device_id??null}),s},[])}function de(t,e,a){var c,r,l,p;if((c=e.entities)!=null&&c.length)return e.entities.map(o=>{var u,y,x;const d=(u=a.states)==null?void 0:u[o];return d?{entityId:o,state:d,deviceId:((x=(y=a.entities)==null?void 0:y[o])==null?void 0:x.device_id)??null}:null}).filter(Boolean);const n=new Set(e.exclude_entities??[]),i=e.add_entities??[],s=t.filter(o=>!n.has(o.entityId));for(const o of i){if(s.some(u=>u.entityId===o))continue;const d=(r=a.states)==null?void 0:r[o];d&&s.push({entityId:o,state:d,deviceId:((p=(l=a.entities)==null?void 0:l[o])==null?void 0:p.device_id)??null})}return s}const pe=new Set(["sensor","binary_sensor","image"]),he=new Set(["wind_speed","precipitation","illuminance","sound_pressure"]),P={up:"up",down:"down",left:"left",right:"right",su:"up",giu:"down",sinistra:"left",destra:"right"},ue=new RegExp(`ptz.*_(${Object.keys(P).join("|")})$`,"i");function ge(t){var n;const e={lights:[],climate:[],temperatures:[],humidities:[],weathers:[],motions:[],occupancy:[],smokes:[],gases:[],moistures:[],batteries:[],problems:[],cameras:[],controls:[],ptz:[],updates:[],others:[]};for(const i of t){const{entityId:s,state:c}=i,r=s.split(".")[0],l=((n=c.attributes)==null?void 0:n.device_class)??"",p=c.state;if(r==="light")e.lights.push(i);else if(r==="climate")e.climate.push(i);else if(r==="camera")e.cameras.push(i);else if(r==="update"&&p!=="unavailable")e.updates.push(i);else if(r==="sensor"&&l==="temperature")e.temperatures.push(i);else if(r==="sensor"&&l==="humidity")e.humidities.push(i);else if(r==="sensor"&&he.has(l))e.weathers.push(i);else if(r==="binary_sensor"&&l==="motion")e.motions.push(i);else if(r==="binary_sensor"&&l==="occupancy")e.occupancy.push(i);else if(r==="binary_sensor"&&l==="smoke")e.smokes.push(i);else if(r==="binary_sensor"&&l==="gas")e.gases.push(i);else if(r==="binary_sensor"&&l==="moisture")e.moistures.push(i);else if(r==="sensor"&&l==="battery"&&p!=="unavailable")e.batteries.push(i),e.others.push(i);else if(p==="unavailable"||r==="binary_sensor"&&["problem","tamper","safety"].includes(l)&&p==="on")e.problems.push(i);else if(r==="siren")e.controls.push(i);else if(r==="button"){const o=s.match(ue);o?e.ptz.push({...i,direction:P[o[1].toLowerCase()]}):e.controls.push(i)}else e.others.push(i)}const a=new Set(e.cameras.map(i=>i.deviceId).filter(Boolean));if(a.size){const i=[];for(const s of e.others){const c=s.entityId.split(".")[0];s.deviceId&&a.has(s.deviceId)&&!pe.has(c)?e.controls.push(s):i.push(s)}e.others=i}return e}const j=`
+(function(){"use strict";const H="hass-omnibus-card",le="1.15.0",L=new Set(["on","open","playing","home","unlocked"]),ce={heat:["mdi:fire","#ef6c00"],cool:["mdi:snowflake","#0288d1"],auto:["mdi:thermostat-auto","#43a047"],dry:["mdi:water-off-outline","#f9a825"],fan_only:["mdi:fan","#546e7a"],heat_cool:["mdi:fire-circle","#e64a19"],off:["mdi:thermostat-off","var(--secondary-text-color)"]},N={motion:"mdi:motion-sensor",door:{on:"mdi:door-open",off:"mdi:door-closed"},window:{on:"mdi:window-open",off:"mdi:window-closed"},lock:{on:"mdi:lock-open",off:"mdi:lock"},vibration:"mdi:vibrate",plug:"mdi:power-plug",presence:"mdi:home-account",power:"mdi:flash",energy:"mdi:lightning-bolt",battery:{on:"mdi:battery-alert",off:"mdi:battery"},connectivity:"mdi:wifi",wind_speed:"mdi:weather-windy",precipitation:"mdi:weather-rainy",illuminance:"mdi:brightness-6",sound_pressure:"mdi:volume-high"},T={switch:{on:"mdi:toggle-switch",off:"mdi:toggle-switch-off-outline"},cover:{on:"mdi:blinds-open",off:"mdi:blinds"},fan:{on:"mdi:fan",off:"mdi:fan-off"},media_player:{on:"mdi:play-circle",off:"mdi:multimedia"},input_boolean:{on:"mdi:check-circle-outline",off:"mdi:close-circle-outline"},binary_sensor:{on:"mdi:radiobox-marked",off:"mdi:radiobox-blank"},automation:"mdi:robot",script:"mdi:script-text",person:"mdi:account",device_tracker:"mdi:map-marker",sensor:"mdi:eye",input_select:"mdi:format-list-bulleted",siren:{on:"mdi:bullhorn",off:"mdi:bullhorn-outline"},button:"mdi:gesture-tap-button",camera:"mdi:cctv"},de={up:"mdi:arrow-up-bold",down:"mdi:arrow-down-bold",left:"mdi:arrow-left-bold",right:"mdi:arrow-right-bold"};function P(t,e){const{entities:a={},devices:r={},states:i={}}=t;return Object.keys(i).reduce((o,p)=>{var c;const s=a[p];if(!s||s.hidden_by)return o;const n=s.area_id===e,u=s.device_id&&((c=r[s.device_id])==null?void 0:c.area_id)===e;return(n||u)&&o.push({entityId:p,state:i[p],deviceId:s.device_id??null}),o},[])}function pe(t,e,a){var p,s,n,u;if((p=e.entities)!=null&&p.length)return e.entities.map(c=>{var g,h,v;const l=(g=a.states)==null?void 0:g[c];return l?{entityId:c,state:l,deviceId:((v=(h=a.entities)==null?void 0:h[c])==null?void 0:v.device_id)??null}:null}).filter(Boolean);const r=new Set(e.exclude_entities??[]),i=e.add_entities??[],o=t.filter(c=>!r.has(c.entityId));for(const c of i){if(o.some(g=>g.entityId===c))continue;const l=(s=a.states)==null?void 0:s[c];l&&o.push({entityId:c,state:l,deviceId:((u=(n=a.entities)==null?void 0:n[c])==null?void 0:u.device_id)??null})}return o}const ue=new Set(["sensor","binary_sensor","image"]),he=new Set(["wind_speed","precipitation","illuminance","sound_pressure"]),j={up:"up",down:"down",left:"left",right:"right",su:"up",giu:"down",sinistra:"left",destra:"right"},ge=new RegExp(`ptz.*_(${Object.keys(j).join("|")})$`,"i");function fe(t){var r;const e={lights:[],climate:[],temperatures:[],humidities:[],weathers:[],motions:[],occupancy:[],smokes:[],gases:[],moistures:[],batteries:[],problems:[],cameras:[],controls:[],ptz:[],updates:[],others:[]};for(const i of t){const{entityId:o,state:p}=i,s=o.split(".")[0],n=((r=p.attributes)==null?void 0:r.device_class)??"",u=p.state;if(s==="light")e.lights.push(i);else if(s==="climate")e.climate.push(i);else if(s==="camera")e.cameras.push(i);else if(s==="update"&&u!=="unavailable")e.updates.push(i);else if(s==="sensor"&&n==="temperature")e.temperatures.push(i);else if(s==="sensor"&&n==="humidity")e.humidities.push(i);else if(s==="sensor"&&he.has(n))e.weathers.push(i);else if(s==="binary_sensor"&&n==="motion")e.motions.push(i);else if(s==="binary_sensor"&&n==="occupancy")e.occupancy.push(i);else if(s==="binary_sensor"&&n==="smoke")e.smokes.push(i);else if(s==="binary_sensor"&&n==="gas")e.gases.push(i);else if(s==="binary_sensor"&&n==="moisture")e.moistures.push(i);else if(s==="sensor"&&n==="battery"&&u!=="unavailable")e.batteries.push(i),e.others.push(i);else if(u==="unavailable"||s==="binary_sensor"&&["problem","tamper","safety"].includes(n)&&u==="on")e.problems.push(i);else if(s==="siren")e.controls.push(i);else if(s==="button"){const c=o.match(ge);c?e.ptz.push({...i,direction:j[c[1].toLowerCase()]}):e.controls.push(i)}else e.others.push(i)}const a=new Set(e.cameras.map(i=>i.deviceId).filter(Boolean));if(a.size){const i=[];for(const o of e.others){const p=o.entityId.split(".")[0];o.deviceId&&a.has(o.deviceId)&&!ue.has(p)?e.controls.push(o):i.push(o)}e.others=i}return e}const D=`
   :host {
     display: block;
   }
@@ -386,7 +386,9 @@
   }
 
   .controls-label {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     font-size: 0.68rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -396,10 +398,31 @@
     margin-bottom: 4px;
   }
 
+  .controls-label.clickable {
+    cursor: pointer;
+  }
+
+  .controls-label.clickable:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  .controls-toggle {
+    --mdc-icon-size: 14px;
+    opacity: 0.8;
+  }
+
+  .controls-label.clickable:hover .controls-toggle { opacity: 1; }
+
   .controls-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
+  }
+
+  .controls-row.collapsed .controls-chips {
+    display: none;
   }
 
   /* ── Alarm bar ── */
@@ -450,7 +473,7 @@
     --mdc-icon-size: 20px;
     flex-shrink: 0;
   }
-`;function D(t){const e=t.map(a=>parseFloat(a.state.state)).filter(a=>!isNaN(a));return e.length?e.reduce((a,n)=>a+n,0)/e.length:null}function C(t){return t.some(e=>e.state.state==="on")}function fe(t){return t.filter(e=>e.state.state==="on")}function me(t){let e=null;for(const a of t){const n=parseFloat(a.state.state);isNaN(n)||(!e||n<e.value)&&(e={value:n,entityId:a.entityId,state:a.state})}return e}function be(t){var e;for(const a of t){const n=(e=a.state.attributes)==null?void 0:e.rgb_color;if(n)return`rgb(${n.join(",")})`}return null}function q(t,e){var n;return(((n=e.attributes)==null?void 0:n.friendly_name)??t.split(".")[1]).split(" ").pop()}function z(t,e){var c,r;if((c=e.attributes)!=null&&c.icon)return e.attributes.icon;const a=t.split(".")[0],n=((r=e.attributes)==null?void 0:r.device_class)??"",i=F.has(e.state),s=l=>typeof l=="string"?l:i?l.on:l.off;return a==="sensor"&&n==="battery"?B(parseFloat(e.state)):n&&H[n]?s(H[n]):T[a]?s(T[a]):"mdi:help-circle-outline"}function B(t){if(t==null||isNaN(t))return"mdi:battery-unknown";const e=Math.min(100,Math.max(0,t));return e<=5?"mdi:battery-alert-variant-outline":e>=100?"mdi:battery":`mdi:battery-${Math.min(90,Math.max(10,Math.round(e/10)*10))}`}function k(t,e){t.dispatchEvent(new CustomEvent("hass-more-info",{bubbles:!0,composed:!0,detail:{entityId:e}}))}function ye(t){history.pushState(null,"",t),window.dispatchEvent(new CustomEvent("location-changed",{bubbles:!0,composed:!0,detail:{replace:!1}}))}function Y(t,e,a){const n=(t==null?void 0:t.y_min)!=null?Math.min(t.y_min,e):e,i=(t==null?void 0:t.y_max)!=null?Math.max(t.y_max,a):a;return{min:n,max:i,range:i-n}}function ve(t,e,a=null){if(!(t!=null&&t.length)||t.length<2)return"";const n=300,i=60,s=Math.min(...t),c=Math.max(...t),{min:r,range:l}=Y(a,s,c);if(l===0&&(a==null?void 0:a.y_min)==null&&(a==null?void 0:a.y_max)==null)return"";const p=l||1,o=t.map((m,$)=>$/(t.length-1)*n),d=t.map(m=>i-(m-r)/p*i),y=`${o.map((m,$)=>`${$?"L":"M"}${m.toFixed(1)},${d[$].toFixed(1)}`).join(" ")} V${i} H0 Z`;if(!(a&&(a.threshold_high!=null||a.threshold_low!=null)))return W(n,i,`<path d="${y}" fill="${e}"/>`);const _=a.color??"rgba(3, 169, 244, 0.12)",S=a.color_high??"rgba(244, 67, 54, 0.25)",g=a.color_low??"rgba(33, 150, 243, 0.25)",M=m=>Math.max(0,Math.min(i,i-(m-r)/p*i)),v=`<defs><clipPath id="sg-cp"><path d="${y}"/></clipPath></defs>`;let h=`<path d="${y}" fill="${_}"/>`;if(a.threshold_high!=null){const m=M(a.threshold_high);m>0&&(h+=`<rect x="0" y="0" width="${n}" height="${m.toFixed(1)}" fill="${S}" clip-path="url(#sg-cp)"/>`),m>0&&m<i&&(h+=`<line x1="0" y1="${m.toFixed(1)}" x2="${n}" y2="${m.toFixed(1)}" stroke="${S}" stroke-width="0.8" stroke-dasharray="4,4" opacity="0.6"/>`)}if(a.threshold_low!=null){const m=M(a.threshold_low);m<i&&(h+=`<rect x="0" y="${m.toFixed(1)}" width="${n}" height="${(i-m).toFixed(1)}" fill="${g}" clip-path="url(#sg-cp)"/>`),m>0&&m<i&&(h+=`<line x1="0" y1="${m.toFixed(1)}" x2="${n}" y2="${m.toFixed(1)}" stroke="${g}" stroke-width="0.8" stroke-dasharray="4,4" opacity="0.6"/>`)}return W(n,i,v+h)}function W(t,e,a){return`<svg class="bg-chart" viewBox="0 0 ${t} ${e}" preserveAspectRatio="none" aria-hidden="true">${a}</svg>`}function xe(t,e,a=null){var Z,U,R,V,G,J,K,Q,X,ee,te,ae,ie,re;const n=e.area,i=(Z=t.areas)==null?void 0:Z[n];if(!i&&!e.name&&!((U=e.entities)!=null&&U.length))return{error:n??"(no area)"};const s=(R=e.entities)!=null&&R.length?[]:N(t,n),c=de(s,e,t),r=ge(c),l=fe(r.lights),p=be(l),o=D(r.temperatures),d=D(r.humidities),u=r.climate[0]??null,[y,x]=le[(V=u==null?void 0:u.state)==null?void 0:V.state]??[null,null],_=e.mold_threshold??70,S=e.navigate_to||((G=e.tap_action)==null?void 0:G.navigation_path)||null,g=e.history_chart??null,M=e.battery_low_threshold??20,v=me(r.batteries),h=r.cameras[0]??null,m=r.cameras.slice(1),$=r.updates.filter(f=>f.state.state==="on");return{areaName:e.name||(i==null?void 0:i.name)||n||"",cardIcon:e.icon||(i==null?void 0:i.icon)||"mdi:home",navPath:S,hasLights:r.lights.length>0,lightCount:l.length,offlineLights:r.lights.filter(f=>f.state.state==="unavailable").length,lightColor:p,occupied:C(r.motions)||C(r.occupancy),hasOccupancySensors:r.motions.length>0||r.occupancy.length>0,problemCount:r.problems.length,showBatteryBadge:v!=null&&v.value<=M,batteryValue:(v==null?void 0:v.value)??null,batteryIcon:v?B(v.value):null,batteryEntity:(v==null?void 0:v.entityId)??null,batteryTitle:v?`${r.batteries.length>1?`Lowest of ${r.batteries.length} — `:""}${((J=v.state.attributes)==null?void 0:J.friendly_name)??v.entityId}: ${v.value}%`:"",tempVal:o,humVal:d,tempUnit:((Q=(K=r.temperatures[0])==null?void 0:K.state.attributes)==null?void 0:Q.unit_of_measurement)??"°C",tempEntities:r.temperatures,humEntities:r.humidities,climate:u,climIcon:y,climColor:x,smokeOn:C(r.smokes),gasOn:C(r.gases),waterOn:C(r.moistures),moldRisk:d!==null&&d>=_,updateCount:$.length,updateEntity:((X=$[0])==null?void 0:X.entityId)??null,updateTitle:$.length?`${$.length} update${$.length!==1?"s":""} available: ${$.map(f=>{var b;return((b=f.state.attributes)==null?void 0:b.friendly_name)??f.entityId}).join(", ")}`:"",hasCamera:e.show_camera!==!1&&!!h,cameraEntity:(h==null?void 0:h.entityId)??null,cameraImage:((ee=h==null?void 0:h.state.attributes)==null?void 0:ee.entity_picture)??null,cameraIcon:h?z(h.entityId,h.state):null,cameraTitle:((te=h==null?void 0:h.state.attributes)==null?void 0:te.friendly_name)??(h==null?void 0:h.entityId)??"",cameraState:(h==null?void 0:h.state.state)??"",cameraOffline:(h==null?void 0:h.state.state)==="unavailable",controlItems:e.show_entities!==!1?r.controls.map(({entityId:f,state:b})=>{var w;return{entityId:f,domain:f.split(".")[0],isActive:F.has(b.state),icon:z(f,b),label:q(f,b),title:`${((w=b.attributes)==null?void 0:w.friendly_name)??f} — ${b.state}`}}):[],ptzItems:e.show_entities!==!1?r.ptz.map(({entityId:f,state:b,direction:w})=>{var I;return{entityId:f,direction:w,icon:ce[w],title:((I=b.attributes)==null?void 0:I.friendly_name)??f}}):[],weatherItems:e.show_entities!==!1?r.weathers.map(({entityId:f,state:b})=>{var ne,oe;const w=parseFloat(b.state),I=((ne=b.attributes)==null?void 0:ne.unit_of_measurement)??"";return{entityId:f,icon:z(f,b),value:isNaN(w)?b.state:w.toFixed(1),unit:I,title:`${((oe=b.attributes)==null?void 0:oe.friendly_name)??f} — ${b.state}${I}`}}):[],historyPoints:g!=null&&g.entity_id?a:null,historyColor:(g==null?void 0:g.color)??"rgba(3, 169, 244, 0.12)",historyChart:g,historyMin:g!=null&&g.entity_id&&(a==null?void 0:a.length)>=2?Math.min(...a):null,historyMax:g!=null&&g.entity_id&&(a==null?void 0:a.length)>=2?Math.max(...a):null,historyUnit:((re=(ie=(ae=t.states)==null?void 0:ae[g==null?void 0:g.entity_id])==null?void 0:ie.attributes)==null?void 0:re.unit_of_measurement)??"",historyHours:(g==null?void 0:g.hours)??24,chipItems:e.show_entities!==!1?[...r.others,...m].slice(0,e.max_entities??6).map(({entityId:f,state:b})=>{var w;return{entityId:f,isActive:F.has(b.state),icon:z(f,b),label:q(f,b),title:`${((w=b.attributes)==null?void 0:w.friendly_name)??f} — ${b.state}`}}):[]}}function _e({areaName:t,cardIcon:e,hasLights:a,lightCount:n,offlineLights:i,occupied:s,hasOccupancySensors:c,problemCount:r,showBatteryBadge:l,batteryValue:p,batteryIcon:o,batteryEntity:d,batteryTitle:u,updateCount:y,updateEntity:x,updateTitle:_}){const S=n===0,g=S?i>0?`${i} light${i!==1?"s":""} offline`:"Lights off":`${n} light${n!==1?"s":""} on${i>0?` · ${i} offline`:""}`;return`
+`;function q(t){const e=t.map(a=>parseFloat(a.state.state)).filter(a=>!isNaN(a));return e.length?e.reduce((a,r)=>a+r,0)/e.length:null}function E(t){return t.some(e=>e.state.state==="on")}function me(t){return t.filter(e=>e.state.state==="on")}function be(t){let e=null;for(const a of t){const r=parseFloat(a.state.state);isNaN(r)||(!e||r<e.value)&&(e={value:r,entityId:a.entityId,state:a.state})}return e}function ye(t){var e;for(const a of t){const r=(e=a.state.attributes)==null?void 0:e.rgb_color;if(r)return`rgb(${r.join(",")})`}return null}function B(t,e){var r;return(((r=e.attributes)==null?void 0:r.friendly_name)??t.split(".")[1]).split(" ").pop()}function A(t,e){var p,s;if((p=e.attributes)!=null&&p.icon)return e.attributes.icon;const a=t.split(".")[0],r=((s=e.attributes)==null?void 0:s.device_class)??"",i=L.has(e.state),o=n=>typeof n=="string"?n:i?n.on:n.off;return a==="sensor"&&r==="battery"?Y(parseFloat(e.state)):r&&N[r]?o(N[r]):T[a]?o(T[a]):"mdi:help-circle-outline"}function Y(t){if(t==null||isNaN(t))return"mdi:battery-unknown";const e=Math.min(100,Math.max(0,t));return e<=5?"mdi:battery-alert-variant-outline":e>=100?"mdi:battery":`mdi:battery-${Math.min(90,Math.max(10,Math.round(e/10)*10))}`}function w(t,e){t.dispatchEvent(new CustomEvent("hass-more-info",{bubbles:!0,composed:!0,detail:{entityId:e}}))}function ve(t){history.pushState(null,"",t),window.dispatchEvent(new CustomEvent("location-changed",{bubbles:!0,composed:!0,detail:{replace:!1}}))}function W(t,e,a){const r=(t==null?void 0:t.y_min)!=null?Math.min(t.y_min,e):e,i=(t==null?void 0:t.y_max)!=null?Math.max(t.y_max,a):a;return{min:r,max:i,range:i-r}}function xe(t,e,a=null){if(!(t!=null&&t.length)||t.length<2)return"";const r=300,i=60,o=Math.min(...t),p=Math.max(...t),{min:s,range:n}=W(a,o,p);if(n===0&&(a==null?void 0:a.y_min)==null&&(a==null?void 0:a.y_max)==null)return"";const u=n||1,c=t.map((d,C)=>C/(t.length-1)*r),l=t.map(d=>i-(d-s)/u*i),h=`${c.map((d,C)=>`${C?"L":"M"}${d.toFixed(1)},${l[C].toFixed(1)}`).join(" ")} V${i} H0 Z`;if(!(a&&(a.threshold_high!=null||a.threshold_low!=null)))return Z(r,i,`<path d="${h}" fill="${e}"/>`);const x=a.color??"rgba(3, 169, 244, 0.12)",_=a.color_high??"rgba(244, 67, 54, 0.25)",k=a.color_low??"rgba(33, 150, 243, 0.25)",b=d=>Math.max(0,Math.min(i,i-(d-s)/u*i)),O=`<defs><clipPath id="sg-cp"><path d="${h}"/></clipPath></defs>`;let y=`<path d="${h}" fill="${x}"/>`;if(a.threshold_high!=null){const d=b(a.threshold_high);d>0&&(y+=`<rect x="0" y="0" width="${r}" height="${d.toFixed(1)}" fill="${_}" clip-path="url(#sg-cp)"/>`),d>0&&d<i&&(y+=`<line x1="0" y1="${d.toFixed(1)}" x2="${r}" y2="${d.toFixed(1)}" stroke="${_}" stroke-width="0.8" stroke-dasharray="4,4" opacity="0.6"/>`)}if(a.threshold_low!=null){const d=b(a.threshold_low);d<i&&(y+=`<rect x="0" y="${d.toFixed(1)}" width="${r}" height="${(i-d).toFixed(1)}" fill="${k}" clip-path="url(#sg-cp)"/>`),d>0&&d<i&&(y+=`<line x1="0" y1="${d.toFixed(1)}" x2="${r}" y2="${d.toFixed(1)}" stroke="${k}" stroke-width="0.8" stroke-dasharray="4,4" opacity="0.6"/>`)}return Z(r,i,O+y)}function Z(t,e,a){return`<svg class="bg-chart" viewBox="0 0 ${t} ${e}" preserveAspectRatio="none" aria-hidden="true">${a}</svg>`}function _e(t,e,a=null,r=!1){var U,V,G,R,J,K,Q,X,ee,te,ae,ie,re,ne;const i=e.area,o=(U=t.areas)==null?void 0:U[i];if(!o&&!e.name&&!((V=e.entities)!=null&&V.length))return{error:i??"(no area)"};const p=(G=e.entities)!=null&&G.length?[]:P(t,i),s=pe(p,e,t),n=fe(s),u=me(n.lights),c=ye(u),l=q(n.temperatures),g=q(n.humidities),h=n.climate[0]??null,[v,x]=ce[(R=h==null?void 0:h.state)==null?void 0:R.state]??[null,null],_=e.mold_threshold??70,k=e.navigate_to||((J=e.tap_action)==null?void 0:J.navigation_path)||null,b=e.history_chart??null,O=e.battery_low_threshold??20,y=be(n.batteries),d=n.cameras[0]??null,C=n.cameras.slice(1),S=n.updates.filter(f=>f.state.state==="on");return{areaName:e.name||(o==null?void 0:o.name)||i||"",cardIcon:e.icon||(o==null?void 0:o.icon)||"mdi:home",navPath:k,hasLights:n.lights.length>0,lightCount:u.length,offlineLights:n.lights.filter(f=>f.state.state==="unavailable").length,lightColor:c,occupied:E(n.motions)||E(n.occupancy),hasOccupancySensors:n.motions.length>0||n.occupancy.length>0,problemCount:n.problems.length,showBatteryBadge:y!=null&&y.value<=O,batteryValue:(y==null?void 0:y.value)??null,batteryIcon:y?Y(y.value):null,batteryEntity:(y==null?void 0:y.entityId)??null,batteryTitle:y?`${n.batteries.length>1?`Lowest of ${n.batteries.length} — `:""}${((K=y.state.attributes)==null?void 0:K.friendly_name)??y.entityId}: ${y.value}%`:"",tempVal:l,humVal:g,tempUnit:((X=(Q=n.temperatures[0])==null?void 0:Q.state.attributes)==null?void 0:X.unit_of_measurement)??"°C",tempEntities:n.temperatures,humEntities:n.humidities,climate:h,climIcon:v,climColor:x,smokeOn:E(n.smokes),gasOn:E(n.gases),waterOn:E(n.moistures),moldRisk:g!==null&&g>=_,updateCount:S.length,updateEntity:((ee=S[0])==null?void 0:ee.entityId)??null,updateTitle:S.length?`${S.length} update${S.length!==1?"s":""} available: ${S.map(f=>{var m;return((m=f.state.attributes)==null?void 0:m.friendly_name)??f.entityId}).join(", ")}`:"",hasCamera:e.show_camera!==!1&&!!d,cameraEntity:(d==null?void 0:d.entityId)??null,cameraImage:((te=d==null?void 0:d.state.attributes)==null?void 0:te.entity_picture)??null,cameraIcon:d?A(d.entityId,d.state):null,cameraTitle:((ae=d==null?void 0:d.state.attributes)==null?void 0:ae.friendly_name)??(d==null?void 0:d.entityId)??"",cameraState:(d==null?void 0:d.state.state)??"",cameraOffline:(d==null?void 0:d.state.state)==="unavailable",controlItems:e.show_entities!==!1?n.controls.map(({entityId:f,state:m})=>{var $;return{entityId:f,domain:f.split(".")[0],isActive:L.has(m.state),icon:A(f,m),label:B(f,m),title:`${(($=m.attributes)==null?void 0:$.friendly_name)??f} — ${m.state}`}}):[],collapsibleControls:e.collapsible_controls!==!1,controlsCollapsed:e.collapsible_controls!==!1&&r,ptzItems:e.show_entities!==!1?n.ptz.map(({entityId:f,state:m,direction:$})=>{var I;return{entityId:f,direction:$,icon:de[$],title:((I=m.attributes)==null?void 0:I.friendly_name)??f}}):[],weatherItems:e.show_entities!==!1?n.weathers.map(({entityId:f,state:m})=>{var oe,se;const $=parseFloat(m.state),I=((oe=m.attributes)==null?void 0:oe.unit_of_measurement)??"";return{entityId:f,icon:A(f,m),value:isNaN($)?m.state:$.toFixed(1),unit:I,title:`${((se=m.attributes)==null?void 0:se.friendly_name)??f} — ${m.state}${I}`}}):[],historyPoints:b!=null&&b.entity_id?a:null,historyColor:(b==null?void 0:b.color)??"rgba(3, 169, 244, 0.12)",historyChart:b,historyMin:b!=null&&b.entity_id&&(a==null?void 0:a.length)>=2?Math.min(...a):null,historyMax:b!=null&&b.entity_id&&(a==null?void 0:a.length)>=2?Math.max(...a):null,historyUnit:((ne=(re=(ie=t.states)==null?void 0:ie[b==null?void 0:b.entity_id])==null?void 0:re.attributes)==null?void 0:ne.unit_of_measurement)??"",historyHours:(b==null?void 0:b.hours)??24,chipItems:e.show_entities!==!1?[...n.others,...C].slice(0,e.max_entities??6).map(({entityId:f,state:m})=>{var $;return{entityId:f,isActive:L.has(m.state),icon:A(f,m),label:B(f,m),title:`${(($=m.attributes)==null?void 0:$.friendly_name)??f} — ${m.state}`}}):[]}}function $e({areaName:t,cardIcon:e,hasLights:a,lightCount:r,offlineLights:i,occupied:o,hasOccupancySensors:p,problemCount:s,showBatteryBadge:n,batteryValue:u,batteryIcon:c,batteryEntity:l,batteryTitle:g,updateCount:h,updateEntity:v,updateTitle:x}){const _=r===0,k=_?i>0?`${i} light${i!==1?"s":""} offline`:"Lights off":`${r} light${r!==1?"s":""} on${i>0?` · ${i} offline`:""}`;return`
     <div class="header">
       <div class="header-left">
         <ha-icon class="room-icon" icon="${e}"></ha-icon>
@@ -458,129 +481,131 @@
       </div>
       <div class="header-right">
         ${a?`
-          <div class="badge badge-lights ${S?"off":""} ${i>0?"has-offline":""}"
-               title="${g}">
-            <ha-icon icon="mdi:lightbulb${S?"-off":""}"></ha-icon>
-            ${n>1?`<span>${n}</span>`:""}
-          </div>`:""}
-        ${c?`<div class="occupancy-dot ${s?"":"idle"}" title="${s?"Occupied":"Not occupied"}"></div>`:""}
-        ${l?`
-          <div class="badge badge-battery"
-               data-entity="${d}"
-               title="${u}">
-            <ha-icon icon="${o}"></ha-icon>
-            <span>${p}%</span>
-          </div>`:""}
-        ${r>0?`
-          <div class="badge badge-problems"
-               title="${r} problem${r!==1?"s":""}">
-            <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+          <div class="badge badge-lights ${_?"off":""} ${i>0?"has-offline":""}"
+               title="${k}">
+            <ha-icon icon="mdi:lightbulb${_?"-off":""}"></ha-icon>
             ${r>1?`<span>${r}</span>`:""}
           </div>`:""}
-        ${y>0?`
+        ${p?`<div class="occupancy-dot ${o?"":"idle"}" title="${o?"Occupied":"Not occupied"}"></div>`:""}
+        ${n?`
+          <div class="badge badge-battery"
+               data-entity="${l}"
+               title="${g}">
+            <ha-icon icon="${c}"></ha-icon>
+            <span>${u}%</span>
+          </div>`:""}
+        ${s>0?`
+          <div class="badge badge-problems"
+               title="${s} problem${s!==1?"s":""}">
+            <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+            ${s>1?`<span>${s}</span>`:""}
+          </div>`:""}
+        ${h>0?`
           <div class="badge badge-update"
-               data-entity="${x}"
-               title="${_}">
+               data-entity="${v}"
+               title="${x}">
             <ha-icon icon="mdi:package-up"></ha-icon>
-            ${y>1?`<span>${y}</span>`:""}
+            ${h>1?`<span>${h}</span>`:""}
           </div>`:""}
       </div>
-    </div>`}function $e({tempVal:t,humVal:e,tempUnit:a,tempEntities:n,humEntities:i,climate:s,climIcon:c,climColor:r}){var l,p,o,d,u,y,x,_;return t===null&&e===null&&!c?"":`
+    </div>`}function we({tempVal:t,humVal:e,tempUnit:a,tempEntities:r,humEntities:i,climate:o,climIcon:p,climColor:s}){var n,u,c,l,g,h,v,x;return t===null&&e===null&&!p?"":`
     <div class="env-row">
       ${t!==null?`
         <div class="env-chip temp"
-             data-entity="${((l=n[0])==null?void 0:l.entityId)??""}"
-             title="${n.length>1?`Avg of ${n.length} sensors`:((o=(p=n[0])==null?void 0:p.state.attributes)==null?void 0:o.friendly_name)??""}">
+             data-entity="${((n=r[0])==null?void 0:n.entityId)??""}"
+             title="${r.length>1?`Avg of ${r.length} sensors`:((c=(u=r[0])==null?void 0:u.state.attributes)==null?void 0:c.friendly_name)??""}">
           <ha-icon icon="mdi:thermometer"></ha-icon>
           <span>${t.toFixed(1)}${a}</span>
         </div>`:""}
       ${e!==null?`
         <div class="env-chip hum"
-             data-entity="${((d=i[0])==null?void 0:d.entityId)??""}"
-             title="${i.length>1?`Avg of ${i.length} sensors`:((y=(u=i[0])==null?void 0:u.state.attributes)==null?void 0:y.friendly_name)??""}">
+             data-entity="${((l=i[0])==null?void 0:l.entityId)??""}"
+             title="${i.length>1?`Avg of ${i.length} sensors`:((h=(g=i[0])==null?void 0:g.state.attributes)==null?void 0:h.friendly_name)??""}">
           <ha-icon icon="mdi:water-percent"></ha-icon>
           <span>${e.toFixed(0)}%</span>
         </div>`:""}
-      ${c?`
+      ${p?`
         <div class="env-chip climate"
-             style="--climate-color: ${r}"
-             data-entity="${s.entityId}"
-             title="${((x=s.state.attributes)==null?void 0:x.friendly_name)??s.entityId}">
-          <ha-icon icon="${c}"></ha-icon>
-          <span>${((_=s.state.attributes)==null?void 0:_.current_temperature)!=null?`${s.state.attributes.current_temperature}°`:s.state.state}</span>
+             style="--climate-color: ${s}"
+             data-entity="${o.entityId}"
+             title="${((v=o.state.attributes)==null?void 0:v.friendly_name)??o.entityId}">
+          <ha-icon icon="${p}"></ha-icon>
+          <span>${((x=o.state.attributes)==null?void 0:x.current_temperature)!=null?`${o.state.attributes.current_temperature}°`:o.state.state}</span>
         </div>`:""}
-    </div>`}function we({weatherItems:t}){return t.length?`
+    </div>`}function ke({weatherItems:t}){return t.length?`
     <div class="chip group-chip weather-chip" title="Weather">
-      ${t.map(({entityId:e,icon:a,value:n,unit:i,title:s})=>`
-        <span class="group-seg weather-seg" data-entity="${e}" title="${s}">
+      ${t.map(({entityId:e,icon:a,value:r,unit:i,title:o})=>`
+        <span class="group-seg weather-seg" data-entity="${e}" title="${o}">
           <ha-icon icon="${a}"></ha-icon>
-          <span class="group-seg-value">${n}${i}</span>
+          <span class="group-seg-value">${r}${i}</span>
         </span>`).join("")}
-    </div>`:""}function ke({chipItems:t,weatherItems:e}){return!t.length&&!e.length?"":`
+    </div>`:""}function Ce({chipItems:t,weatherItems:e}){return!t.length&&!e.length?"":`
     <div class="entity-chips">
-      ${we({weatherItems:e})}
-      ${t.map(({entityId:a,isActive:n,icon:i,label:s,title:c})=>`
-        <div class="chip${n?" on":""}" data-entity="${a}" title="${c}">
+      ${ke({weatherItems:e})}
+      ${t.map(({entityId:a,isActive:r,icon:i,label:o,title:p})=>`
+        <div class="chip${r?" on":""}" data-entity="${a}" title="${p}">
           <ha-icon icon="${i}"></ha-icon>
-          <span class="chip-label">${s}</span>
+          <span class="chip-label">${o}</span>
         </div>`).join("")}
-    </div>`}function Se({hasCamera:t,cameraImage:e,cameraIcon:a,cameraEntity:n,cameraTitle:i,cameraState:s,cameraOffline:c}){if(!t)return"";const r=c?`${i} (offline)`:i;return`
-    <div class="camera-preview${c?" offline":""}" data-entity="${n}" title="${r}">
-      ${e?`<img src="${e}" alt="${r}" loading="lazy" />`:`<div class="camera-placeholder"><ha-icon icon="${a}"></ha-icon></div>`}
-      ${s==="recording"?'<span class="camera-rec-dot" title="Recording"></span>':""}
-    </div>`}function Ce({ptzItems:t}){return t.length?`
+    </div>`}function Se({hasCamera:t,cameraImage:e,cameraIcon:a,cameraEntity:r,cameraTitle:i,cameraState:o,cameraOffline:p}){if(!t)return"";const s=p?`${i} (offline)`:i;return`
+    <div class="camera-preview${p?" offline":""}" data-entity="${r}" title="${s}">
+      ${e?`<img src="${e}" alt="${s}" loading="lazy" />`:`<div class="camera-placeholder"><ha-icon icon="${a}"></ha-icon></div>`}
+      ${o==="recording"?'<span class="camera-rec-dot" title="Recording"></span>':""}
+    </div>`}function Ee({ptzItems:t}){return t.length?`
     <div class="chip group-chip control-chip ptz-chip" title="PTZ">
-      ${t.map(({entityId:e,direction:a,icon:n,title:i})=>`
+      ${t.map(({entityId:e,direction:a,icon:r,title:i})=>`
         <span class="group-seg ptz-seg" data-entity="${e}" data-direction="${a}" title="${i}">
-          <ha-icon icon="${n}"></ha-icon>
+          <ha-icon icon="${r}"></ha-icon>
         </span>`).join("")}
-    </div>`:""}function Ee({controlItems:t,ptzItems:e}){return!t.length&&!e.length?"":`
-    <div class="controls-row">
-      <span class="controls-label">Controls</span>
+    </div>`:""}function ze({controlItems:t,ptzItems:e,collapsibleControls:a,controlsCollapsed:r}){return!t.length&&!e.length?"":`
+    <div class="controls-row${r?" collapsed":""}">
+      <span class="controls-label${a?" clickable":""}"
+        ${a?`role="button" tabindex="0" title="${r?"Expand":"Collapse"} controls"`:""}
+        >Controls${a?`<ha-icon class="controls-toggle" icon="mdi:chevron-${r?"down":"up"}"></ha-icon>`:""}</span>
       <div class="controls-chips">
-        ${Ce({ptzItems:e})}
-        ${t.map(({entityId:a,domain:n,isActive:i,icon:s,label:c,title:r})=>`
-          <div class="chip control-chip${i?" on":""}" data-entity="${a}" data-domain="${n}" title="${r}">
+        ${Ee({ptzItems:e})}
+        ${t.map(({entityId:i,domain:o,isActive:p,icon:s,label:n,title:u})=>`
+          <div class="chip control-chip${p?" on":""}" data-entity="${i}" data-domain="${o}" title="${u}">
             <ha-icon icon="${s}"></ha-icon>
-            <span class="chip-label">${c}</span>
+            <span class="chip-label">${n}</span>
           </div>`).join("")}
       </div>
-    </div>`}function Ie({smokeOn:t,gasOn:e,waterOn:a,moldRisk:n}){return!t&&!e&&!a&&!n?"":`
+    </div>`}function Ie({smokeOn:t,gasOn:e,waterOn:a,moldRisk:r}){return!t&&!e&&!a&&!r?"":`
     <div class="alarm-bar">
       ${t?'<span class="alarm-badge alarm-smoke"><ha-icon icon="mdi:smoke-detector-alert"></ha-icon> Smoke</span>':""}
       ${e?'<span class="alarm-badge alarm-gas"><ha-icon icon="mdi:molecule-co"></ha-icon> Gas</span>':""}
       ${a?'<span class="alarm-badge alarm-water"><ha-icon icon="mdi:water-alert"></ha-icon> Water</span>':""}
-      ${n?'<span class="alarm-badge alarm-mold"><ha-icon icon="mdi:mold"></ha-icon> Mold risk</span>':""}
-    </div>`}function ze(t){return`
-    <style>${j}</style>
+      ${r?'<span class="alarm-badge alarm-mold"><ha-icon icon="mdi:mold"></ha-icon> Mold risk</span>':""}
+    </div>`}function Ae(t){return`
+    <style>${D}</style>
     <ha-card class="error-card">
       <div class="error-content">
         <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
         <span>Area <strong>${t}</strong> not found.
           Check the <code>area:</code> value or add a <code>name:</code> override.</span>
       </div>
-    </ha-card>`}function Ae({historyMin:t,historyMax:e,historyUnit:a,historyHours:n,historyChart:i}){if(t===null)return"";const s=[];if((i==null?void 0:i.threshold_high)!=null||(i==null?void 0:i.threshold_low)!=null){const{min:c,range:r}=Y(i,t,e),l=r||1,p=o=>(1-(o-c)/l)*100;if(i.threshold_high!=null){const o=p(i.threshold_high);o>0&&o<100&&s.push(`<span class="chart-threshold" style="top:${o.toFixed(1)}%">${i.threshold_high.toFixed(1)}${a}</span>`)}if(i.threshold_low!=null){const o=p(i.threshold_low);o>0&&o<100&&s.push(`<span class="chart-threshold" style="top:${o.toFixed(1)}%">${i.threshold_low.toFixed(1)}${a}</span>`)}}return`
+    </ha-card>`}function Me({historyMin:t,historyMax:e,historyUnit:a,historyHours:r,historyChart:i}){if(t===null)return"";const o=[];if((i==null?void 0:i.threshold_high)!=null||(i==null?void 0:i.threshold_low)!=null){const{min:p,range:s}=W(i,t,e),n=s||1,u=c=>(1-(c-p)/n)*100;if(i.threshold_high!=null){const c=u(i.threshold_high);c>0&&c<100&&o.push(`<span class="chart-threshold" style="top:${c.toFixed(1)}%">${i.threshold_high.toFixed(1)}${a}</span>`)}if(i.threshold_low!=null){const c=u(i.threshold_low);c>0&&c<100&&o.push(`<span class="chart-threshold" style="top:${c.toFixed(1)}%">${i.threshold_low.toFixed(1)}${a}</span>`)}}return`
     <div class="chart-overlay">
       <span class="chart-stat stat-max">↑ ${e.toFixed(1)}${a}</span>
-      <span class="chart-stat stat-period">${n}h</span>
+      <span class="chart-stat stat-period">${r}h</span>
       <span class="chart-stat stat-min">↓ ${t.toFixed(1)}${a}</span>
-      ${s.join("")}
-    </div>`}function Me(t){const e=t.smokeOn||t.gasOn||t.waterOn,a=t.lightColor?`background: linear-gradient(135deg, ${t.lightColor}1a 0%, var(--ha-card-background, var(--card-background-color, transparent)) 60%);`:"",n=[t.navPath?"clickable":"",e?"alarm-active":""].filter(Boolean).join(" ");return`
-    <style>${j}</style>
+      ${o.join("")}
+    </div>`}function Le(t){const e=t.smokeOn||t.gasOn||t.waterOn,a=t.lightColor?`background: linear-gradient(135deg, ${t.lightColor}1a 0%, var(--ha-card-background, var(--card-background-color, transparent)) 60%);`:"",r=[t.navPath?"clickable":"",e?"alarm-active":""].filter(Boolean).join(" ");return`
+    <style>${D}</style>
     <ha-card
-      ${n?`class="${n}"`:""}
+      ${r?`class="${r}"`:""}
       style="${a}"
       ${t.navPath?'role="button" tabindex="0"':""}
       aria-label="${t.areaName}"
     >
-      ${t.historyPoints?ve(t.historyPoints,t.historyColor,t.historyChart):""}
-      ${Ae(t)}
+      ${t.historyPoints?xe(t.historyPoints,t.historyColor,t.historyChart):""}
+      ${Me(t)}
       <div class="card-content">
         ${Se(t)}
-        ${_e(t)}
         ${$e(t)}
-        ${ke(t)}
-        ${Ee(t)}
+        ${we(t)}
+        ${Ce(t)}
+        ${ze(t)}
         ${Ie(t)}
       </div>
-    </ha-card>`}function Fe(t,e,a){t.innerHTML=a.error?ze(a.error):Me(a),a.error||Le(t,e,a)}function Le(t,e,{navPath:a,chipItems:n}){var l,p;a&&t.querySelector("ha-card").addEventListener("click",o=>{!o.target.closest(".chip")&&!o.target.closest(".env-chip")&&!o.target.closest(".badge-lights")&&!o.target.closest(".badge-battery")&&!o.target.closest(".badge-update")&&!o.target.closest(".camera-preview")&&ye(a)}),t.querySelectorAll(".ptz-seg[data-entity]").forEach(o=>{o.addEventListener("click",d=>{var u;d.stopPropagation(),(u=e._hass)!=null&&u.callService?e._hass.callService("button","press",{},{entity_id:o.dataset.entity}):k(e,o.dataset.entity)})}),t.querySelectorAll(".weather-seg[data-entity]").forEach(o=>{o.addEventListener("click",d=>{d.stopPropagation(),k(e,o.dataset.entity)})});const i=t.querySelector(".badge-update[data-entity]");i&&i.addEventListener("click",o=>{o.stopPropagation(),k(e,i.dataset.entity)});const s=t.querySelector(".camera-preview[data-entity]");s&&s.addEventListener("click",o=>{o.stopPropagation(),k(e,s.dataset.entity)}),t.querySelectorAll(".control-chip[data-entity]").forEach(o=>{o.addEventListener("click",d=>{var x,_;d.stopPropagation();const u=o.dataset.entity,y=o.dataset.domain;y==="button"&&((x=e._hass)!=null&&x.callService)?e._hass.callService("button","press",{},{entity_id:u}):y==="siren"&&((_=e._hass)!=null&&_.callService)?e._hass.callService("siren","toggle",{},{entity_id:u}):k(e,u)})});const c=t.querySelector(".badge-lights");c&&((l=e._config)!=null&&l.area)&&((p=e._hass)!=null&&p.callService)&&c.addEventListener("click",o=>{o.stopPropagation(),e._hass.callService("light","toggle",{},{area_id:e._config.area})});const r=t.querySelector(".badge-battery[data-entity]");r&&r.addEventListener("click",o=>{o.stopPropagation(),k(e,r.dataset.entity)}),t.querySelectorAll(".env-chip[data-entity]").forEach(o=>{const d=o.dataset.entity;d&&o.addEventListener("click",u=>{u.stopPropagation(),k(e,d)})}),t.querySelectorAll(".chip[data-entity]:not(.control-chip)").forEach(o=>{o.addEventListener("click",d=>{d.stopPropagation(),k(e,o.dataset.entity)})})}const L=new Map,A=new Set,E=new Map;function Oe(t,e,a,n,i){const s=`${e}:${Math.floor(Date.now()/3e5)}`;if(L.has(s))return L.get(s);if(A.has(s))return E.get(s).set(i,n),null;if(!(t!=null&&t.callWS))return null;A.add(s),E.set(s,new Map([[i,n]]));const c=new Date(Date.now()-a*36e5).toISOString();return t.callWS({type:"history/history_during_period",entity_ids:[e],start_time:c,minimal_response:!0,no_attributes:!0}).then(r=>{const p=(Array.isArray(r==null?void 0:r[e])?r[e]:[]).map(d=>parseFloat(d.s??d.state)).filter(d=>!isNaN(d));L.set(s,p),A.delete(s);const o=E.get(s);E.delete(s),o==null||o.forEach(d=>d(p))}).catch(()=>{A.delete(s),E.delete(s)}),null}class He extends HTMLElement{constructor(){super(),this.attachShadow({mode:"open"}),this._hass=null,this._config=null,this._stateHash=null}setConfig(e){var a;if(!(e!=null&&e.area)&&!((a=e==null?void 0:e.entities)!=null&&a.length))throw new Error('[hass-omnibus-card] Missing required field: "area" or "entities"');this._config={...e},this._stateHash=null,this._hass&&this._update()}set hass(e){if(this._hass=e,!this._config)return;const a=this._buildHash();a!==this._stateHash&&(this._stateHash=a,this._update())}getCardSize(){return 2}static getStubConfig(){return{area:"living_room",icon:"mdi:sofa"}}_buildHash(){var n,i,s,c;if(!this._hass||!this._config)return"";let e;if((n=this._config.entities)!=null&&n.length)e=this._config.entities.map(r=>{var l;return{entityId:r,state:(l=this._hass.states)==null?void 0:l[r]}}).filter(r=>r.state);else{e=N(this._hass,this._config.area);for(const r of this._config.add_entities??[])if(!e.some(l=>l.entityId===r)){const l=(i=this._hass.states)==null?void 0:i[r];l&&e.push({entityId:r,state:l})}}const a=(s=this._config.history_chart)==null?void 0:s.entity_id;if(a&&!e.some(r=>r.entityId===a)){const r=(c=this._hass.states)==null?void 0:c[a];r&&e.push({entityId:a,state:r})}return e.map(({entityId:r,state:l})=>{var p,o,d;return`${r}=${l.state}|${((p=l.attributes)==null?void 0:p.rgb_color)??""}|${((o=l.attributes)==null?void 0:o.current_temperature)??""}|${((d=l.attributes)==null?void 0:d.entity_picture)??""}`}).sort().join(";")}_update(){var i,s;let e=null;const a=(i=this._config)==null?void 0:i.history_chart;a!=null&&a.entity_id&&(e=Oe(this._hass,a.entity_id,a.hours??24,()=>this._update(),this));const n=xe(this._hass,this._config,e);(s=this._config)!=null&&s.debug&&console.debug("[hass-omnibus-card] update",{area:this._config.area,hash:this._stateHash,viewModel:n}),Fe(this.shadowRoot,this,n)}}window.customCards=window.customCards||[],window.customCards.push({type:O,name:"Hass Omnibus Card",description:"Compact, area-based room summary with automatic entity discovery.",preview:!0}),console.info(`%c HASS-OMNIBUS-CARD %c v${se} `,"color:#fff;background:#2196f3;font-weight:bold;padding:2px 4px;border-radius:3px 0 0 3px","color:#2196f3;background:#e3f2fd;font-weight:bold;padding:2px 4px;border-radius:0 3px 3px 0"),customElements.define(O,He)})();
+    </ha-card>`}function Fe(t,e,a){var i,o;const r=(i=t.activeElement)==null?void 0:i.className;t.innerHTML=a.error?Ae(a.error):Le(a),a.error||Oe(t,e,a),r&&((o=t.querySelector(`.${r.split(" ").join(".")}`))==null||o.focus())}function Oe(t,e,{navPath:a,chipItems:r}){var u,c;a&&t.querySelector("ha-card").addEventListener("click",l=>{!l.target.closest(".chip")&&!l.target.closest(".env-chip")&&!l.target.closest(".badge-lights")&&!l.target.closest(".badge-battery")&&!l.target.closest(".badge-update")&&!l.target.closest(".camera-preview")&&!l.target.closest(".controls-label.clickable")&&ve(a)});const i=t.querySelector(".controls-label.clickable");i&&(i.addEventListener("click",l=>{l.stopPropagation(),e.toggleControlsCollapsed()}),i.addEventListener("keydown",l=>{l.key!=="Enter"&&l.key!==" "||(l.preventDefault(),l.stopPropagation(),e.toggleControlsCollapsed())})),t.querySelectorAll(".ptz-seg[data-entity]").forEach(l=>{l.addEventListener("click",g=>{var h;g.stopPropagation(),(h=e._hass)!=null&&h.callService?e._hass.callService("button","press",{},{entity_id:l.dataset.entity}):w(e,l.dataset.entity)})}),t.querySelectorAll(".weather-seg[data-entity]").forEach(l=>{l.addEventListener("click",g=>{g.stopPropagation(),w(e,l.dataset.entity)})});const o=t.querySelector(".badge-update[data-entity]");o&&o.addEventListener("click",l=>{l.stopPropagation(),w(e,o.dataset.entity)});const p=t.querySelector(".camera-preview[data-entity]");p&&p.addEventListener("click",l=>{l.stopPropagation(),w(e,p.dataset.entity)}),t.querySelectorAll(".control-chip[data-entity]").forEach(l=>{l.addEventListener("click",g=>{var x,_;g.stopPropagation();const h=l.dataset.entity,v=l.dataset.domain;v==="button"&&((x=e._hass)!=null&&x.callService)?e._hass.callService("button","press",{},{entity_id:h}):v==="siren"&&((_=e._hass)!=null&&_.callService)?e._hass.callService("siren","toggle",{},{entity_id:h}):w(e,h)})});const s=t.querySelector(".badge-lights");s&&((u=e._config)!=null&&u.area)&&((c=e._hass)!=null&&c.callService)&&s.addEventListener("click",l=>{l.stopPropagation(),e._hass.callService("light","toggle",{},{area_id:e._config.area})});const n=t.querySelector(".badge-battery[data-entity]");n&&n.addEventListener("click",l=>{l.stopPropagation(),w(e,n.dataset.entity)}),t.querySelectorAll(".env-chip[data-entity]").forEach(l=>{const g=l.dataset.entity;g&&l.addEventListener("click",h=>{h.stopPropagation(),w(e,g)})}),t.querySelectorAll(".chip[data-entity]:not(.control-chip)").forEach(l=>{l.addEventListener("click",g=>{g.stopPropagation(),w(e,l.dataset.entity)})})}const F=new Map,M=new Set,z=new Map;function He(t,e,a,r,i){const o=`${e}:${Math.floor(Date.now()/3e5)}`;if(F.has(o))return F.get(o);if(M.has(o))return z.get(o).set(i,r),null;if(!(t!=null&&t.callWS))return null;M.add(o),z.set(o,new Map([[i,r]]));const p=new Date(Date.now()-a*36e5).toISOString();return t.callWS({type:"history/history_during_period",entity_ids:[e],start_time:p,minimal_response:!0,no_attributes:!0}).then(s=>{const u=(Array.isArray(s==null?void 0:s[e])?s[e]:[]).map(l=>parseFloat(l.s??l.state)).filter(l=>!isNaN(l));F.set(o,u),M.delete(o);const c=z.get(o);z.delete(o),c==null||c.forEach(l=>l(u))}).catch(()=>{M.delete(o),z.delete(o)}),null}class Ne extends HTMLElement{constructor(){super(),this.attachShadow({mode:"open"}),this._hass=null,this._config=null,this._stateHash=null,this._controlsCollapsed=null}setConfig(e){var a;if(!(e!=null&&e.area)&&!((a=e==null?void 0:e.entities)!=null&&a.length))throw new Error('[hass-omnibus-card] Missing required field: "area" or "entities"');this._config={...e},this._stateHash=null,this._controlsCollapsed=e.controls_collapsed!==!1,this._hass&&this._update()}toggleControlsCollapsed(){this._controlsCollapsed=!this._controlsCollapsed,this._update()}set hass(e){if(this._hass=e,!this._config)return;const a=this._buildHash();a!==this._stateHash&&(this._stateHash=a,this._update())}getCardSize(){return 2}static getStubConfig(){return{area:"living_room",icon:"mdi:sofa"}}_buildHash(){var r,i,o,p;if(!this._hass||!this._config)return"";let e;if((r=this._config.entities)!=null&&r.length)e=this._config.entities.map(s=>{var n;return{entityId:s,state:(n=this._hass.states)==null?void 0:n[s]}}).filter(s=>s.state);else{e=P(this._hass,this._config.area);for(const s of this._config.add_entities??[])if(!e.some(n=>n.entityId===s)){const n=(i=this._hass.states)==null?void 0:i[s];n&&e.push({entityId:s,state:n})}}const a=(o=this._config.history_chart)==null?void 0:o.entity_id;if(a&&!e.some(s=>s.entityId===a)){const s=(p=this._hass.states)==null?void 0:p[a];s&&e.push({entityId:a,state:s})}return e.map(({entityId:s,state:n})=>{var u,c,l;return`${s}=${n.state}|${((u=n.attributes)==null?void 0:u.rgb_color)??""}|${((c=n.attributes)==null?void 0:c.current_temperature)??""}|${((l=n.attributes)==null?void 0:l.entity_picture)??""}`}).sort().join(";")}_update(){var i,o;let e=null;const a=(i=this._config)==null?void 0:i.history_chart;a!=null&&a.entity_id&&(e=He(this._hass,a.entity_id,a.hours??24,()=>this._update(),this));const r=_e(this._hass,this._config,e,this._controlsCollapsed);(o=this._config)!=null&&o.debug&&console.debug("[hass-omnibus-card] update",{area:this._config.area,hash:this._stateHash,viewModel:r}),Fe(this.shadowRoot,this,r)}}window.customCards=window.customCards||[],window.customCards.push({type:H,name:"Hass Omnibus Card",description:"Compact, area-based room summary with automatic entity discovery.",preview:!0}),console.info(`%c HASS-OMNIBUS-CARD %c v${le} `,"color:#fff;background:#2196f3;font-weight:bold;padding:2px 4px;border-radius:3px 0 0 3px","color:#2196f3;background:#e3f2fd;font-weight:bold;padding:2px 4px;border-radius:0 3px 3px 0"),customElements.define(H,Ne)})();

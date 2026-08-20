@@ -654,6 +654,15 @@ window.addEventListener('load', () => {
     // show_camera: false — preview hidden, controls row unaffected
     mountStatic(gallery, { area: 'esterno', name: 'show_camera: false', show_camera: false }, {});
 
+    // Controls row collapsed by default — chevron icon expands it
+    mountStatic(gallery, { area: 'esterno', name: 'Controls collapsed (default)' }, {});
+
+    // controls_collapsed: false — starts expanded, collapse with the chevron icon
+    mountStatic(gallery, { area: 'esterno', name: 'controls_collapsed: false', controls_collapsed: false }, {});
+
+    // collapsible_controls: false — no chevron icon, always expanded
+    mountStatic(gallery, { area: 'esterno', name: 'collapsible_controls: false', collapsible_controls: false }, {});
+
     // Real sensors — soggiorno THS + Bresser (normal values)
     mountStatic(gallery, {
       name: 'Soggiorno + Bresser (normal)',

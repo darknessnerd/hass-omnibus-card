@@ -16,6 +16,7 @@ export class HassOmnibusCard extends HTMLElement {
     this._hass      = null;
     this._config    = null;
     this._stateHash = null;
+    this._controlsCollapsed = null;   // always set by setConfig before first use
   }
 
   /** Called by HA when the YAML config is parsed or changed. */
@@ -25,7 +26,14 @@ export class HassOmnibusCard extends HTMLElement {
     }
     this._config    = { ...config };
     this._stateHash = null;   // force re-render with new config
+    this._controlsCollapsed = config.controls_collapsed !== false;
     if (this._hass) this._update();
+  }
+
+  /** Toggled by the controls-row collapse icon; re-renders without touching the hash guard. */
+  toggleControlsCollapsed() {
+    this._controlsCollapsed = !this._controlsCollapsed;
+    this._update();
   }
 
   /**
@@ -86,7 +94,7 @@ export class HassOmnibusCard extends HTMLElement {
     if (hc?.entity_id) {
       historyPoints = getHistory(this._hass, hc.entity_id, hc.hours ?? 24, () => this._update(), this);
     }
-    const vm = buildViewModel(this._hass, this._config, historyPoints);
+    const vm = buildViewModel(this._hass, this._config, historyPoints, this._controlsCollapsed);
     if (this._config?.debug) {
       console.debug('[hass-omnibus-card] update', {
         area:      this._config.area,

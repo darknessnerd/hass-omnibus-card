@@ -75,6 +75,7 @@ area: living_room          entities: [light.x, sensor.y]
 | Camera preview | First `camera.*` entity in the area renders as a snapshot banner (uses the entity's own `entity_picture`); tap opens more-info; red dot while `state: recording`; dimmed + "(offline)" title while `state: unavailable`; disable with `show_camera: false`. Additional cameras in the same area still appear as regular chips |
 | Camera controls | `siren`/`button` entities always group into a dedicated "Controls" row; any other *operable* entity (switch, select, number, lock…) sharing a *device* with a discovered camera joins them — read-only domains (`sensor`, `binary_sensor`, `image`, `update`) never do, even on the same device. Tap: button → `button.press`, siren → `siren.toggle`, everything else → more-info |
 | PTZ pad | `button` entities matching a PTZ naming pattern (`*_ptz_up/down/left/right`, English or Italian) collapse into a single directional-pad chip instead of one chip per direction; each arrow segment presses its own button |
+| Collapsible controls | Controls row is collapsible and starts collapsed by default; a chevron icon in the header toggles it open/closed. Disable the icon with `collapsible_controls: false`, or start expanded with `controls_collapsed: false`. Toggle state persists across state updates but resets on config reload |
 | Weather chip | `sensor` entities with `device_class: wind_speed / precipitation / illuminance / sound_pressure` collapse into a single chip — one icon+value segment per reading — instead of a chip per sensor |
 | Firmware update badge | Any `update.*` entity reporting an update available (`state: on`) shows a header badge (count if more than one), mirroring the low-battery badge; tap opens more-info |
 
@@ -155,6 +156,10 @@ add_entities:              # Entity IDs to force-add on top of area discovery (o
 # ── Entity chips ──────────────────────────────────────────────────────
 show_entities: true        # Show the entity chip strip (default: true) — also gates the controls row
 max_entities: 6            # Max chips to display (default: 6)
+
+# ── Controls row ────────────────────────────────────────────────────────
+collapsible_controls: true    # Add a collapse/expand icon to the Controls row header (default: true)
+controls_collapsed: true      # Start the Controls row collapsed; only applies when collapsible_controls is true (default: true)
 
 # ── Camera ────────────────────────────────────────────────────────────
 show_camera: true          # Show the camera snapshot preview banner (default: true)

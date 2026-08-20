@@ -476,7 +476,10 @@ test('not occupied — idle dot visible', async ({ page }) => {
 // max_entities raised — the garage fixture models a real multi-entity camera device
 // (ptz/switches/sensors/image/update) plus a weather station; default cap (6) would
 // clip chips these tests need to assert on. Cap behavior itself is tested elsewhere.
-const GARAGE = { area: 'garage', max_entities: 20 };
+// collapsible_controls: false keeps the Controls row expanded (no chevron, unaffected
+// pixels) for tests written before the section became collapsible — dedicated tests
+// below cover the toggle icon and the new collapsed-by-default behavior.
+const GARAGE = { area: 'garage', max_entities: 20, collapsible_controls: false };
 
 test('camera — preview image rendered, recording dot visible', async ({ page }) => {
   await mount(page, GARAGE);
@@ -555,6 +558,78 @@ test('controls — read-only sensor/image sharing the camera device stay chips, 
     await expect(chip).toBeVisible();
     await expect(chip).not.toHaveClass(/control-chip/);
   }
+});
+
+test('controls — label is keyboard-focusable and toggles on Enter/Space', async ({ page }) => {
+  await mount(page, { area: 'garage', max_entities: 20 });
+  const label = page.locator('#mount').locator('.controls-label.clickable');
+  const chips = page.locator('#mount').locator('.controls-chips');
+
+  await expect(label).toHaveAttribute('role', 'button');
+  await expect(label).toHaveAttribute('tabindex', '0');
+
+  await label.focus();
+  await page.keyboard.press('Enter');
+  await expect(chips).toBeVisible();
+
+  await page.keyboard.press(' ');
+  await expect(chips).not.toBeVisible();
+});
+
+test('controls — collapsed by default, toggle icon shown', async ({ page }) => {
+  await mount(page, { area: 'garage', max_entities: 20 });
+  await expect(page.locator('#mount').locator('.controls-toggle')).toBeVisible();
+  await expect(page.locator('#mount').locator('.controls-toggle')).toHaveAttribute('icon', 'mdi:chevron-down');
+  await expect(page.locator('#mount').locator('.controls-chips')).not.toBeVisible();
+});
+
+test('controls — clicking the "Controls" label text expands and re-collapses the chip strip', async ({ page }) => {
+  await mount(page, { area: 'garage', max_entities: 20 });
+  const label = page.locator('#mount').locator('.controls-label.clickable');
+  const toggle = page.locator('#mount').locator('.controls-toggle');
+  const chips  = page.locator('#mount').locator('.controls-chips');
+
+  // click the label text itself, not the chevron icon
+  await label.click({ position: { x: 4, y: 4 } });
+  await expect(chips).toBeVisible();
+  await expect(toggle).toHaveAttribute('icon', 'mdi:chevron-up');
+
+  await label.click({ position: { x: 4, y: 4 } });
+  await expect(chips).not.toBeVisible();
+  await expect(toggle).toHaveAttribute('icon', 'mdi:chevron-down');
+});
+
+test('controls — clicking the chevron icon also toggles (bubbles to the label)', async ({ page }) => {
+  await mount(page, { area: 'garage', max_entities: 20 });
+  const toggle = page.locator('#mount').locator('.controls-toggle');
+  const chips  = page.locator('#mount').locator('.controls-chips');
+
+  await toggle.click();
+  await expect(chips).toBeVisible();
+  await expect(toggle).toHaveAttribute('icon', 'mdi:chevron-up');
+});
+
+test('controls — controls_collapsed: false starts the section expanded', async ({ page }) => {
+  await mount(page, { area: 'garage', max_entities: 20, controls_collapsed: false });
+  await expect(page.locator('#mount').locator('.controls-chips')).toBeVisible();
+  await expect(page.locator('#mount').locator('.controls-toggle')).toHaveAttribute('icon', 'mdi:chevron-up');
+});
+
+test('controls — collapsible_controls: false hides the toggle icon and always shows chips', async ({ page }) => {
+  await mount(page, GARAGE);   // GARAGE sets collapsible_controls: false
+  await expect(page.locator('#mount').locator('.controls-toggle')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.controls-chips')).toBeVisible();
+});
+
+test('controls — label click does not trigger card navigation', async ({ page }) => {
+  await mount(page, { area: 'garage', max_entities: 20, navigate_to: '/lovelace/garage' });
+  let navigated = false;
+  await page.exposeFunction('__onNavigate', () => { navigated = true; });
+  await page.evaluate(() => {
+    window.addEventListener('location-changed', () => window.__onNavigate());
+  });
+  await page.locator('#mount').locator('.controls-label.clickable').click({ position: { x: 4, y: 4 } });
+  expect(navigated).toBe(false);
 });
 
 // ── Firmware update badge ────────────────────────────────────────────────────

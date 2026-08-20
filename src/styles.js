@@ -386,7 +386,9 @@ export const CARD_STYLES = `
   }
 
   .controls-label {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     font-size: 0.68rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -396,10 +398,31 @@ export const CARD_STYLES = `
     margin-bottom: 4px;
   }
 
+  .controls-label.clickable {
+    cursor: pointer;
+  }
+
+  .controls-label.clickable:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  .controls-toggle {
+    --mdc-icon-size: 14px;
+    opacity: 0.8;
+  }
+
+  .controls-label.clickable:hover .controls-toggle { opacity: 1; }
+
   .controls-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
+  }
+
+  .controls-row.collapsed .controls-chips {
+    display: none;
   }
 
   /* ── Alarm bar ── */
