@@ -58,6 +58,46 @@ export function computeScale(hc, dataMin, dataMax) {
   return { min, max, range: max - min };
 }
 
+/**
+ * Reduces a dense series to at most `maxPoints` while preserving every
+ * bucket's min AND max — so a spike/dip (e.g. a threshold breach) can never
+ * silently vanish the way plain stride-sampling or averaging would. Each
+ * kept point carries its original index so callers can still place it at
+ * its true (non-uniform) x position instead of an evenly-respaced one.
+ *
+ * Example:
+ *   downsample([5, 9, 1, 3], 4)  → [{value:5,index:0},{value:9,index:1},{value:1,index:2},{value:3,index:3}] (already ≤ max, untouched)
+ *   downsample([5,9,1,3,8,2], 4) → 2 buckets of 3 → min+max of each, in original order:
+ *                                   [{value:1,index:2},{value:9,index:1},{value:2,index:5},{value:8,index:4}]
+ */
+export function downsample(points, maxPoints = 150) {
+  if (points.length <= maxPoints) return points.map((value, index) => ({ value, index }));
+
+  const bucketCount = Math.ceil(maxPoints / 2);
+  const bucketSize = points.length / bucketCount;
+  const result = [];
+  for (let b = 0; b < bucketCount; b++) {
+    const start = Math.floor(b * bucketSize);
+    const end = b === bucketCount - 1 ? points.length : Math.floor((b + 1) * bucketSize);
+    if (start >= end) continue;
+
+    let minIdx = start, maxIdx = start;
+    for (let i = start + 1; i < end; i++) {
+      if (points[i] < points[minIdx]) minIdx = i;
+      if (points[i] > points[maxIdx]) maxIdx = i;
+    }
+    if (minIdx === maxIdx) {
+      result.push({ value: points[minIdx], index: minIdx });
+    } else {
+      const [first, second] = minIdx < maxIdx ? [minIdx, maxIdx] : [maxIdx, minIdx];
+      result.push({ value: points[first], index: first }, { value: points[second], index: second });
+    }
+  }
+  return result;
+}
+
+const DOT_MAX_POINTS = 40;
+
 export function sparklineSvg(points, color, hc = null, unit = '') {
   if (!points?.length || points.length < 2) return '';
 
@@ -72,13 +112,23 @@ export function sparklineSvg(points, color, hc = null, unit = '') {
 
   // range || 1 guards the flat-line-with-y_min case above from a division by 0.
   const effectiveRange = range || 1;
-  const xs = points.map((_, i) => (i / (points.length - 1)) * W);   // 0 → W, evenly spaced by index
-  const ys = points.map(v => H - ((v - min) / effectiveRange) * H); // H (bottom) → 0 (top), inverted for SVG
+  // Reduce dense series (e.g. hundreds of points) before laying out geometry,
+  // so both the visible dots and the hover hit-targets stay sparse together —
+  // downsampling after would desync the two layers.
+  const reduced = downsample(points);
+  const originalLength = points.length;
+  const xs = reduced.map(p => (p.index / (originalLength - 1)) * W);   // original position preserved, not re-indexed, so spacing stays proportional to real gaps
+  const ys = reduced.map(p => H - ((p.value - min) / effectiveRange) * H); // H (bottom) → 0 (top), inverted for SVG
   const d  = xs.map((x, i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
   const path = `${d} V${H} H0 Z`; // close the line down into a fillable area
   // Small visible, non-interactive dot per point — lives in the .bg-chart
-  // layer (z-index 0, under .card-content), same as the fill/path.
-  const dot = xs.map((x, i) => `<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="1.5" fill="${color}"/>`).join('');
+  // layer (z-index 0, under .card-content), same as the fill/path. Only
+  // worth drawing for sparse series where each vertex reads as a discrete
+  // marker; past DOT_MAX_POINTS the circles no longer overlap into a smooth
+  // band and instead scallop the line into a bumpy ridge, so skip them and
+  // let the fill/stroke alone carry a dense curve's shape.
+  const dot = reduced.length > DOT_MAX_POINTS ? '' :
+    xs.map((x, i) => `<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="1.5" fill="${color}"/>`).join('');
   // .bg-chart sits BEHIND .card-content (z-index 0 vs 1), so a hover target
   // placed there never wins hit-testing — .card-content, though visually
   // transparent, still sits on top and swallows the pointer first. So the
@@ -88,15 +138,14 @@ export function sparklineSvg(points, color, hc = null, unit = '') {
   // the layer itself stays pointer-events:none, like .bg-chart, so it
   // doesn't block clicks elsewhere on the card).
   //
-  // Radius is capped at half the point spacing so hit targets on dense
-  // series (e.g. hundreds of points) don't overlap their neighbors — an
-  // uncapped r=4 would make later-painted circles swallow earlier ones'
-  // hit area, leaving most points' tooltips unreachable.
-  const spacing = W / (points.length - 1);
+  // Radius is capped at half the average point spacing so hit targets don't
+  // overlap their neighbors — an uncapped r=4 would make later-painted
+  // circles swallow earlier ones' hit area, leaving most tooltips unreachable.
+  const spacing = W / (xs.length - 1);
   const hitR = Math.min(4, spacing / 2).toFixed(1);
   const hitLayer = xs.map((x, i) => {
-    if (!Number.isFinite(points[i])) return ''; // unavailable/unknown reading → no tooltip to show
-    return `<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="${hitR}" fill="transparent"><title>${points[i].toFixed(1)}${unit}</title></circle>`;
+    if (!Number.isFinite(reduced[i].value)) return ''; // unavailable/unknown reading → no tooltip to show
+    return `<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="${hitR}" fill="transparent"><title>${reduced[i].value.toFixed(1)}${unit}</title></circle>`;
   }).join('');
   const hits = `<svg class="chart-hit-layer" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${hitLayer}</svg>`;
 
