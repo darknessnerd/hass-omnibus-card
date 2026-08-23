@@ -9,16 +9,25 @@ const _callbacks = new Map(); // key → Map<cardRef, onDone>
  * rapid hass updates from the same card only keep the latest callback (no flood).
  */
 export function getHistory(hass, entityId, hours, onDone, cardRef) {
+  const debug = cardRef?._config?.debug;
   const key = `${entityId}:${Math.floor(Date.now() / 300_000)}`;
-  if (_cache.has(key)) return _cache.get(key);
+  if (_cache.has(key)) {
+    if (debug) console.debug('[hass-omnibus-card] history cache hit', { key, points: _cache.get(key).length });
+    return _cache.get(key);
+  }
 
   if (_pending.has(key)) {
+    if (debug) console.debug('[hass-omnibus-card] history fetch pending, queuing callback', { key });
     _callbacks.get(key).set(cardRef, onDone); // replace same card's old cb, keep others
     return null;
   }
 
-  if (!hass?.callWS) return null;
+  if (!hass?.callWS) {
+    if (debug) console.debug('[hass-omnibus-card] history skipped — no callWS', { entityId });
+    return null;
+  }
 
+  if (debug) console.debug('[hass-omnibus-card] history fetch start', { key, entityId, hours });
   _pending.add(key);
   _callbacks.set(key, new Map([[cardRef, onDone]]));
 
@@ -32,12 +41,14 @@ export function getHistory(hass, entityId, hours, onDone, cardRef) {
   }).then(data => {
     const raw    = Array.isArray(data?.[entityId]) ? data[entityId] : [];
     const points = raw.map(p => parseFloat(p.s ?? p.state)).filter(v => !isNaN(v));
+    if (debug) console.debug('[hass-omnibus-card] history fetch done', { key, rawCount: raw.length, pointCount: points.length });
     _cache.set(key, points);
     _pending.delete(key);
     const cbs = _callbacks.get(key);
     _callbacks.delete(key);
     cbs?.forEach(cb => cb(points));
-  }).catch(() => {
+  }).catch(err => {
+    if (debug) console.debug('[hass-omnibus-card] history fetch error', { key, error: err });
     _pending.delete(key);
     _callbacks.delete(key);
   });
