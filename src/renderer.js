@@ -382,7 +382,7 @@ function renderCard(vm) {
       ${vm.navPath ? `role="button" tabindex="0"` : ''}
       aria-label="${vm.areaName}"
     >
-      ${vm.historyPoints ? sparklineSvg(vm.historyPoints, vm.historyColor, vm.historyChart) : ''}
+      ${vm.historyPoints ? sparklineSvg(vm.historyPoints, vm.historyColor, vm.historyChart, vm.historyUnit) : ''}
       ${renderChartOverlay(vm)}
       <div class="card-content">
         ${renderCameraPreview(vm)}

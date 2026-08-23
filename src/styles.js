@@ -49,6 +49,24 @@ export const CARD_STYLES = `
     z-index: 0;
   }
 
+  /* Invisible hover hit-targets for sparkline dots — must sit ABOVE
+     .card-content (z-index 1), otherwise it swallows the hover before it
+     reaches the (visually lower, z-index 0) sparkline dots underneath. */
+  .chart-hit-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* The layer itself stays pointer-events:none (so it doesn't block clicks
+     elsewhere on the card) — only the per-point hit-target dots opt back in. */
+  .chart-hit-layer circle {
+    pointer-events: auto;
+  }
+
   .chart-stat, .chart-threshold {
     position: absolute;
     font-weight: 600;
