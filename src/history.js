@@ -10,7 +10,7 @@ const _callbacks = new Map(); // key → Map<cardRef, onDone>
  */
 export function getHistory(hass, entityId, hours, onDone, cardRef) {
   const debug = cardRef?._config?.debug;
-  const key = `${entityId}:${Math.floor(Date.now() / 300_000)}`;
+  const key = `${entityId}:${hours}:${Math.floor(Date.now() / 300_000)}`;
   if (_cache.has(key)) {
     if (debug) console.debug('[hass-omnibus-card] history cache hit', { key, points: _cache.get(key).length });
     return _cache.get(key);
