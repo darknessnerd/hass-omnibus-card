@@ -6,6 +6,7 @@
     "dev": "vite --open /dev.html",
     "build": "vite build",
     "preview": "vite preview",
+    "test:unit": "node --test tests/unit/*.test.js",
     "test:docker": "docker run --rm --user $(id -u):$(id -g) -e CI -v $(pwd):/work -w /work mcr.microsoft.com/playwright:v1.62.1-noble npx playwright test",
     "test:update-ci": "docker run --rm --user $(id -u):$(id -g) -e CI=true -v $(pwd):/work -w /work mcr.microsoft.com/playwright:v1.62.1-noble bash -c 'npm ci && npx playwright test --update-snapshots'",
     "version": "npm run build && node scripts/sync-version.js && git add dist/ README.md",

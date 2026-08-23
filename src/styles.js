@@ -67,13 +67,16 @@ export const CARD_STYLES = `
     pointer-events: auto;
   }
 
-  /* Dense series render with no permanent per-point dot (see DOT_MAX_POINTS
-     in sparkline.js — avoids scalloping a downsampled curve), so hovering
-     the (otherwise invisible) hit-target is the only cue a point is there.
-     Paint it on hover as the interaction affordance. CSS wins over the
-     inline fill="transparent" attribute regardless of specificity, since
+  /* Dense series (.dense, see DOT_MAX_POINTS in sparkline.js) render with no
+     permanent per-point dot — avoids scalloping a downsampled curve — so
+     hovering the (otherwise invisible) hit-target is the only cue a point
+     is there. Paint it on hover as the interaction affordance. Sparse
+     series already have their own always-visible, series-colored dot, so
+     this rule is scoped to .dense only — otherwise hover would repaint that
+     dot an unrelated accent color. CSS wins over the inline
+     fill="transparent" attribute regardless of specificity, since
      presentation attributes always lose to author stylesheet rules. */
-  .chart-hit-layer circle:hover {
+  .chart-hit-layer.dense circle:hover {
     fill: var(--room-accent-color, var(--primary-color, #03a9f4));
   }
 

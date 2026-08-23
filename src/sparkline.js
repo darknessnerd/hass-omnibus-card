@@ -68,12 +68,14 @@ export function computeScale(hc, dataMin, dataMax) {
  * Example:
  *   downsample([5, 9, 1, 3], 4)  → [{value:5,index:0},{value:9,index:1},{value:1,index:2},{value:3,index:3}] (already ≤ max, untouched)
  *   downsample([5,9,1,3,8,2], 4) → 2 buckets of 3 → min+max of each, in original order:
- *                                   [{value:1,index:2},{value:9,index:1},{value:2,index:5},{value:8,index:4}]
+ *                                   [{value:9,index:1},{value:1,index:2},{value:8,index:4},{value:2,index:5}]
  */
 export function downsample(points, maxPoints = 150) {
   if (points.length <= maxPoints) return points.map((value, index) => ({ value, index }));
 
-  const bucketCount = Math.ceil(maxPoints / 2);
+  // floor (not ceil) so a 2-per-bucket output never exceeds maxPoints, even
+  // when maxPoints is odd — undershooting by at most 1 beats overshooting.
+  const bucketCount = Math.floor(maxPoints / 2);
   const bucketSize = points.length / bucketCount;
   const result = [];
   for (let b = 0; b < bucketCount; b++) {
@@ -81,12 +83,20 @@ export function downsample(points, maxPoints = 150) {
     const end = b === bucketCount - 1 ? points.length : Math.floor((b + 1) * bucketSize);
     if (start >= end) continue;
 
-    let minIdx = start, maxIdx = start;
-    for (let i = start + 1; i < end; i++) {
-      if (points[i] < points[minIdx]) minIdx = i;
-      if (points[i] > points[maxIdx]) maxIdx = i;
+    // Seed from the first FINITE reading, not just `start` — an unavailable
+    // (NaN) point at the front of the bucket would otherwise poison every
+    // comparison below (`x < NaN` and `x > NaN` are always false), pinning
+    // min/max at that NaN and silently dropping the bucket's real extremes.
+    let minIdx = -1, maxIdx = -1;
+    for (let i = start; i < end; i++) {
+      if (!Number.isFinite(points[i])) continue;
+      if (minIdx === -1 || points[i] < points[minIdx]) minIdx = i;
+      if (maxIdx === -1 || points[i] > points[maxIdx]) maxIdx = i;
     }
-    if (minIdx === maxIdx) {
+    if (minIdx === -1) {
+      // Whole bucket is gaps — keep one representative point rather than dropping the bucket silently.
+      result.push({ value: points[start], index: start });
+    } else if (minIdx === maxIdx) {
       result.push({ value: points[minIdx], index: minIdx });
     } else {
       const [first, second] = minIdx < maxIdx ? [minIdx, maxIdx] : [maxIdx, minIdx];
@@ -96,6 +106,10 @@ export function downsample(points, maxPoints = 150) {
   return result;
 }
 
+// Independent of downsample()'s own maxPoints (150) — that cap is about
+// keeping SVG size/hit-target density sane, this one is about how many
+// dots can overlap into a smooth band before they scallop into a ridge
+// (see the `dot` comment below). Deliberately much lower than 150.
 const DOT_MAX_POINTS = 40;
 
 export function sparklineSvg(points, color, hc = null, unit = '') {
@@ -127,7 +141,8 @@ export function sparklineSvg(points, color, hc = null, unit = '') {
   // marker; past DOT_MAX_POINTS the circles no longer overlap into a smooth
   // band and instead scallop the line into a bumpy ridge, so skip them and
   // let the fill/stroke alone carry a dense curve's shape.
-  const dot = reduced.length > DOT_MAX_POINTS ? '' :
+  const dense = reduced.length > DOT_MAX_POINTS;
+  const dot = dense ? '' :
     xs.map((x, i) => `<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="1.5" fill="${color}"/>`).join('');
   // .bg-chart sits BEHIND .card-content (z-index 0 vs 1), so a hover target
   // placed there never wins hit-testing — .card-content, though visually
@@ -147,7 +162,11 @@ export function sparklineSvg(points, color, hc = null, unit = '') {
     if (!Number.isFinite(reduced[i].value)) return ''; // unavailable/unknown reading → no tooltip to show
     return `<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="${hitR}" fill="transparent"><title>${reduced[i].value.toFixed(1)}${unit}</title></circle>`;
   }).join('');
-  const hits = `<svg class="chart-hit-layer" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${hitLayer}</svg>`;
+  // `dense` (no permanent dot) is the only case that needs a hover-paint
+  // affordance (see .chart-hit-layer.dense circle:hover in styles.js) — a
+  // sparse series already has its own always-visible, series-colored dot,
+  // so repainting it accent-blue on hover would look like a color glitch.
+  const hits = `<svg class="chart-hit-layer${dense ? ' dense' : ''}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${hitLayer}</svg>`;
 
   const hasThresholds = hc && (hc.threshold_high != null || hc.threshold_low != null);
 

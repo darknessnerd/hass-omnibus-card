@@ -32,6 +32,9 @@ jobs:
             exit 1
           fi
 
+      - name: Run unit tests
+        run: npm run test:unit
+
       - name: Run E2E snapshot tests
         run: npm run test:docker
 

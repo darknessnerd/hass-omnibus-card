@@ -403,6 +403,70 @@ test('history chart — real dataset (esterno, 244 pts, thresholds + y_min)', as
   await expect(page.locator('#mount')).toHaveScreenshot('history-esterno-dataset.png', SNAP);
 });
 
+// ── History chart — per-point dots, hover hit-targets, dense/sparse split ─────
+
+test('history chart — sparse series (24 pts, default mock) shows a visible dot per point, not marked dense', async ({ page }) => {
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  const chart = page.locator('#mount').locator('.bg-chart');
+  await expect(chart).toBeVisible({ timeout: 2000 });
+  await expect(chart.locator('circle')).toHaveCount(24);
+  await expect(page.locator('#mount').locator('.chart-hit-layer')).not.toHaveClass(/dense/);
+});
+
+test('history chart — hit-layer circle exposes value+unit as its tooltip title', async ({ page }) => {
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  const firstHit = page.locator('#mount').locator('.chart-hit-layer circle').first();
+  await expect(firstHit.locator('title')).toHaveText('20.0°C'); // i=0 → 20 + sin(0)*3, per BASE_HASS mock history
+});
+
+test('history chart — dense series (200 pts, past DOT_MAX_POINTS) hides per-point dots, hit-layer marked dense', async ({ page }) => {
+  const points = Array.from({ length: 200 }, (_, i) => 20 + Math.sin(i / 10) * 5);
+  await page.evaluate(pts => {
+    window.BASE_HASS.callWS = msg => {
+      if (msg.type === 'history/history_during_period') {
+        const id = msg.entity_ids[0];
+        const now = Date.now() / 1000;
+        const step = (18 * 3600) / (pts.length - 1);
+        return Promise.resolve({ [id]: pts.map((v, i) => ({ s: String(v), lu: now - (pts.length - 1 - i) * step })) });
+      }
+      return Promise.resolve({});
+    };
+  }, points);
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature', hours: 18 } });
+  const chart = page.locator('#mount').locator('.bg-chart');
+  await expect(chart).toBeVisible({ timeout: 2000 });
+  await expect(chart.locator('circle')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.chart-hit-layer')).toHaveClass(/dense/);
+});
+
+test('history chart — hovering a dense hit-target paints it with the accent color', async ({ page }) => {
+  const points = Array.from({ length: 200 }, (_, i) => 20 + Math.sin(i / 10) * 5);
+  await page.evaluate(pts => {
+    window.BASE_HASS.callWS = msg => {
+      if (msg.type === 'history/history_during_period') {
+        const id = msg.entity_ids[0];
+        const now = Date.now() / 1000;
+        const step = (18 * 3600) / (pts.length - 1);
+        return Promise.resolve({ [id]: pts.map((v, i) => ({ s: String(v), lu: now - (pts.length - 1 - i) * step })) });
+      }
+      return Promise.resolve({});
+    };
+  }, points);
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature', hours: 18 } });
+  const hit = page.locator('#mount').locator('.chart-hit-layer circle').first();
+  await expect(hit).toHaveCSS('fill', 'rgba(0, 0, 0, 0)');
+  await hit.hover();
+  await expect(hit).toHaveCSS('fill', 'rgb(3, 169, 244)');
+});
+
+test('history chart — hovering a sparse series\' hit-target does NOT repaint its always-visible dot', async ({ page }) => {
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  const hit = page.locator('#mount').locator('.chart-hit-layer circle').first();
+  await expect(hit).toHaveCSS('fill', 'rgba(0, 0, 0, 0)');
+  await hit.hover();
+  await expect(hit).toHaveCSS('fill', 'rgba(0, 0, 0, 0)'); // no .dense class on this hit-layer → :hover rule doesn't apply
+});
+
 // ── History chart overlay labels ──────────────────────────────────────────────
 
 test('history chart overlay — stat-max/min show ↑/↓ prefixes', async ({ page }) => {
