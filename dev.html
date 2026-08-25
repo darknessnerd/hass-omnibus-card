@@ -13,48 +13,102 @@
 <script>window.__VERSION__ = 'dev';</script>
 
 <style>
+  :root {
+    /* Chrome tokens — deliberately reuse the card's own semantic hexes
+       (constants.js / styles.js) so the harness reads as one instrument,
+       not a demo page bolted onto an unrelated brand. */
+    --dev-bg: #0d0f13;
+    --dev-panel: #161920;
+    --dev-hairline: rgba(255,255,255,.08);
+    --dev-text: #e4e6eb;
+    --dev-text-dim: #7b828f;
+    --dev-cyan: #03a9f4;   /* == card's --primary-color fallback */
+    --dev-amber: #f57c00;  /* == card's temperature chip icon */
+    --dev-alarm: #f44336;  /* == card's smoke/error color */
+    --dev-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  body.light-theme {
+    --dev-bg: #f6f4ef;
+    --dev-panel: #ffffff;
+    --dev-hairline: rgba(0,0,0,.08);
+    --dev-text: #1a1d24;
+    --dev-text-dim: #6b7280;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: #111318;
-    color: #e0e0e0;
+    background: var(--dev-bg);
+    color: var(--dev-text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     padding: 24px;
     min-height: 100vh;
     max-width: 1400px;
     margin: 0 auto;
   }
-  h2 { color: #aaa; font-size: 13px; font-weight: 500; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .08em; }
+  h2 {
+    font-family: var(--dev-mono); color: var(--dev-text-dim);
+    font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .12em;
+    margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--dev-hairline);
+  }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 32px; }
   .section { margin-bottom: 32px; }
-  button {
-    background: #2a2d36; color: #ccc; border: 1px solid #3a3d46;
-    border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px;
+  .eyebrow {
+    font-family: var(--dev-mono); font-size: 10px; color: var(--dev-text-dim);
+    text-transform: uppercase; letter-spacing: .12em; margin-right: 6px;
   }
-  button:hover { background: #3a3d46; }
-  #log { font-size: 12px; color: #666; margin-top: 24px; white-space: pre-wrap; }
+  button {
+    font-family: var(--dev-mono);
+    background: var(--dev-panel); color: var(--dev-text-dim); border: 1px solid var(--dev-hairline);
+    border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 12px;
+  }
+  button:hover { color: var(--dev-text); border-color: var(--dev-text-dim); }
+  #log { font-family: var(--dev-mono); font-size: 12px; color: var(--dev-text-dim); margin-top: 24px; white-space: pre-wrap; }
 
   /* ── Header ─────────────────────────────────────────────────────────── */
   #page-header {
     display: flex; justify-content: space-between; align-items: flex-start;
     gap: 16px; margin-bottom: 24px; padding-bottom: 20px;
-    border-bottom: 1px solid #2a2d36;
+    border-bottom: 1px solid var(--dev-hairline);
   }
-  #page-header h1 { font-size: 20px; font-weight: 600; color: #fff; }
-  #page-header p { font-size: 13px; color: #888; margin-top: 4px; }
+  #page-header h1 { font-size: 20px; font-weight: 600; color: var(--dev-text); display: flex; align-items: center; }
+  #page-header p { font-size: 13px; color: var(--dev-text-dim); margin-top: 4px; }
   #page-header .badge {
-    font-size: 11px; color: #888; background: #1c1f26; border: 1px solid #2a2d36;
+    font-size: 11px; font-family: var(--dev-mono); color: var(--dev-text-dim);
+    background: var(--dev-panel); border: 1px solid var(--dev-hairline);
     border-radius: 4px; padding: 2px 6px; margin-left: 8px; font-weight: 400;
   }
+  .status-line { font-family: var(--dev-mono); font-size: 11px; color: var(--dev-text-dim); margin-top: 6px; letter-spacing: .04em; }
+  .status-line span { color: var(--dev-text); }
+
+  /* Status LED — reflects the *actual* active scenario, not decoration */
+  .led {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 10px; background: var(--dev-cyan);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--dev-cyan) 20%, transparent);
+    flex-shrink: 0;
+  }
+  .led.pulse { animation: led-pulse 1.4s ease-in-out infinite; }
+  @keyframes led-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  @media (prefers-reduced-motion: reduce) { .led.pulse { animation: none; } }
 
   /* ── Live demo controls ─────────────────────────────────────────────── */
   #controls { margin-bottom: 24px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  #controls .divider { width: 1px; height: 20px; background: #2a2d36; margin: 0 4px; }
-  button.primary { background: var(--primary-color, #03a9f4); color: #fff; border-color: transparent; }
-  button.primary:hover { opacity: .85; }
+  #controls .divider { width: 1px; height: 20px; background: var(--dev-hairline); margin: 0 4px; }
+  button.primary { background: var(--dev-cyan); color: #fff; border-color: transparent; }
+  button.primary:hover { opacity: .85; color: #fff; }
+
+  /* scenario buttons carry a state dot colored to match the card's own
+     alarm/status hues — set inline per-button via --dot-color */
+  button.scenario-btn { position: relative; padding-left: 24px; }
+  button.scenario-btn::before {
+    content: ''; position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--dot-color, var(--dev-text-dim));
+  }
 
   #config-controls, #real-demo-controls, #real-demo-options {
     margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
-    font-size: 13px; color: #ccc;
+    font-size: 13px; color: var(--dev-text-dim);
   }
   #config-controls label, #real-demo-controls label, #real-demo-options label {
     display: flex; align-items: center; gap: 6px; cursor: pointer;
@@ -62,23 +116,19 @@
 
   /* ── Developer tools (collapsed by default) ──────────────────────────── */
   #dev-tools {
-    margin-top: 40px; border-top: 1px dashed #2a2d36; padding-top: 8px;
+    margin-top: 40px; border-top: 1px dashed var(--dev-hairline); padding-top: 8px;
   }
   #dev-tools > summary {
-    cursor: pointer; font-size: 13px; color: #888; padding: 8px 0;
-    text-transform: uppercase; letter-spacing: .08em; user-select: none;
+    cursor: pointer; font-family: var(--dev-mono); font-size: 12px; color: var(--dev-text-dim);
+    padding: 8px 0; text-transform: uppercase; letter-spacing: .1em; user-select: none;
   }
-  #dev-tools > summary:hover { color: #ccc; }
-  #dev-tools[open] > summary { color: #ccc; margin-bottom: 16px; }
+  #dev-tools > summary:hover { color: var(--dev-text); }
+  #dev-tools[open] {
+    background: var(--dev-panel); border: 1px solid var(--dev-hairline);
+    border-radius: 8px; padding: 8px 20px 20px;
+  }
+  #dev-tools[open] > summary { color: var(--dev-text); margin-bottom: 16px; }
   #dev-tools .section:first-of-type { margin-top: 8px; }
-
-  body.light-theme #page-header { border-bottom-color: #e0e0e0; }
-  body.light-theme #page-header h1 { color: #111; }
-  body.light-theme #page-header .badge { background: #fff; border-color: #ddd; }
-  body.light-theme #controls .divider { background: #ddd; }
-  body.light-theme #dev-tools { border-top-color: #ddd; }
-  body.light-theme button { background: #fff; color: #333; border-color: #ddd; }
-  body.light-theme button:hover { background: #f0f0f0; }
 </style>
 
 <!-- ── HA stub elements ──────────────────────────────────────────────────── -->
@@ -126,11 +176,6 @@
     --success-color: #4caf50;
     --warning-color: #ff9800;
     --mdc-icon-size: 20px;
-  }
-
-  body.light-theme {
-    background: #f5f5f5;
-    color: #212121;
   }
 
   body.light-theme {
@@ -457,10 +502,31 @@ const SCENARIOS = {
   },
 };
 
+const SCENARIO_META = {
+  normal:        { color: '#03a9f4', label: 'normal',       pulse: false },
+  alarm:         { color: '#f44336', label: 'smoke alarm',  pulse: true  },
+  gas:           { color: '#ff9800', label: 'gas alarm',    pulse: true  },
+  no_motion:     { color: '#7b828f', label: 'no motion',    pulse: false },
+  mold:          { color: '#4caf50', label: 'mold risk',    pulse: false },
+  lights_off:    { color: '#7b828f', label: 'lights off',   pulse: false },
+  light_offline: { color: '#ff9800', label: 'light offline',pulse: false },
+  battery_low:   { color: '#f44336', label: 'battery low',  pulse: true  },
+};
+
+function setStatusLed(name) {
+  const meta = SCENARIO_META[name] ?? SCENARIO_META.normal;
+  const led = document.getElementById('status-led');
+  const text = document.getElementById('status-text');
+  led.style.background = meta.color;
+  led.classList.toggle('pulse', meta.pulse);
+  text.textContent = meta.label;
+}
+
 function applyScenario(name) {
   SCENARIOS.normal();
   if (name !== 'normal') SCENARIOS[name]?.();
   refreshAll();
+  setStatusLed(name);
   log(`scenario: ${name}`);
 }
 
@@ -495,21 +561,23 @@ function mountStatic(container, config, stateOverrides, callWSOverride) {
 
 <header id="page-header">
   <div>
-    <h1>hass-omnibus-card <span class="badge">v1.21.0 · dev</span></h1>
+    <h1><span class="led" id="status-led" aria-hidden="true"></span>hass-omnibus-card <span class="badge">v1.21.0 · dev</span></h1>
     <p>Home Assistant area card — occupancy, climate, alarms, battery, camera controls, history sparklines.</p>
+    <p class="status-line">scenario: <span id="status-text">normal</span></p>
   </div>
   <button onclick="toggleTheme()" id="theme-toggle">Toggle theme</button>
 </header>
 
 <div id="controls">
-  <button onclick="applyScenario('normal')">Normal</button>
-  <button onclick="applyScenario('alarm')">Smoke alarm</button>
-  <button onclick="applyScenario('gas')">Gas alarm</button>
-  <button onclick="applyScenario('no_motion')">No motion</button>
-  <button onclick="applyScenario('mold')">Mold risk (bath)</button>
-  <button onclick="applyScenario('lights_off')">Lights off</button>
-  <button onclick="applyScenario('light_offline')">Light offline</button>
-  <button onclick="applyScenario('battery_low')">Battery low</button>
+  <span class="eyebrow">Scenario</span>
+  <button class="scenario-btn" style="--dot-color:#03a9f4" onclick="applyScenario('normal')">Normal</button>
+  <button class="scenario-btn" style="--dot-color:#f44336" onclick="applyScenario('alarm')">Smoke alarm</button>
+  <button class="scenario-btn" style="--dot-color:#ff9800" onclick="applyScenario('gas')">Gas alarm</button>
+  <button class="scenario-btn" style="--dot-color:#7b828f" onclick="applyScenario('no_motion')">No motion</button>
+  <button class="scenario-btn" style="--dot-color:#4caf50" onclick="applyScenario('mold')">Mold risk (bath)</button>
+  <button class="scenario-btn" style="--dot-color:#7b828f" onclick="applyScenario('lights_off')">Lights off</button>
+  <button class="scenario-btn" style="--dot-color:#ff9800" onclick="applyScenario('light_offline')">Light offline</button>
+  <button class="scenario-btn" style="--dot-color:#f44336" onclick="applyScenario('battery_low')">Battery low</button>
 </div>
 
 <div class="section">
