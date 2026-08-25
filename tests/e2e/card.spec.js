@@ -122,7 +122,7 @@ test('problem badge — problem binary_sensor on', async ({ page }) => {
   await mount(page, CARD, {
     'binary_sensor.problem': { state: 'on', attributes: { friendly_name: 'Problem sensor', device_class: 'problem' } },
   });
-  await expect(page.locator('#mount').locator('.badge-problems')).toBeVisible();
+  await expect(page.locator('#mount').locator('.status-seg-problem')).toBeVisible();
   await expect(page.locator('#mount')).toHaveScreenshot('problems.png', SNAP);
 });
 
@@ -130,7 +130,7 @@ test('problem badge — unavailable entity', async ({ page }) => {
   await mount(page, CARD, {
     'switch.outlet': { state: 'unavailable', attributes: { friendly_name: 'Outlet' } },
   });
-  await expect(page.locator('#mount').locator('.badge-problems')).toBeVisible();
+  await expect(page.locator('#mount').locator('.status-seg-problem')).toBeVisible();
   await expect(page.locator('#mount')).toHaveScreenshot('unavailable-entity.png', SNAP);
 });
 
@@ -533,32 +533,35 @@ test('debug: false (default) — no console.debug', async ({ page }) => {
 test('battery — chip shown, no low badge when above threshold', async ({ page }) => {
   await mount(page, { area: 'living_room', entities: ['sensor.battery_test'] });
   await expect(page.locator('#mount').locator('.chip')).toHaveCount(1);
-  await expect(page.locator('#mount').locator('.badge-battery')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.status-seg-battery')).not.toBeVisible();
 });
 
 test('battery — low badge appears at/below default threshold (20%), chip still shown', async ({ page }) => {
   await mount(page, { area: 'living_room', entities: ['sensor.battery_test'] }, {
     'sensor.battery_test': { state: '15', attributes: { friendly_name: 'Battery Test', device_class: 'battery', unit_of_measurement: '%' } },
   });
-  await expect(page.locator('#mount').locator('.badge-battery')).toBeVisible();
-  await expect(page.locator('#mount').locator('.badge-battery > span')).toHaveText('15%');
-  await expect(page.locator('#mount').locator('.chip')).toHaveCount(1);
+  await expect(page.locator('#mount').locator('.status-seg-battery')).toBeVisible();
+  await expect(page.locator('#mount').locator('.status-seg-battery > span')).toHaveText('15%');
+  // .chip alone would also match the header's status-cluster wrapper (it reuses
+  // the .chip/.group-chip pill styling, same as weather/ptz) — scope to actual
+  // entity chips only.
+  await expect(page.locator('#mount').locator('.chip[data-entity]')).toHaveCount(1);
 });
 
 test('battery — custom battery_low_threshold respected', async ({ page }) => {
   await mount(page, { area: 'living_room', entities: ['sensor.battery_test'], battery_low_threshold: 50 }, {
     'sensor.battery_test': { state: '45', attributes: { friendly_name: 'Battery Test', device_class: 'battery', unit_of_measurement: '%' } },
   });
-  await expect(page.locator('#mount').locator('.badge-battery')).toBeVisible();
+  await expect(page.locator('#mount').locator('.status-seg-battery')).toBeVisible();
 });
 
 test('battery — unavailable sensor counted as problem, not battery chip', async ({ page }) => {
   await mount(page, { area: 'living_room', entities: ['sensor.battery_test'] }, {
     'sensor.battery_test': { state: 'unavailable', attributes: { friendly_name: 'Battery Test', device_class: 'battery', unit_of_measurement: '%' } },
   });
-  await expect(page.locator('#mount').locator('.badge-problems')).toBeVisible();
-  await expect(page.locator('#mount').locator('.badge-battery')).not.toBeVisible();
-  await expect(page.locator('#mount').locator('.chip')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.status-seg-problem')).toBeVisible();
+  await expect(page.locator('#mount').locator('.status-seg-battery')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.chip[data-entity]')).toHaveCount(0);
 });
 
 // ── Light badge enhancements ───────────────────────────────────────────────
@@ -631,10 +634,11 @@ test('camera — click opens more-info', async ({ page }) => {
 
 test('controls — siren, generic button, device-linked switch/lock pulled in; PTZ buttons form their own group', async ({ page }) => {
   await mount(page, GARAGE);
-  // ptz_up + ptz_down are grouped into one ptz-chip; reboot/siren/switch/lock stay individual control-chips
-  const controls = page.locator('#mount').locator('.controls-chips .control-chip:not(.ptz-chip)');
+  // ptz_up + ptz_down are grouped into their own pill; reboot/siren/switch/lock
+  // are grouped into one segmented controls-chip pill (not individual chips)
+  const controls = page.locator('#mount').locator('.controls-chip .control-seg');
   await expect(controls).toHaveCount(4); // reboot button + siren + IR-light switch + housing lock
-  await expect(page.locator('#mount').locator('.control-chip[data-domain="lock"]')).toBeVisible();
+  await expect(page.locator('#mount').locator('.control-seg[data-domain="lock"]')).toBeVisible();
   await expect(page.locator('#mount').locator('.ptz-chip .ptz-seg')).toHaveCount(2);
   await expect(page.locator('#mount')).toHaveScreenshot('camera-controls.png', SNAP);
 });
@@ -661,19 +665,21 @@ test('controls — device-linked lock click opens more-info (generic fallback, n
   const moreInfo = page.evaluate(() => new Promise(resolve => {
     document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
   }));
-  await page.locator('#mount').locator('.control-chip[data-domain="lock"]').click();
+  await page.locator('#mount').locator('.control-seg[data-domain="lock"]').click();
   expect(await moreInfo).toBe('lock.garage_cam_housing');
 });
 
-test('controls — read-only sensor/image sharing the camera device stay chips, not controls', async ({ page }) => {
+test('controls — read-only sensor/image sharing the camera device stay out of controls, grouped as diagnostics', async ({ page }) => {
   // real ezviz camera device exposes ip/alarm-code sensors and a motion snapshot image
   // alongside the actual switches/buttons — neither is operable, so the device-link
-  // sweep must not pull them into Controls
+  // sweep must not pull them into Controls. Two or more of them group into their
+  // own diagnostics pill (same pattern as weather/controls) instead of two plain chips.
   await mount(page, GARAGE);
+  await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
   for (const entityId of ['sensor.garage_cam_ip', 'image.garage_cam_snapshot']) {
-    const chip = page.locator('#mount').locator(`.chip[data-entity="${entityId}"]`);
-    await expect(chip).toBeVisible();
-    await expect(chip).not.toHaveClass(/control-chip/);
+    const seg = page.locator('#mount').locator(`.diagnostics-seg[data-entity="${entityId}"]`);
+    await expect(seg).toBeVisible();
+    await expect(page.locator('#mount').locator(`.control-seg[data-entity="${entityId}"]`)).toHaveCount(0);
   }
 });
 
@@ -753,7 +759,7 @@ test('controls — label click does not trigger card navigation', async ({ page 
 
 test('update badge — firmware update available renders header badge, not a plain chip', async ({ page }) => {
   await mount(page, GARAGE);
-  const badge = page.locator('#mount').locator('.badge-update');
+  const badge = page.locator('#mount').locator('.status-seg-update');
   await expect(badge).toBeVisible();
   await expect(badge).toHaveAttribute('data-entity', 'update.garage_cam_firmware');
   await expect(page.locator('#mount').locator('.chip[data-entity="update.garage_cam_firmware"]')).toHaveCount(0);
@@ -763,7 +769,7 @@ test('update badge — no badge when no update is pending', async ({ page }) => 
   await mount(page, GARAGE, {
     'update.garage_cam_firmware': { state: 'off', attributes: { friendly_name: 'Garage Cam Firmware' } },
   });
-  await expect(page.locator('#mount').locator('.badge-update')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.status-seg-update')).not.toBeVisible();
 });
 
 test('update badge — click opens more-info', async ({ page }) => {
@@ -771,7 +777,7 @@ test('update badge — click opens more-info', async ({ page }) => {
   const moreInfo = page.evaluate(() => new Promise(resolve => {
     document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
   }));
-  await page.locator('#mount').locator('.badge-update').click();
+  await page.locator('#mount').locator('.status-seg-update').click();
   expect(await moreInfo).toBe('update.garage_cam_firmware');
 });
 
@@ -779,9 +785,9 @@ test('update badge — unavailable update entity counts as a problem, not silent
   await mount(page, GARAGE, {
     'update.garage_cam_firmware': { state: 'unavailable', attributes: { friendly_name: 'Garage Cam Firmware' } },
   });
-  await expect(page.locator('#mount').locator('.badge-update')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.status-seg-update')).not.toBeVisible();
   await expect(page.locator('#mount').locator('.chip[data-entity="update.garage_cam_firmware"]')).toHaveCount(0);
-  await expect(page.locator('#mount').locator('.badge-problems')).toBeVisible();
+  await expect(page.locator('#mount').locator('.status-seg-problem')).toBeVisible();
 });
 
 // ── Camera edge cases ────────────────────────────────────────────────────────
@@ -838,14 +844,14 @@ test('weather-chip segment click opens more-info', async ({ page }) => {
 
 test('controls — generic (non-PTZ) button click presses button service, not more-info', async ({ page }) => {
   await mount(page, GARAGE);
-  await page.locator('#mount').locator('.control-chip[data-domain="button"]').click();
+  await page.locator('#mount').locator('.control-seg[data-domain="button"]').click();
   const calls = await page.evaluate(() => window.__serviceCalls);
   expect(calls).toEqual([{ domain: 'button', service: 'press', data: {}, target: { entity_id: 'button.garage_cam_reboot' } }]);
 });
 
 test('controls — siren click toggles siren service, not more-info', async ({ page }) => {
   await mount(page, GARAGE);
-  await page.locator('#mount').locator('.control-chip[data-domain="siren"]').click();
+  await page.locator('#mount').locator('.control-seg[data-domain="siren"]').click();
   const calls = await page.evaluate(() => window.__serviceCalls);
   expect(calls).toEqual([{ domain: 'siren', service: 'toggle', data: {}, target: { entity_id: 'siren.garage_alarm' } }]);
 });
@@ -855,6 +861,54 @@ test('controls — device-linked switch click opens more-info (no dedicated swit
   const moreInfo = page.evaluate(() => new Promise(resolve => {
     document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
   }));
-  await page.locator('#mount').locator('.control-chip[data-domain="switch"]').click();
+  await page.locator('#mount').locator('.control-seg[data-domain="switch"]').click();
   expect(await moreInfo).toBe('switch.garage_cam_ir_light');
+});
+
+// ── Real-world dataset (EZVIZ camera + Bresser weather station) ────────────
+// Modeled directly on a production debug log — see tests/unit/discovery.test.js
+// for the same shape tested at the classify() level. Nine operable entities
+// (siren, 5 switches, a number, 2 selects) share one camera device: this is
+// the real-world case the controls-grouping restyle needs to hold up under.
+const ESTERNO_REAL = { area: 'esterno' };
+
+test('real dataset — Italian PTZ buttons render with correct compass directions', async ({ page }) => {
+  await mount(page, ESTERNO_REAL);
+  const byDir = dir => page.locator('#mount').locator(`.ptz-seg[data-direction="${dir}"]`);
+  await expect(byDir('up')).toHaveAttribute('data-entity', 'button.esterno_cb8c_bh2113803_ptz_su');
+  await expect(byDir('down')).toHaveAttribute('data-entity', 'button.esterno_cb8c_bh2113803_ptz_giu');
+  await expect(byDir('left')).toHaveAttribute('data-entity', 'button.esterno_cb8c_bh2113803_ptz_sinistra');
+  await expect(byDir('right')).toHaveAttribute('data-entity', 'button.esterno_cb8c_bh2113803_ptz_destra');
+});
+
+test('real dataset — siren, 5 switches, number and 2 selects all group into one 9-segment controls pill', async ({ page }) => {
+  await mount(page, ESTERNO_REAL);
+  await page.locator('#mount').locator('.controls-label.clickable').click(); // expand (collapsed by default)
+  await expect(page.locator('#mount').locator('.controls-chip .control-seg')).toHaveCount(9);
+});
+
+test('real dataset — camera diagnostic sensors/binary_sensor/image group into one diagnostics pill, not controls', async ({ page }) => {
+  await mount(page, ESTERNO_REAL);
+  await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
+  for (const entityId of [
+    'binary_sensor.esterno_cb8c_bh2113803_crittografia_2',
+    'sensor.esterno_cb8c_bh2113803_ip_locale_2',
+    'sensor.esterno_cb8c_bh2113803_stato_pir_2',
+    'image.esterno_cb8c_bh2113803_ultima_immagine_motion',
+  ]) {
+    await expect(page.locator('#mount').locator(`.diagnostics-seg[data-entity="${entityId}"]`)).toBeVisible();
+  }
+  await expect(page.locator('#mount').locator('.control-seg[data-entity="binary_sensor.esterno_cb8c_bh2113803_crittografia_2"]')).toHaveCount(0);
+});
+
+test('real dataset — Bresser weather station groups 5 readings into one weather chip', async ({ page }) => {
+  await mount(page, ESTERNO_REAL);
+  await expect(page.locator('#mount').locator('.weather-chip')).toHaveCount(1);
+  await expect(page.locator('#mount').locator('.weather-chip .weather-seg')).toHaveCount(5); // wind avg + max, rain, luminance, noise
+});
+
+test('real dataset — full card snapshot', async ({ page }) => {
+  await mount(page, { ...ESTERNO_REAL, collapsible_controls: false });
+  await expect(page.locator('#mount').locator('.controls-chip')).toBeVisible();
+  await expect(page.locator('#mount')).toHaveScreenshot('real-dataset-esterno.png', SNAP);
 });

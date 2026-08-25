@@ -202,35 +202,6 @@ export const CARD_STYLES = `
     flex-shrink: 0;
   }
 
-  .badge-problems {
-    background: rgba(244, 67, 54, 0.15);
-    color: var(--error-color, #f44336);
-  }
-
-  .badge-battery {
-    background: rgba(244, 67, 54, 0.15);
-    color: var(--error-color, #f44336);
-    cursor: pointer;
-    transition: background 0.15s;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .badge-battery:hover {
-    background: rgba(244, 67, 54, 0.28);
-  }
-
-  .badge-update {
-    background: rgba(3, 169, 244, 0.15);
-    color: var(--primary-color, #03a9f4);
-    cursor: pointer;
-    transition: background 0.15s;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .badge-update:hover {
-    background: rgba(3, 169, 244, 0.28);
-  }
-
   /* Occupancy dot — always visible when sensors exist */
   .occupancy-dot {
     width: 9px;
@@ -324,7 +295,7 @@ export const CARD_STYLES = `
   .chip ha-icon { --mdc-icon-size: 14px; }
 
   .chip-label {
-    max-width: 72px;
+    max-width: 4.5rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -336,6 +307,10 @@ export const CARD_STYLES = `
     padding: 2px 3px;
     gap: 0;
     cursor: default;
+    /* A device can expose more segments than fit on one line (e.g. a real
+       camera device with 9 operable entities) — wrap onto a second row
+       inside the pill instead of clipping at the card edge. */
+    flex-wrap: wrap;
   }
 
   .group-chip:hover {
@@ -362,12 +337,26 @@ export const CARD_STYLES = `
 
   .group-seg-value { font-size: 0.72rem; }
 
+  /* Active/on state for toggleable segments (controls) — same language as .chip.on,
+     just without the border since segments already sit inside one shared pill. */
+  .group-seg.on {
+    color: var(--primary-color, #03a9f4);
+  }
+
   .ptz-chip .group-seg { padding: 3px 5px; }
 
-  /* Weather segments: color-tint icons by device_class (same idea as .env-chip.temp/.hum)
-     and a hairline divider so the packed pill reads as distinct readings, not one blob. */
-  .weather-seg:not(:last-child) {
+  /* Any grouped pill (weather, PTZ, controls): hairline divider between segments
+     so a packed pill reads as distinct readings, not one blob. */
+  .group-seg:not(:last-child) {
     border-right: 1px solid var(--divider-color, rgba(128, 128, 128, 0.25));
+  }
+
+  .seg-label {
+    font-size: 0.72rem;
+    max-width: 3.4rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .weather-seg[data-dc="wind_speed"] ha-icon     { color: #546e7a; }
@@ -376,6 +365,24 @@ export const CARD_STYLES = `
   .weather-seg[data-dc="sound_pressure"] ha-icon { color: #8e24aa; }
 
   .group-seg:hover ha-icon { color: white; }
+
+  /* ── Status cluster (battery / problem / update alerts, grouped) ──
+     One pill instead of up to three separate badges — each segment keeps
+     its own semantic color so battery (critical, red) and problem
+     (attention, amber) stay visually distinct rather than reading as the
+     same alert twice. Rules placed after the generic .group-seg:hover so
+     they win the cascade at equal specificity. */
+  .status-seg-battery { color: var(--error-color, #f44336); }
+  .status-seg-battery:hover { background: rgba(244, 67, 54, 0.28); color: var(--error-color, #f44336); }
+  .status-seg-battery:hover ha-icon { color: var(--error-color, #f44336); }
+
+  .status-seg-problem { color: var(--warning-color, #ff9800); cursor: default; }
+  .status-seg-problem:hover { background: transparent; color: var(--warning-color, #ff9800); }
+  .status-seg-problem:hover ha-icon { color: var(--warning-color, #ff9800); }
+
+  .status-seg-update { color: var(--primary-color, #03a9f4); }
+  .status-seg-update:hover { background: rgba(3, 169, 244, 0.28); color: var(--primary-color, #03a9f4); }
+  .status-seg-update:hover ha-icon { color: var(--primary-color, #03a9f4); }
 
   /* ── Camera preview ── */
 

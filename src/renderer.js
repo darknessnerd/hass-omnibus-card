@@ -142,6 +142,19 @@ export function buildViewModel(hass, config, historyPoints = null, controlsColla
         })
       : [],
 
+    // read-only sensors/binary_sensors/image sharing a device with the area's
+    // camera (IP, PIR state, alarm codes, etc.) — grouped into their own pill
+    // once there are enough of them (see discovery.js) instead of padding out
+    // the generic chip strip with near-identical grey chips.
+    diagnosticsItems: config.show_entities !== false
+      ? c.diagnostics.map(({ entityId, state }) => ({
+          entityId,
+          icon:  entityIcon(entityId, state),
+          label: friendlyLabel(entityId, state),
+          title: `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
+        }))
+      : [],
+
     historyPoints: hc?.entity_id ? historyPoints : null,
     historyColor:  hc?.color ?? 'rgba(3, 169, 244, 0.12)',
     historyChart:  hc,
@@ -188,28 +201,32 @@ function renderHeader({ areaName, cardIcon, hasLights, lightCount, offlineLights
             ${lightCount > 1 ? `<span>${lightCount}</span>` : ''}
           </div>` : ''}
         ${hasOccupancySensors ? `<div class="occupancy-dot ${occupied ? '' : 'idle'}" title="${occupied ? 'Occupied' : 'Not occupied'}"></div>` : ''}
-        ${showBatteryBadge ? `
-          <div class="badge badge-battery"
-               data-entity="${batteryEntity}"
-               title="${batteryTitle}">
-            <ha-icon icon="${batteryIconName}"></ha-icon>
-            <span>${batteryValue}%</span>
-          </div>` : ''}
-        ${problemCount > 0 ? `
-          <div class="badge badge-problems"
-               title="${problemCount} problem${problemCount !== 1 ? 's' : ''}">
-            <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-            ${problemCount > 1 ? `<span>${problemCount}</span>` : ''}
-          </div>` : ''}
-        ${updateCount > 0 ? `
-          <div class="badge badge-update"
-               data-entity="${updateEntity}"
-               title="${updateTitle}">
-            <ha-icon icon="mdi:package-up"></ha-icon>
-            ${updateCount > 1 ? `<span>${updateCount}</span>` : ''}
-          </div>` : ''}
+        ${renderStatusCluster({ showBatteryBadge, batteryValue, batteryIcon: batteryIconName, batteryEntity, batteryTitle,
+                                 problemCount, updateCount, updateEntity, updateTitle })}
       </div>
     </div>`;
+}
+
+// Battery-low / problem / firmware-update alerts, grouped into one pill instead
+// of up to three separate badges — same segmented-pill language as the weather
+// and PTZ chips, so a room with several alerts doesn't stack three full badges.
+function renderStatusCluster({ showBatteryBadge, batteryValue, batteryIcon: batteryIconName, batteryEntity, batteryTitle,
+                                problemCount, updateCount, updateEntity, updateTitle }) {
+  const segs = [];
+  if (showBatteryBadge) segs.push(`
+    <span class="group-seg status-seg-battery" data-entity="${batteryEntity}" title="${batteryTitle}">
+      <ha-icon icon="${batteryIconName}"></ha-icon><span>${batteryValue}%</span>
+    </span>`);
+  if (problemCount > 0) segs.push(`
+    <span class="group-seg status-seg-problem" title="${problemCount} problem${problemCount !== 1 ? 's' : ''}">
+      <ha-icon icon="mdi:alert-circle-outline"></ha-icon>${problemCount > 1 ? `<span>${problemCount}</span>` : ''}
+    </span>`);
+  if (updateCount > 0) segs.push(`
+    <span class="group-seg status-seg-update" data-entity="${updateEntity}" title="${updateTitle}">
+      <ha-icon icon="mdi:package-up"></ha-icon>${updateCount > 1 ? `<span>${updateCount}</span>` : ''}
+    </span>`);
+  if (!segs.length) return '';
+  return `<div class="chip group-chip status-cluster" title="Alerts">${segs.join('')}</div>`;
 }
 
 function renderEnvRow({ tempVal, humVal, tempUnit, tempEntities, humEntities, climate, climIcon, climColor }) {
@@ -259,11 +276,26 @@ function renderWeatherChip({ weatherItems }) {
     </div>`;
 }
 
-function renderChips({ chipItems, weatherItems }) {
-  if (!chipItems.length && !weatherItems.length) return '';
+// Camera diagnostics (IP, PIR state, alarm codes, etc.) — read-only, so segments
+// carry no data-domain/on-state, just entity + label like the weather chip.
+function renderDiagnosticsChip({ diagnosticsItems }) {
+  if (!diagnosticsItems.length) return '';
+  return `
+    <div class="chip group-chip diagnostics-chip" title="Diagnostics">
+      ${diagnosticsItems.map(({ entityId, icon, label, title }) => `
+        <span class="group-seg diagnostics-seg" data-entity="${entityId}" title="${title}">
+          <ha-icon icon="${icon}"></ha-icon>
+          <span class="seg-label">${label}</span>
+        </span>`).join('')}
+    </div>`;
+}
+
+function renderChips({ chipItems, weatherItems, diagnosticsItems }) {
+  if (!chipItems.length && !weatherItems.length && !diagnosticsItems.length) return '';
   return `
     <div class="entity-chips">
       ${renderWeatherChip({ weatherItems })}
+      ${renderDiagnosticsChip({ diagnosticsItems })}
       ${chipItems.map(({ entityId, isActive, icon, label, title }) => `
         <div class="chip${isActive ? ' on' : ''}" data-entity="${entityId}" title="${title}">
           <ha-icon icon="${icon}"></ha-icon>
@@ -295,6 +327,23 @@ function renderPtzChip({ ptzItems }) {
     </div>`;
 }
 
+// Device controls (switches, sirens, misc buttons — everything except the PTZ
+// pad, which keeps its own directional pill), grouped into one segmented pill
+// instead of one full chip per entity. A camera device alone can expose 3-4 of
+// these (IR light, audio, siren, reboot); one pill reads as "controls for this
+// device" where four separate chips read as unrelated clutter.
+function renderControlsChip({ controlItems }) {
+  if (!controlItems.length) return '';
+  return `
+    <div class="chip group-chip controls-chip" title="Controls">
+      ${controlItems.map(({ entityId, domain, isActive, icon, label, title }) => `
+        <span class="group-seg control-seg${isActive ? ' on' : ''}" data-entity="${entityId}" data-domain="${domain}" title="${title}">
+          <ha-icon icon="${icon}"></ha-icon>
+          <span class="seg-label">${label}</span>
+        </span>`).join('')}
+    </div>`;
+}
+
 function renderControls({ controlItems, ptzItems, collapsibleControls, controlsCollapsed }) {
   if (!controlItems.length && !ptzItems.length) return '';
   return `
@@ -306,11 +355,7 @@ function renderControls({ controlItems, ptzItems, collapsibleControls, controlsC
           : ''}</span>
       <div class="controls-chips">
         ${renderPtzChip({ ptzItems })}
-        ${controlItems.map(({ entityId, domain, isActive, icon, label, title }) => `
-          <div class="chip control-chip${isActive ? ' on' : ''}" data-entity="${entityId}" data-domain="${domain}" title="${title}">
-            <ha-icon icon="${icon}"></ha-icon>
-            <span class="chip-label">${label}</span>
-          </div>`).join('')}
+        ${renderControlsChip({ controlItems })}
       </div>
     </div>`;
 }
@@ -419,8 +464,8 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
   if (navPath) {
     shadowRoot.querySelector('ha-card').addEventListener('click', e => {
       if (!e.target.closest('.chip') && !e.target.closest('.env-chip')
-          && !e.target.closest('.badge-lights') && !e.target.closest('.badge-battery')
-          && !e.target.closest('.badge-update') && !e.target.closest('.camera-preview')
+          && !e.target.closest('.badge-lights') && !e.target.closest('.status-seg-battery')
+          && !e.target.closest('.status-seg-update') && !e.target.closest('.camera-preview')
           && !e.target.closest('.controls-label.clickable')) navigate(navPath);
     });
   }
@@ -451,13 +496,17 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
     el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
   });
 
-  const updateBadge = shadowRoot.querySelector('.badge-update[data-entity]');
+  shadowRoot.querySelectorAll('.diagnostics-seg[data-entity]').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
+  });
+
+  const updateBadge = shadowRoot.querySelector('.status-seg-update[data-entity]');
   if (updateBadge) updateBadge.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, updateBadge.dataset.entity); });
 
   const cameraPreview = shadowRoot.querySelector('.camera-preview[data-entity]');
   if (cameraPreview) cameraPreview.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, cameraPreview.dataset.entity); });
 
-  shadowRoot.querySelectorAll('.control-chip[data-entity]').forEach(el => {
+  shadowRoot.querySelectorAll('.control-seg[data-entity]').forEach(el => {
     el.addEventListener('click', e => {
       e.stopPropagation();
       const entityId = el.dataset.entity;
@@ -480,7 +529,7 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
     });
   }
 
-  const batteryBadge = shadowRoot.querySelector('.badge-battery[data-entity]');
+  const batteryBadge = shadowRoot.querySelector('.status-seg-battery[data-entity]');
   if (batteryBadge) batteryBadge.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, batteryBadge.dataset.entity); });
 
   shadowRoot.querySelectorAll('.env-chip[data-entity]').forEach(el => {
@@ -488,7 +537,7 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
     if (eid) el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, eid); });
   });
 
-  shadowRoot.querySelectorAll('.chip[data-entity]:not(.control-chip)').forEach(el => {
+  shadowRoot.querySelectorAll('.chip[data-entity]').forEach(el => {
     el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
   });
 }

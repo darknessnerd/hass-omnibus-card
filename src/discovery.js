@@ -87,7 +87,7 @@ export function classify(areaEntities) {
     smokes: [], gases: [], moistures: [],
     batteries: [], problems: [],
     cameras: [], controls: [], ptz: [], updates: [],
-    others: [],
+    others: [], diagnostics: [],
   };
 
   for (const item of areaEntities) {
@@ -127,14 +127,18 @@ export function classify(areaEntities) {
   const cameraDeviceIds = new Set(out.cameras.map(c => c.deviceId).filter(Boolean));
   if (cameraDeviceIds.size) {
     const stillOthers = [];
+    const passiveLinked = []; // read-only entities on the same camera device — candidates for the diagnostics group
     for (const item of out.others) {
       const domain = item.entityId.split('.')[0];
-      if (item.deviceId && cameraDeviceIds.has(item.deviceId) && !PASSIVE_DOMAINS.has(domain)) {
-        out.controls.push(item);
-      } else {
-        stillOthers.push(item);
-      }
+      const linked = item.deviceId && cameraDeviceIds.has(item.deviceId);
+      if (linked && !PASSIVE_DOMAINS.has(domain)) out.controls.push(item);
+      else if (linked && PASSIVE_DOMAINS.has(domain)) passiveLinked.push(item);
+      else stillOthers.push(item);
     }
+    // A single diagnostic sensor reads fine as a plain chip — only worth its
+    // own labeled pill once there are enough of them to actually clutter the strip.
+    if (passiveLinked.length > 1) out.diagnostics.push(...passiveLinked);
+    else stillOthers.push(...passiveLinked);
     out.others = stillOthers;
   }
 
