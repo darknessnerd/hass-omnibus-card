@@ -14,6 +14,41 @@ export function friendlyLabel(entityId, state) {
 }
 
 /**
+ * De-duplicates last-word chip labels within one rendered group (e.g. two
+ * entities that both happen to end in "Allarme"). Each item needs `label`
+ * (from friendlyLabel), `fullName` (the untruncated friendly_name/entity_id),
+ * and `entityId`. Colliding items grow to the fewest trailing words of
+ * fullName that make them unique from each other; if even the full name
+ * collides (near-impossible), the entity_id suffix is a guaranteed-unique
+ * last resort.
+ *
+ * Example:
+ *   uniqueLabels([
+ *     { entityId: 'sensor.a', label: 'Allarme', fullName: 'Cam Codice Del Tipo Di Ultimo Allarme' },
+ *     { entityId: 'sensor.b', label: 'Allarme', fullName: 'Cam Nome Dell Ultimo Tipo Di Allarme' },
+ *   ]) → labels become 'Di Ultimo Allarme' and 'Tipo Di Allarme' (or similar) — first trailing-word
+ *   count where the two no longer match.
+ */
+export function uniqueLabels(items) {
+  const labelCount = new Map();
+  for (const item of items) labelCount.set(item.label, (labelCount.get(item.label) ?? 0) + 1);
+  if (![...labelCount.values()].some(count => count > 1)) return items;
+
+  const wordsOf = item => item.fullName.trim().split(/\s+/);
+
+  return items.map(item => {
+    if (labelCount.get(item.label) === 1) return item;
+    const words = wordsOf(item);
+    for (let n = 2; n <= words.length; n++) {
+      const candidate = words.slice(-n).join(' ');
+      const collides = items.some(other => other !== item && wordsOf(other).slice(-n).join(' ') === candidate);
+      if (!collides) return { ...item, label: candidate };
+    }
+    return { ...item, label: item.entityId.split('.')[1] };
+  });
+}
+
+/**
  * Resolves the best icon for an entity.
  * Priority: entity-defined icon → device_class map → domain map → fallback.
  */

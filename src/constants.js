@@ -1,5 +1,7 @@
 export const CARD_TAG     = 'hass-omnibus-card';
-export const CARD_VERSION = __VERSION__;
+// __VERSION__ is injected by Vite's `define` at build/dev-serve time (vite.config.js);
+// bare-node contexts (e.g. `node --test`) never define it, so fall back to 'dev'.
+export const CARD_VERSION = typeof __VERSION__ !== 'undefined' ? __VERSION__ : 'dev';
 
 export const ACTIVE_STATES = new Set(['on', 'open', 'playing', 'home', 'unlocked']);
 

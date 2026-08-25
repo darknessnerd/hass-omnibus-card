@@ -632,13 +632,14 @@ test('camera — click opens more-info', async ({ page }) => {
 
 // ── Camera controls group ───────────────────────────────────────────────────
 
-test('controls — siren, generic button, device-linked switch/lock pulled in; PTZ buttons form their own group', async ({ page }) => {
+test('controls — siren/button in Controls; device-linked switch/lock in Settings; PTZ buttons form their own group', async ({ page }) => {
   await mount(page, GARAGE);
-  // ptz_up + ptz_down are grouped into their own pill; reboot/siren/switch/lock
-  // are grouped into one segmented controls-chip pill (not individual chips)
-  const controls = page.locator('#mount').locator('.controls-chip .control-seg');
-  await expect(controls).toHaveCount(4); // reboot button + siren + IR-light switch + housing lock
-  await expect(page.locator('#mount').locator('.control-seg[data-domain="lock"]')).toBeVisible();
+  // ptz_up + ptz_down grouped into their own pill; reboot button + siren
+  // ("press to act") grouped into controls-chip; switch/lock ("configure")
+  // grouped into settings-chip — not one shared pill of 4.
+  await expect(page.locator('#mount').locator('.controls-chip .control-seg')).toHaveCount(2); // reboot button + siren
+  await expect(page.locator('#mount').locator('.settings-chip .settings-seg')).toHaveCount(2); // IR-light switch + housing lock
+  await expect(page.locator('#mount').locator('.settings-seg[data-domain="lock"]')).toBeVisible();
   await expect(page.locator('#mount').locator('.ptz-chip .ptz-seg')).toHaveCount(2);
   await expect(page.locator('#mount')).toHaveScreenshot('camera-controls.png', SNAP);
 });
@@ -665,7 +666,7 @@ test('controls — device-linked lock click opens more-info (generic fallback, n
   const moreInfo = page.evaluate(() => new Promise(resolve => {
     document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
   }));
-  await page.locator('#mount').locator('.control-seg[data-domain="lock"]').click();
+  await page.locator('#mount').locator('.settings-seg[data-domain="lock"]').click();
   expect(await moreInfo).toBe('lock.garage_cam_housing');
 });
 
@@ -742,6 +743,53 @@ test('controls — collapsible_controls: false hides the toggle icon and always 
   await mount(page, GARAGE);   // GARAGE sets collapsible_controls: false
   await expect(page.locator('#mount').locator('.controls-toggle')).not.toBeVisible();
   await expect(page.locator('#mount').locator('.controls-chips')).toBeVisible();
+});
+
+// ── Settings / Diagnostics — collapsible like Controls, independently ──────
+
+test('settings — collapsed by default, toggle icon shown, same as Controls', async ({ page }) => {
+  await mount(page, { area: 'garage', max_entities: 20 });
+  const label = page.locator('#mount').locator('.group-label-settings.clickable');
+  await expect(label.locator('.group-toggle')).toHaveAttribute('icon', 'mdi:chevron-down');
+  await expect(page.locator('#mount').locator('.settings-chip')).not.toBeVisible();
+});
+
+test('diagnostics — collapsed by default, toggle icon shown, same as Controls', async ({ page }) => {
+  await mount(page, { area: 'garage', max_entities: 20 });
+  const label = page.locator('#mount').locator('.group-label-diagnostics.clickable');
+  await expect(label.locator('.group-toggle')).toHaveAttribute('icon', 'mdi:chevron-down');
+  await expect(page.locator('#mount').locator('.diagnostics-chip')).not.toBeVisible();
+});
+
+test('settings/diagnostics — clicking one label expands only that section', async ({ page }) => {
+  await mount(page, { area: 'garage', max_entities: 20 });
+  await page.locator('#mount').locator('.group-label-settings.clickable').click();
+  await expect(page.locator('#mount').locator('.settings-chip')).toBeVisible();
+  await expect(page.locator('#mount').locator('.diagnostics-chip')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.controls-chips')).not.toBeVisible();
+});
+
+test('settings/diagnostics — collapsing Controls does not collapse an already-expanded Settings', async ({ page }) => {
+  await mount(page, { area: 'garage', max_entities: 20, controls_collapsed: false }); // all three start expanded
+  await expect(page.locator('#mount').locator('.settings-chip')).toBeVisible();
+  await page.locator('#mount').locator('.controls-label.clickable').click(); // collapse Controls only
+  await expect(page.locator('#mount').locator('.controls-chips')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.settings-chip')).toBeVisible();
+  await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
+});
+
+test('controls_collapsed: false starts Settings and Diagnostics expanded too (shared config)', async ({ page }) => {
+  await mount(page, { area: 'garage', max_entities: 20, controls_collapsed: false });
+  await expect(page.locator('#mount').locator('.settings-chip')).toBeVisible();
+  await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
+  await expect(page.locator('#mount').locator('.group-label-settings .group-toggle')).toHaveAttribute('icon', 'mdi:chevron-up');
+});
+
+test('collapsible_controls: false hides Settings/Diagnostics toggles too and always shows them', async ({ page }) => {
+  await mount(page, GARAGE); // GARAGE sets collapsible_controls: false
+  await expect(page.locator('#mount').locator('.group-label-settings.clickable')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.settings-chip')).toBeVisible();
+  await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
 });
 
 test('controls — label click does not trigger card navigation', async ({ page }) => {
@@ -856,12 +904,12 @@ test('controls — siren click toggles siren service, not more-info', async ({ p
   expect(calls).toEqual([{ domain: 'siren', service: 'toggle', data: {}, target: { entity_id: 'siren.garage_alarm' } }]);
 });
 
-test('controls — device-linked switch click opens more-info (no dedicated switch service)', async ({ page }) => {
+test('controls — device-linked switch (Settings) click opens more-info (no dedicated switch service)', async ({ page }) => {
   await mount(page, GARAGE);
   const moreInfo = page.evaluate(() => new Promise(resolve => {
     document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
   }));
-  await page.locator('#mount').locator('.control-seg[data-domain="switch"]').click();
+  await page.locator('#mount').locator('.settings-seg[data-domain="switch"]').click();
   expect(await moreInfo).toBe('switch.garage_cam_ir_light');
 });
 
@@ -881,14 +929,16 @@ test('real dataset — Italian PTZ buttons render with correct compass direction
   await expect(byDir('right')).toHaveAttribute('data-entity', 'button.esterno_cb8c_bh2113803_ptz_destra');
 });
 
-test('real dataset — siren, 5 switches, number and 2 selects all group into one 9-segment controls pill', async ({ page }) => {
+test('real dataset — siren alone in Controls ("press to act"); 5 switches + number + 2 selects grouped into Settings ("configure")', async ({ page }) => {
   await mount(page, ESTERNO_REAL);
   await page.locator('#mount').locator('.controls-label.clickable').click(); // expand (collapsed by default)
-  await expect(page.locator('#mount').locator('.controls-chip .control-seg')).toHaveCount(9);
+  await expect(page.locator('#mount').locator('.controls-chip .control-seg')).toHaveCount(1);
+  await expect(page.locator('#mount').locator('.settings-chip .settings-seg')).toHaveCount(8);
 });
 
 test('real dataset — camera diagnostic sensors/binary_sensor/image group into one diagnostics pill, not controls', async ({ page }) => {
   await mount(page, ESTERNO_REAL);
+  await page.locator('#mount').locator('.group-label-diagnostics.clickable').click(); // expand (collapsed by default, like Controls)
   await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
   for (const entityId of [
     'binary_sensor.esterno_cb8c_bh2113803_crittografia_2',

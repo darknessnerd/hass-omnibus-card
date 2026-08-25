@@ -60,7 +60,7 @@ export function filterEntities(areaEntities, config, hass) {
 }
 
 // Domains that are always read-only across HA integrations — no meaningful service to
-// call, more-info is just a display. Never swept into the camera Controls group.
+// call, more-info is just a display. Never swept into camera controls/settings.
 // (`update` isn't listed — it's diverted to its own bucket earlier and never reaches `others`.)
 const PASSIVE_DOMAINS = new Set(['sensor', 'binary_sensor', 'image']);
 
@@ -86,7 +86,7 @@ export function classify(areaEntities) {
     motions: [], occupancy: [],
     smokes: [], gases: [], moistures: [],
     batteries: [], problems: [],
-    cameras: [], controls: [], ptz: [], updates: [],
+    cameras: [], controls: [], settings: [], ptz: [], updates: [],
     others: [], diagnostics: [],
   };
 
@@ -121,9 +121,12 @@ export function classify(areaEntities) {
   }
 
   // Any otherwise-generic, *operable* entity (switch, select, number, lock, cover, ...)
-  // that shares a device with a discovered camera is a camera control. Read-only domains
-  // (plain sensors, image snapshots, update entities) stay chips — they're informational,
-  // not controls, even when the same camera device exposes them.
+  // that shares a device with a discovered camera belongs to that camera, one way or
+  // another. Split by "press to act" vs "configure": siren/button already landed in
+  // `controls` unconditionally above (they can never reach this sweep); everything else
+  // operable here is a settings-style toggle, so it goes to `settings`, not `controls`.
+  // Read-only domains (plain sensors, image snapshots, update entities) stay out of both —
+  // they're informational, grouped into `diagnostics` instead.
   const cameraDeviceIds = new Set(out.cameras.map(c => c.deviceId).filter(Boolean));
   if (cameraDeviceIds.size) {
     const stillOthers = [];
@@ -131,7 +134,7 @@ export function classify(areaEntities) {
     for (const item of out.others) {
       const domain = item.entityId.split('.')[0];
       const linked = item.deviceId && cameraDeviceIds.has(item.deviceId);
-      if (linked && !PASSIVE_DOMAINS.has(domain)) out.controls.push(item);
+      if (linked && !PASSIVE_DOMAINS.has(domain)) out.settings.push(item);
       else if (linked && PASSIVE_DOMAINS.has(domain)) passiveLinked.push(item);
       else stillOthers.push(item);
     }

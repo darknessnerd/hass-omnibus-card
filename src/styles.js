@@ -26,6 +26,15 @@ export const CARD_STYLES = `
     animation: alarm-pulse 2s ease-in-out infinite;
   }
 
+  /* Every interactive element in this card carries role="button" + tabindex —
+     one rule gives all of them a visible keyboard-focus ring instead of
+     relying on the browser's (often invisible-on-dark-themes) default. */
+  [role="button"]:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
   @keyframes alarm-pulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);    }
     50%       { box-shadow: 0 0 0 6px rgba(244, 67, 54, 0.35); }
@@ -84,8 +93,8 @@ export const CARD_STYLES = `
     position: absolute;
     font-weight: 600;
     color: var(--secondary-text-color, #888);
-    opacity: 0.75;
-    background: rgba(0,0,0,0.18);
+    opacity: 0.95;
+    background: rgba(0,0,0,0.34);
     border-radius: 3px;
     padding: 1px 4px;
     backdrop-filter: blur(3px);
@@ -235,12 +244,16 @@ export const CARD_STYLES = `
     margin-bottom: 10px;
   }
 
+  /* Temp/humidity/climate are the card's headline stat — sized and weighted
+     up from the 0.72-0.83rem band everything else (chip labels, seg labels)
+     sits in, so they read as the number that matters, not another chip. */
   .env-chip {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 0.83rem;
-    color: var(--secondary-text-color);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--primary-text-color);
     padding: 3px 8px;
     border-radius: 14px;
     cursor: pointer;
@@ -323,6 +336,8 @@ export const CARD_STYLES = `
     align-items: center;
     gap: 3px;
     padding: 3px 6px;
+    min-height: 24px;
+    box-sizing: border-box;
     border-radius: 10px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
@@ -358,6 +373,54 @@ export const CARD_STYLES = `
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+  /* ── Group sections (Weather / Diagnostics / Settings) ──
+     A small visible caption + a color identity per pill type, so the card
+     stops reading as one repeated grey-capsule component wearing three
+     different tooltips. Controls keeps its own pre-existing label/toggle;
+     Diagnostics stays neutral on purpose — it's the "least important,
+     read-only" bucket, and staying quiet is itself part of the hierarchy. */
+  .group-section {
+    margin-bottom: 10px;
+  }
+
+  .group-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.66rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+    margin-bottom: 4px;
+  }
+
+  /* Diagnostics/Settings collapse independently of each other and of Controls —
+     same clickable-caption + chevron language as .controls-label. */
+  .group-label.clickable {
+    cursor: pointer;
+  }
+
+  .group-toggle {
+    --mdc-icon-size: 13px;
+    opacity: 0.8;
+  }
+
+  .group-label.clickable:hover .group-toggle {
+    opacity: 1;
+  }
+
+  .group-section.collapsed .group-pill {
+    display: none;
+  }
+
+  .group-label-weather     { color: var(--primary-color, #03a9f4); }
+  .group-label-diagnostics { color: var(--secondary-text-color, #888); }
+  .group-label-settings    { color: #546e7a; }
+
+  .weather-chip  { background: rgba(3, 169, 244, 0.08); }
+  .settings-chip { background: rgba(84, 110, 122, 0.14); }
 
   .weather-seg[data-dc="wind_speed"] ha-icon     { color: #546e7a; }
   .weather-seg[data-dc="precipitation"] ha-icon  { color: #0288d1; }
@@ -451,12 +514,6 @@ export const CARD_STYLES = `
 
   .controls-label.clickable {
     cursor: pointer;
-  }
-
-  .controls-label.clickable:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
-    border-radius: 2px;
   }
 
   .controls-toggle {

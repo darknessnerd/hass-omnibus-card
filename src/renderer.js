@@ -12,7 +12,7 @@ import { CLIMATE_MAP, ACTIVE_STATES, PTZ_ICON } from './constants.js';
 import { CARD_STYLES }                from './styles.js';
 import { getAreaEntities, classify, filterEntities } from './discovery.js';
 import { average, anyOn, activeLights, rgbColor, lowestBattery } from './aggregators.js';
-import { friendlyLabel, entityIcon, batteryIcon }  from './utils.js';
+import { friendlyLabel, entityIcon, batteryIcon, uniqueLabels } from './utils.js';
 import { fireMoreInfo, navigate }     from './events.js';
 import { sparklineSvg, computeScale } from './sparkline.js';
 
@@ -24,7 +24,7 @@ import { sparklineSvg, computeScale } from './sparkline.js';
  * Returns { error } when the area is not found and no name override is set.
  * Pure: no DOM access, no side effects.
  */
-export function buildViewModel(hass, config, historyPoints = null, controlsCollapsed = false) {
+export function buildViewModel(hass, config, historyPoints = null, collapsed = {}) {
   const areaId = config.area;
   const area   = hass.areas?.[areaId];
 
@@ -104,18 +104,39 @@ export function buildViewModel(hass, config, historyPoints = null, controlsColla
     cameraOffline: camera?.state.state === 'unavailable',
 
     controlItems: config.show_entities !== false
-      ? c.controls.map(({ entityId, state }) => ({
+      ? uniqueLabels(c.controls.map(({ entityId, state }) => ({
           entityId,
           domain:   entityId.split('.')[0],
           isActive: ACTIVE_STATES.has(state.state),
           icon:     entityIcon(entityId, state),
-          label:    friendlyLabel(entityId, state),
+          label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
+          fullName: state.attributes?.friendly_name ?? entityId,
           title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
-        }))
+        })))
       : [],
 
-    collapsibleControls: config.collapsible_controls !== false,
-    controlsCollapsed:   config.collapsible_controls !== false && controlsCollapsed,
+    // switch/select/number/lock/cover, etc. sharing a device with the area's
+    // camera — configuration toggles, distinct from the one-shot "press to
+    // act" items (siren/buttons) that stay in controlItems. See discovery.js.
+    settingsItems: config.show_entities !== false
+      ? uniqueLabels(c.settings.map(({ entityId, state }) => ({
+          entityId,
+          domain:   entityId.split('.')[0],
+          isActive: ACTIVE_STATES.has(state.state),
+          icon:     entityIcon(entityId, state),
+          label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
+          fullName: state.attributes?.friendly_name ?? entityId,
+          title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
+        })))
+      : [],
+
+    // Controls/Settings/Diagnostics all share the same collapsible_controls
+    // toggle (whether a chevron shows at all) but track their own open/closed
+    // state independently — collapsing Controls doesn't collapse Settings.
+    collapsibleControls:  config.collapsible_controls !== false,
+    controlsCollapsed:    config.collapsible_controls !== false && !!collapsed.controls,
+    settingsCollapsed:    config.collapsible_controls !== false && !!collapsed.settings,
+    diagnosticsCollapsed: config.collapsible_controls !== false && !!collapsed.diagnostics,
 
     // grouped into one pill instead of one chip per PTZ button / weather reading
     ptzItems: config.show_entities !== false
@@ -147,16 +168,20 @@ export function buildViewModel(hass, config, historyPoints = null, controlsColla
     // once there are enough of them (see discovery.js) instead of padding out
     // the generic chip strip with near-identical grey chips.
     diagnosticsItems: config.show_entities !== false
-      ? c.diagnostics.map(({ entityId, state }) => ({
+      ? uniqueLabels(c.diagnostics.map(({ entityId, state }) => ({
           entityId,
-          icon:  entityIcon(entityId, state),
-          label: friendlyLabel(entityId, state),
-          title: `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
-        }))
+          icon:     entityIcon(entityId, state),
+          label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
+          fullName: state.attributes?.friendly_name ?? entityId,
+          title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
+        })))
       : [],
 
     historyPoints: hc?.entity_id ? historyPoints : null,
-    historyColor:  hc?.color ?? 'rgba(3, 169, 244, 0.12)',
+    // slightly more present than the old 0.12 default — the sparkline is the
+    // card's one distinctive visual element and was reading as background
+    // noise rather than a signature
+    historyColor:  hc?.color ?? 'rgba(3, 169, 244, 0.2)',
     historyChart:  hc,
     historyMin:    (hc?.entity_id && historyPoints?.length >= 2) ? Math.min(...historyPoints) : null,
     historyMax:    (hc?.entity_id && historyPoints?.length >= 2) ? Math.max(...historyPoints) : null,
@@ -165,13 +190,14 @@ export function buildViewModel(hass, config, historyPoints = null, controlsColla
 
     // pre-computed chip data keeps template functions free of utility imports
     chipItems: config.show_entities !== false
-      ? [...c.others, ...extraCameras].slice(0, config.max_entities ?? 6).map(({ entityId, state }) => ({
+      ? uniqueLabels([...c.others, ...extraCameras].slice(0, config.max_entities ?? 12).map(({ entityId, state }) => ({
           entityId,
           isActive: ACTIVE_STATES.has(state.state),
           icon:     entityIcon(entityId, state),
-          label:    friendlyLabel(entityId, state),
+          label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
+          fullName: state.attributes?.friendly_name ?? entityId,
           title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
-        }))
+        })))
       : [],
   };
 }
@@ -196,7 +222,7 @@ function renderHeader({ areaName, cardIcon, hasLights, lightCount, offlineLights
       <div class="header-right">
         ${hasLights ? `
           <div class="badge badge-lights ${lightsOff ? 'off' : ''} ${offlineLights > 0 ? 'has-offline' : ''}"
-               title="${lightTitle}">
+               role="button" tabindex="0" aria-label="${lightTitle}" title="${lightTitle}">
             <ha-icon icon="mdi:lightbulb${lightsOff ? '-off' : ''}"></ha-icon>
             ${lightCount > 1 ? `<span>${lightCount}</span>` : ''}
           </div>` : ''}
@@ -214,7 +240,7 @@ function renderStatusCluster({ showBatteryBadge, batteryValue, batteryIcon: batt
                                 problemCount, updateCount, updateEntity, updateTitle }) {
   const segs = [];
   if (showBatteryBadge) segs.push(`
-    <span class="group-seg status-seg-battery" data-entity="${batteryEntity}" title="${batteryTitle}">
+    <span class="group-seg status-seg-battery" data-entity="${batteryEntity}" role="button" tabindex="0" aria-label="${batteryTitle}" title="${batteryTitle}">
       <ha-icon icon="${batteryIconName}"></ha-icon><span>${batteryValue}%</span>
     </span>`);
   if (problemCount > 0) segs.push(`
@@ -222,7 +248,7 @@ function renderStatusCluster({ showBatteryBadge, batteryValue, batteryIcon: batt
       <ha-icon icon="mdi:alert-circle-outline"></ha-icon>${problemCount > 1 ? `<span>${problemCount}</span>` : ''}
     </span>`);
   if (updateCount > 0) segs.push(`
-    <span class="group-seg status-seg-update" data-entity="${updateEntity}" title="${updateTitle}">
+    <span class="group-seg status-seg-update" data-entity="${updateEntity}" role="button" tabindex="0" aria-label="${updateTitle}" title="${updateTitle}">
       <ha-icon icon="mdi:package-up"></ha-icon>${updateCount > 1 ? `<span>${updateCount}</span>` : ''}
     </span>`);
   if (!segs.length) return '';
@@ -231,23 +257,22 @@ function renderStatusCluster({ showBatteryBadge, batteryValue, batteryIcon: batt
 
 function renderEnvRow({ tempVal, humVal, tempUnit, tempEntities, humEntities, climate, climIcon, climColor }) {
   if (tempVal === null && humVal === null && !climIcon) return '';
+  const tempTitle = tempEntities.length > 1 ? `Avg of ${tempEntities.length} sensors` : tempEntities[0]?.state.attributes?.friendly_name ?? '';
+  const humTitle  = humEntities.length > 1  ? `Avg of ${humEntities.length} sensors`  : humEntities[0]?.state.attributes?.friendly_name ?? '';
+  const climTitle = climate?.state.attributes?.friendly_name ?? climate?.entityId ?? '';
   return `
     <div class="env-row">
       ${tempVal !== null ? `
         <div class="env-chip temp"
              data-entity="${tempEntities[0]?.entityId ?? ''}"
-             title="${tempEntities.length > 1
-               ? `Avg of ${tempEntities.length} sensors`
-               : tempEntities[0]?.state.attributes?.friendly_name ?? ''}">
+             role="button" tabindex="0" aria-label="${tempTitle}" title="${tempTitle}">
           <ha-icon icon="mdi:thermometer"></ha-icon>
           <span>${tempVal.toFixed(1)}${tempUnit}</span>
         </div>` : ''}
       ${humVal !== null ? `
         <div class="env-chip hum"
              data-entity="${humEntities[0]?.entityId ?? ''}"
-             title="${humEntities.length > 1
-               ? `Avg of ${humEntities.length} sensors`
-               : humEntities[0]?.state.attributes?.friendly_name ?? ''}">
+             role="button" tabindex="0" aria-label="${humTitle}" title="${humTitle}">
           <ha-icon icon="mdi:water-percent"></ha-icon>
           <span>${humVal.toFixed(0)}%</span>
         </div>` : ''}
@@ -255,7 +280,7 @@ function renderEnvRow({ tempVal, humVal, tempUnit, tempEntities, humEntities, cl
         <div class="env-chip climate"
              style="--climate-color: ${climColor}"
              data-entity="${climate.entityId}"
-             title="${climate.state.attributes?.friendly_name ?? climate.entityId}">
+             role="button" tabindex="0" aria-label="${climTitle}" title="${climTitle}">
           <ha-icon icon="${climIcon}"></ha-icon>
           <span>${climate.state.attributes?.current_temperature != null
             ? `${climate.state.attributes.current_temperature}°`
@@ -264,12 +289,32 @@ function renderEnvRow({ tempVal, humVal, tempUnit, tempEntities, humEntities, cl
     </div>`;
 }
 
+// Small caption above a grouped pill (Weather/Diagnostics/Settings) — gives
+// each type a name and a color identity instead of three identical grey
+// capsules distinguishable only by a hover tooltip. Diagnostics/Settings are
+// collapsible like Controls (pass sectionKey/collapsible/collapsed); Weather
+// stays always-visible (no opts).
+function renderGroupSection(label, className, pillHtml, { sectionKey, collapsible, collapsed } = {}) {
+  if (!pillHtml) return '';
+  if (!collapsible) {
+    return `<div class="group-section"><span class="group-label ${className}">${label}</span>${pillHtml}</div>`;
+  }
+  return `
+    <div class="group-section${collapsed ? ' collapsed' : ''}">
+      <span class="group-label ${className} clickable" data-section="${sectionKey}"
+        role="button" tabindex="0" title="${collapsed ? 'Expand' : 'Collapse'} ${label.toLowerCase()}">
+        ${label}<ha-icon class="group-toggle" icon="mdi:chevron-${collapsed ? 'down' : 'up'}"></ha-icon>
+      </span>
+      <div class="group-pill">${pillHtml}</div>
+    </div>`;
+}
+
 function renderWeatherChip({ weatherItems }) {
   if (!weatherItems.length) return '';
   return `
-    <div class="chip group-chip weather-chip" title="Weather">
+    <div class="chip group-chip weather-chip">
       ${weatherItems.map(({ entityId, dc, icon, value, unit, title }) => `
-        <span class="group-seg weather-seg" data-entity="${entityId}" data-dc="${dc}" title="${title}">
+        <span class="group-seg weather-seg" data-entity="${entityId}" data-dc="${dc}" role="button" tabindex="0" aria-label="${title}" title="${title}">
           <ha-icon icon="${icon}"></ha-icon>
           <span class="group-seg-value">${value}${unit ? ' ' + unit : ''}</span>
         </span>`).join('')}
@@ -281,34 +326,39 @@ function renderWeatherChip({ weatherItems }) {
 function renderDiagnosticsChip({ diagnosticsItems }) {
   if (!diagnosticsItems.length) return '';
   return `
-    <div class="chip group-chip diagnostics-chip" title="Diagnostics">
+    <div class="chip group-chip diagnostics-chip">
       ${diagnosticsItems.map(({ entityId, icon, label, title }) => `
-        <span class="group-seg diagnostics-seg" data-entity="${entityId}" title="${title}">
+        <span class="group-seg diagnostics-seg" data-entity="${entityId}" role="button" tabindex="0" aria-label="${title}" title="${title}">
           <ha-icon icon="${icon}"></ha-icon>
           <span class="seg-label">${label}</span>
         </span>`).join('')}
     </div>`;
 }
 
-function renderChips({ chipItems, weatherItems, diagnosticsItems }) {
-  if (!chipItems.length && !weatherItems.length && !diagnosticsItems.length) return '';
+function renderChips({ chipItems, weatherItems, diagnosticsItems, collapsibleControls, diagnosticsCollapsed }) {
+  const weatherSection     = renderGroupSection('Weather', 'group-label-weather', renderWeatherChip({ weatherItems }));
+  const diagnosticsSection = renderGroupSection('Diagnostics', 'group-label-diagnostics', renderDiagnosticsChip({ diagnosticsItems }),
+    { sectionKey: 'diagnostics', collapsible: collapsibleControls, collapsed: diagnosticsCollapsed });
+  if (!chipItems.length && !weatherSection && !diagnosticsSection) return '';
   return `
-    <div class="entity-chips">
-      ${renderWeatherChip({ weatherItems })}
-      ${renderDiagnosticsChip({ diagnosticsItems })}
-      ${chipItems.map(({ entityId, isActive, icon, label, title }) => `
-        <div class="chip${isActive ? ' on' : ''}" data-entity="${entityId}" title="${title}">
-          <ha-icon icon="${icon}"></ha-icon>
-          <span class="chip-label">${label}</span>
-        </div>`).join('')}
-    </div>`;
+    ${weatherSection}
+    ${diagnosticsSection}
+    ${chipItems.length ? `
+      <div class="entity-chips">
+        ${chipItems.map(({ entityId, isActive, icon, label, title }) => `
+          <div class="chip${isActive ? ' on' : ''}" data-entity="${entityId}" role="button" tabindex="0" aria-label="${title}" title="${title}">
+            <ha-icon icon="${icon}"></ha-icon>
+            <span class="chip-label">${label}</span>
+          </div>`).join('')}
+      </div>` : ''}`;
 }
 
 function renderCameraPreview({ hasCamera, cameraImage, cameraIcon, cameraEntity, cameraTitle, cameraState, cameraOffline }) {
   if (!hasCamera) return '';
   const title = cameraOffline ? `${cameraTitle} (offline)` : cameraTitle;
   return `
-    <div class="camera-preview${cameraOffline ? ' offline' : ''}" data-entity="${cameraEntity}" title="${title}">
+    <div class="camera-preview${cameraOffline ? ' offline' : ''}" data-entity="${cameraEntity}"
+         role="button" tabindex="0" aria-label="${title}" title="${title}">
       ${cameraImage
         ? `<img src="${cameraImage}" alt="${title}" loading="lazy" />`
         : `<div class="camera-placeholder"><ha-icon icon="${cameraIcon}"></ha-icon></div>`}
@@ -319,45 +369,62 @@ function renderCameraPreview({ hasCamera, cameraImage, cameraIcon, cameraEntity,
 function renderPtzChip({ ptzItems }) {
   if (!ptzItems.length) return '';
   return `
-    <div class="chip group-chip control-chip ptz-chip" title="PTZ">
+    <div class="chip group-chip ptz-chip">
       ${ptzItems.map(({ entityId, direction, icon, title }) => `
-        <span class="group-seg ptz-seg" data-entity="${entityId}" data-direction="${direction}" title="${title}">
+        <span class="group-seg ptz-seg" data-entity="${entityId}" data-direction="${direction}" role="button" tabindex="0" aria-label="${title}" title="${title}">
           <ha-icon icon="${icon}"></ha-icon>
         </span>`).join('')}
     </div>`;
 }
 
-// Device controls (switches, sirens, misc buttons — everything except the PTZ
-// pad, which keeps its own directional pill), grouped into one segmented pill
-// instead of one full chip per entity. A camera device alone can expose 3-4 of
-// these (IR light, audio, siren, reboot); one pill reads as "controls for this
-// device" where four separate chips read as unrelated clutter.
+// Device controls — siren + one-shot buttons, "press to act" entities that
+// share a device with the area's camera. Configuration toggles (switch/
+// select/number) are a separate bucket, see renderSettingsChip below.
 function renderControlsChip({ controlItems }) {
   if (!controlItems.length) return '';
   return `
-    <div class="chip group-chip controls-chip" title="Controls">
+    <div class="chip group-chip controls-chip">
       ${controlItems.map(({ entityId, domain, isActive, icon, label, title }) => `
-        <span class="group-seg control-seg${isActive ? ' on' : ''}" data-entity="${entityId}" data-domain="${domain}" title="${title}">
+        <span class="group-seg control-seg${isActive ? ' on' : ''}" data-entity="${entityId}" data-domain="${domain}" role="button" tabindex="0" aria-label="${title}" title="${title}">
           <ha-icon icon="${icon}"></ha-icon>
           <span class="seg-label">${label}</span>
         </span>`).join('')}
     </div>`;
 }
 
-function renderControls({ controlItems, ptzItems, collapsibleControls, controlsCollapsed }) {
-  if (!controlItems.length && !ptzItems.length) return '';
+// Settings — switch/select/number/lock/cover, etc: configuration toggles
+// rather than one-shot actions. Split out from Controls so "press to act"
+// (siren, PTZ, reboot buttons) doesn't get buried among "adjust this setting"
+// (IR light, audio, detection sensitivity) — a real camera device can expose
+// 8+ of the latter and none of the former.
+function renderSettingsChip({ settingsItems }) {
+  if (!settingsItems.length) return '';
   return `
-    <div class="controls-row${controlsCollapsed ? ' collapsed' : ''}">
-      <span class="controls-label${collapsibleControls ? ' clickable' : ''}"
-        ${collapsibleControls ? `role="button" tabindex="0" title="${controlsCollapsed ? 'Expand' : 'Collapse'} controls"` : ''}
-        >Controls${collapsibleControls
-          ? `<ha-icon class="controls-toggle" icon="mdi:chevron-${controlsCollapsed ? 'down' : 'up'}"></ha-icon>`
-          : ''}</span>
-      <div class="controls-chips">
-        ${renderPtzChip({ ptzItems })}
-        ${renderControlsChip({ controlItems })}
-      </div>
+    <div class="chip group-chip settings-chip">
+      ${settingsItems.map(({ entityId, domain, isActive, icon, label, title }) => `
+        <span class="group-seg settings-seg${isActive ? ' on' : ''}" data-entity="${entityId}" data-domain="${domain}" role="button" tabindex="0" aria-label="${title}" title="${title}">
+          <ha-icon icon="${icon}"></ha-icon>
+          <span class="seg-label">${label}</span>
+        </span>`).join('')}
     </div>`;
+}
+
+function renderControls({ controlItems, settingsItems, ptzItems, collapsibleControls, controlsCollapsed, settingsCollapsed }) {
+  if (!controlItems.length && !settingsItems.length && !ptzItems.length) return '';
+  const controlsPill = renderPtzChip({ ptzItems }) + renderControlsChip({ controlItems });
+  return `
+    ${controlsPill ? `
+      <div class="controls-row${controlsCollapsed ? ' collapsed' : ''}">
+        <span class="controls-label${collapsibleControls ? ' clickable' : ''}"
+          data-section="controls"
+          ${collapsibleControls ? `role="button" tabindex="0" title="${controlsCollapsed ? 'Expand' : 'Collapse'} controls"` : ''}
+          >Controls${collapsibleControls
+            ? `<ha-icon class="controls-toggle" icon="mdi:chevron-${controlsCollapsed ? 'down' : 'up'}"></ha-icon>`
+            : ''}</span>
+        <div class="controls-chips">${controlsPill}</div>
+      </div>` : ''}
+    ${renderGroupSection('Settings', 'group-label-settings', renderSettingsChip({ settingsItems }),
+      { sectionKey: 'settings', collapsible: collapsibleControls, collapsed: settingsCollapsed })}`;
 }
 
 function renderAlarmBar({ smokeOn, gasOn, waterOn, moldRisk }) {
@@ -466,23 +533,31 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
       if (!e.target.closest('.chip') && !e.target.closest('.env-chip')
           && !e.target.closest('.badge-lights') && !e.target.closest('.status-seg-battery')
           && !e.target.closest('.status-seg-update') && !e.target.closest('.camera-preview')
-          && !e.target.closest('.controls-label.clickable')) navigate(navPath);
+          && !e.target.closest('.controls-label.clickable') && !e.target.closest('.group-label.clickable')) navigate(navPath);
     });
   }
 
-  const controlsLabel = shadowRoot.querySelector('.controls-label.clickable');
-  if (controlsLabel) {
-    controlsLabel.addEventListener('click', e => {
-      e.stopPropagation();
-      host.toggleControlsCollapsed();
-    });
-    controlsLabel.addEventListener('keydown', e => {
+  // Every interactive element carries role="button" + tabindex="0" in its
+  // template; this one delegated listener turns Enter/Space into a click for
+  // all of them instead of a bespoke keydown handler per element type.
+  shadowRoot.querySelectorAll('[role="button"][tabindex]').forEach(el => {
+    el.addEventListener('keydown', e => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       e.preventDefault();
       e.stopPropagation();
-      host.toggleControlsCollapsed();
+      el.click();
     });
-  }
+  });
+
+  // Controls/Settings/Diagnostics section headers — each toggles its own
+  // independent collapsed state on the host (collapsing Controls doesn't
+  // collapse Settings, and vice versa).
+  shadowRoot.querySelectorAll('.controls-label.clickable[data-section], .group-label.clickable[data-section]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      host.toggleSectionCollapsed(el.dataset.section);
+    });
+  });
 
   shadowRoot.querySelectorAll('.ptz-seg[data-entity]').forEach(el => {
     el.addEventListener('click', e => {
@@ -519,6 +594,10 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
         fireMoreInfo(host, entityId);
       }
     });
+  });
+
+  shadowRoot.querySelectorAll('.settings-seg[data-entity]').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
   });
 
   const lightBadge = shadowRoot.querySelector('.badge-lights');

@@ -54,20 +54,21 @@ test('real EZVIZ device: Italian PTZ buttons resolve to their compass direction'
   assert.equal(ptz.length, 4);
 });
 
-test('real EZVIZ device: siren, switches, number and selects all land in controls (9 items)', () => {
-  const { controls } = classify(REAL_AREA_ENTITIES);
-  const ids = controls.map(c => c.entityId);
-  assert.equal(controls.length, 9);
-  assert.ok(ids.includes('siren.esterno_cb8c_bh2113803_sirena'));
-  assert.ok(ids.includes('switch.esterno_cb8c_bh2113803_audio_2'));
-  assert.ok(ids.includes('number.esterno_cb8c_bh2113803_sensibilita_di_rilevamento'));
-  assert.ok(ids.includes('select.esterno_cb8c_bh2113803_suono_di_avviso'));
-  assert.ok(ids.includes('select.esterno_cb8c_bh2113803_modalita_di_funzionamento_della_batteria'));
+test('real EZVIZ device: siren lands in controls ("press to act"), switches/number/selects land in settings ("configure")', () => {
+  const { controls, settings } = classify(REAL_AREA_ENTITIES);
+  assert.deepEqual(controls.map(c => c.entityId), ['siren.esterno_cb8c_bh2113803_sirena']);
+
+  const settingsIds = settings.map(s => s.entityId);
+  assert.equal(settings.length, 8);
+  assert.ok(settingsIds.includes('switch.esterno_cb8c_bh2113803_audio_2'));
+  assert.ok(settingsIds.includes('number.esterno_cb8c_bh2113803_sensibilita_di_rilevamento'));
+  assert.ok(settingsIds.includes('select.esterno_cb8c_bh2113803_suono_di_avviso'));
+  assert.ok(settingsIds.includes('select.esterno_cb8c_bh2113803_modalita_di_funzionamento_della_batteria'));
 });
 
-test('real EZVIZ device: read-only sensors/binary_sensors/image on the same device stay out of controls, grouped as diagnostics', () => {
-  const { controls, others, diagnostics, motions, batteries } = classify(REAL_AREA_ENTITIES);
-  const controlIds = controls.map(c => c.entityId);
+test('real EZVIZ device: read-only sensors/binary_sensors/image on the same device stay out of controls/settings, grouped as diagnostics', () => {
+  const { controls, settings, others, diagnostics, motions, batteries } = classify(REAL_AREA_ENTITIES);
+  const controlIds = controls.map(c => c.entityId).concat(settings.map(s => s.entityId));
   assert.ok(!controlIds.some(id => id.includes('crittografia')));
   assert.ok(!controlIds.some(id => id.includes('ip_locale')));
   assert.ok(!controlIds.some(id => id.includes('ultima_immagine_motion')));
