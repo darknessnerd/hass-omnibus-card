@@ -17,20 +17,68 @@
   body {
     background: #111318;
     color: #e0e0e0;
-    font-family: sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     padding: 24px;
     min-height: 100vh;
+    max-width: 1400px;
+    margin: 0 auto;
   }
   h2 { color: #aaa; font-size: 13px; font-weight: 500; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .08em; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 32px; }
   .section { margin-bottom: 32px; }
-  #controls { margin-bottom: 24px; display: flex; gap: 8px; flex-wrap: wrap; }
   button {
     background: #2a2d36; color: #ccc; border: 1px solid #3a3d46;
     border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px;
   }
   button:hover { background: #3a3d46; }
   #log { font-size: 12px; color: #666; margin-top: 24px; white-space: pre-wrap; }
+
+  /* ── Header ─────────────────────────────────────────────────────────── */
+  #page-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; margin-bottom: 24px; padding-bottom: 20px;
+    border-bottom: 1px solid #2a2d36;
+  }
+  #page-header h1 { font-size: 20px; font-weight: 600; color: #fff; }
+  #page-header p { font-size: 13px; color: #888; margin-top: 4px; }
+  #page-header .badge {
+    font-size: 11px; color: #888; background: #1c1f26; border: 1px solid #2a2d36;
+    border-radius: 4px; padding: 2px 6px; margin-left: 8px; font-weight: 400;
+  }
+
+  /* ── Live demo controls ─────────────────────────────────────────────── */
+  #controls { margin-bottom: 24px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  #controls .divider { width: 1px; height: 20px; background: #2a2d36; margin: 0 4px; }
+  button.primary { background: var(--primary-color, #03a9f4); color: #fff; border-color: transparent; }
+  button.primary:hover { opacity: .85; }
+
+  #config-controls, #real-demo-controls, #real-demo-options {
+    margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+    font-size: 13px; color: #ccc;
+  }
+  #config-controls label, #real-demo-controls label, #real-demo-options label {
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+  }
+
+  /* ── Developer tools (collapsed by default) ──────────────────────────── */
+  #dev-tools {
+    margin-top: 40px; border-top: 1px dashed #2a2d36; padding-top: 8px;
+  }
+  #dev-tools > summary {
+    cursor: pointer; font-size: 13px; color: #888; padding: 8px 0;
+    text-transform: uppercase; letter-spacing: .08em; user-select: none;
+  }
+  #dev-tools > summary:hover { color: #ccc; }
+  #dev-tools[open] > summary { color: #ccc; margin-bottom: 16px; }
+  #dev-tools .section:first-of-type { margin-top: 8px; }
+
+  body.light-theme #page-header { border-bottom-color: #e0e0e0; }
+  body.light-theme #page-header h1 { color: #111; }
+  body.light-theme #page-header .badge { background: #fff; border-color: #ddd; }
+  body.light-theme #controls .divider { background: #ddd; }
+  body.light-theme #dev-tools { border-top-color: #ddd; }
+  body.light-theme button { background: #fff; color: #333; border-color: #ddd; }
+  body.light-theme button:hover { background: #f0f0f0; }
 </style>
 
 <!-- ── HA stub elements ──────────────────────────────────────────────────── -->
@@ -445,8 +493,15 @@ function mountStatic(container, config, stateOverrides, callWSOverride) {
 </head>
 <body>
 
+<header id="page-header">
+  <div>
+    <h1>hass-omnibus-card <span class="badge">v1.21.0 · dev</span></h1>
+    <p>Home Assistant area card — occupancy, climate, alarms, battery, camera controls, history sparklines.</p>
+  </div>
+  <button onclick="toggleTheme()" id="theme-toggle">Toggle theme</button>
+</header>
+
 <div id="controls">
-  <button onclick="document.body.classList.toggle('light-theme')">Toggle theme</button>
   <button onclick="applyScenario('normal')">Normal</button>
   <button onclick="applyScenario('alarm')">Smoke alarm</button>
   <button onclick="applyScenario('gas')">Gas alarm</button>
@@ -463,31 +518,65 @@ function mountStatic(container, config, stateOverrides, callWSOverride) {
 </div>
 
 <div class="section">
-  <h2>Feature Gallery (static — not affected by scenario buttons)</h2>
-  <div class="grid" id="gallery-cards"></div>
+  <h2>Real Data Demo</h2>
+  <div id="real-demo-controls">
+    <span>Dataset:</span>
+    <label><input type="radio" name="real-demo-dataset" id="real-demo-esterno" value="esterno"> Esterno (real, 244pt history)</label>
+    <label><input type="radio" name="real-demo-dataset" id="real-demo-cucina" value="cucina"> Cucina (real, flat history)</label>
+  </div>
+  <div class="grid" id="real-demo-cards"></div>
 </div>
 
-<div class="section">
-  <h2>History Chart</h2>
-  <div class="grid" id="history-cards"></div>
-</div>
+<details id="dev-tools">
+  <summary>Complete feature card set: Developer Tools</summary>
 
-<div class="section">
-  <h2>History Chart — Flat Line (new sensor, 2 identical points)</h2>
-  <div class="grid" id="flat-history-cards"></div>
-</div>
+  <div class="section">
+    <h2>Room card config (persisted)</h2>
+    <div id="config-controls">
+      <label><input type="checkbox" id="cfg-debug"> debug</label>
+      <label><input type="checkbox" id="cfg-show_camera"> show_camera</label>
+      <label><input type="checkbox" id="cfg-controls_collapsed"> controls_collapsed</label>
+      <label><input type="checkbox" id="cfg-collapsible_controls"> collapsible_controls</label>
+    </div>
+  </div>
 
-<div class="section">
-  <h2>History Chart — Real Dataset (Esterno, 244 pts, 18h)</h2>
-  <div class="grid" id="esterno-history-cards"></div>
-</div>
+  <div class="section">
+    <h2>Real Data Demo — display options (persisted)</h2>
+    <div id="real-demo-options">
+      <label><input type="checkbox" id="real-demo-debug"> debug</label>
+      <label><input type="checkbox" id="real-demo-show_camera"> show_camera</label>
+      <label><input type="checkbox" id="real-demo-controls_collapsed"> controls_collapsed</label>
+      <label><input type="checkbox" id="real-demo-collapsible_controls"> collapsible_controls</label>
+    </div>
+  </div>
 
-<div class="section">
-  <h2>Entity Filtering</h2>
-  <div class="grid" id="filter-cards"></div>
-</div>
+  <div class="section">
+    <h2>Feature Gallery (static — not affected by scenario buttons)</h2>
+    <div class="grid" id="gallery-cards"></div>
+  </div>
 
-<div id="log"></div>
+  <div class="section">
+    <h2>History Chart</h2>
+    <div class="grid" id="history-cards"></div>
+  </div>
+
+  <div class="section">
+    <h2>History Chart — Flat Line (new sensor, 2 identical points)</h2>
+    <div class="grid" id="flat-history-cards"></div>
+  </div>
+
+  <div class="section">
+    <h2>History Chart — Real Dataset (Esterno, 244 pts, 18h)</h2>
+    <div class="grid" id="esterno-history-cards"></div>
+  </div>
+
+  <div class="section">
+    <h2>Entity Filtering</h2>
+    <div class="grid" id="filter-cards"></div>
+  </div>
+
+  <div id="log"></div>
+</details>
 
 <script>
 function log(...args) {
@@ -499,26 +588,225 @@ function log(...args) {
 window.addEventListener('hass-more-info', e => log('more-info:', e.detail?.entityId));
 window.addEventListener('location-changed', e => log('navigate:', e.detail?.replace));
 
+// ── Theme + dev-tools open state, persisted in localStorage ─────────────
+const THEME_STORAGE_KEY = 'omnibus-dev-theme';
+const DEV_TOOLS_STORAGE_KEY = 'omnibus-dev-tools-open';
+
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light-theme');
+  localStorage.setItem(THEME_STORAGE_KEY, isLight ? 'light' : 'dark');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (localStorage.getItem(THEME_STORAGE_KEY) === 'light') {
+    document.body.classList.add('light-theme');
+  }
+  const devTools = document.getElementById('dev-tools');
+  devTools.open = localStorage.getItem(DEV_TOOLS_STORAGE_KEY) === 'true';
+  devTools.addEventListener('toggle', () => {
+    localStorage.setItem(DEV_TOOLS_STORAGE_KEY, devTools.open);
+  });
+});
+
+// ── Room card config, persisted in localStorage ─────────────────────────
+const CONFIG_STORAGE_KEY = 'omnibus-dev-room-config';
+const CONFIG_DEFAULTS = {
+  debug: false,
+  show_camera: true,
+  controls_collapsed: true,
+  collapsible_controls: true,
+};
+
+function loadRoomConfigOverrides() {
+  try {
+    return { ...CONFIG_DEFAULTS, ...JSON.parse(localStorage.getItem(CONFIG_STORAGE_KEY)) };
+  } catch {
+    return { ...CONFIG_DEFAULTS };
+  }
+}
+
+function saveRoomConfigOverrides(overrides) {
+  localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(overrides));
+}
+
+const ROOM_CARDS = [
+  // history_chart, with gradient thresholds — shows the threshold-tint feature
+  { area: 'living_room', history_chart: { entity_id: 'sensor.temperature', threshold_high: 22, threshold_low: 19 } },
+  // history_chart, plain — shows the default sparkline with no thresholds
+  { area: 'bedroom', mold_threshold: 60, history_chart: { entity_id: 'sensor.bed_temperature' } },
+  { area: 'kitchen' },
+  { area: 'bathroom', mold_threshold: 65 },
+  { area: 'cucina' },
+  { area: 'esterno' },
+  { area: 'nonexistent_area' },  // error state
+];
+
+function buildRoomCards() {
+  const overrides = loadRoomConfigOverrides();
+  const container = document.getElementById('cards');
+  container.innerHTML = '';
+  ROOM_CARDS.forEach(config => {
+    const el = document.createElement('hass-omnibus-card');
+    el.setConfig({ ...config, ...overrides });
+    el.hass = { ...MOCK_HASS };
+    container.appendChild(el);
+  });
+  log('room cards rebuilt', overrides);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const overrides = loadRoomConfigOverrides();
+  for (const key of Object.keys(CONFIG_DEFAULTS)) {
+    const checkbox = document.getElementById(`cfg-${key}`);
+    checkbox.checked = overrides[key];
+    checkbox.addEventListener('change', () => {
+      const next = { ...loadRoomConfigOverrides(), [key]: checkbox.checked };
+      saveRoomConfigOverrides(next);
+      buildRoomCards();
+    });
+  }
+});
+
+// ── Real Data Demo: real HA snapshots (cucina/esterno, from debug log), ──
+// ── dataset + display options configurable, persisted in localStorage ───
+const REAL_DEMO_STORAGE_KEY = 'omnibus-dev-real-demo-config';
+const REAL_DEMO_DEFAULTS = {
+  dataset: 'esterno',
+  debug: false,
+  show_camera: true,
+  controls_collapsed: true,
+  collapsible_controls: true,
+};
+
+function loadRealDemoConfig() {
+  try {
+    return { ...REAL_DEMO_DEFAULTS, ...JSON.parse(localStorage.getItem(REAL_DEMO_STORAGE_KEY)) };
+  } catch {
+    return { ...REAL_DEMO_DEFAULTS };
+  }
+}
+
+function saveRealDemoConfig(cfg) {
+  localStorage.setItem(REAL_DEMO_STORAGE_KEY, JSON.stringify(cfg));
+}
+
+// real dataset: 244-point temperature history from an actual Bresser 7-in-1
+// outdoor sensor (see debug log referenced throughout this file)
+const ESTERNO_HISTORY_POINTS = [
+  30.6111111111111, 30.7777777777778, 30.8888888888889, 31, 31.2222222222222, 31.2777777777778, 31.3888888888889, 31.5, 31.6111111111111, 31.8888888888889,
+  31.7777777777778, 31.7222222222222, 31.6111111111111, 31.2222222222222, 31.1111111111111, 30.8888888888889, 31, 31.1111111111111, 31.2222222222222, 31.2777777777778,
+  32, 32.1111111111111, 32.2222222222222, 32.2777777777778, 32.3888888888889, 32.5, 32.6111111111111, 32.7222222222222, 32.2777777777778, 32.2222222222222,
+  32.1111111111111, 32, 31.8888888888889, 31.7777777777778, 31.7222222222222, 31.2777777777778, 31.2222222222222, 31.1111111111111, 31, 30.8888888888889,
+  30.7222222222222, 30.6111111111111, 30.5, 30.3888888888889, 30.2777777777778, 30.2222222222222, 29.8888888888889, 29.7777777777778, 29.7222222222222, 29.6111111111111,
+  29.5, 29.3888888888889, 29.2777777777778, 29.2222222222222, 29.1111111111111, 29, 28.8888888888889, 28.7777777777778, 28.7222222222222, 28.6111111111111,
+  28.5, 28.3888888888889, 28.2777777777778, 28.2222222222222, 28, 27.7222222222222, 27.6111111111111, 27.5, 27.3888888888889, 27.2777777777778,
+  27.2222222222222, 27.1111111111111, 27, 26.7777777777778, 26.7222222222222, 26.6111111111111, 26.5, 26.3888888888889, 26.2777777777778, 26.2222222222222,
+  26.1111111111111, 26, 25.8888888888889, 25.7777777777778, 25.7222222222222, 25.6111111111111, 25.5, 25.3888888888889, 25.2777777777778, 25.3888888888889,
+  25.5, 25.3888888888889, 25.2777777777778, 25.2222222222222, 25.1111111111111, 25, 24.8888888888889, 24.7777777777778, 24.7222222222222, 24.6111111111111,
+  24.5, 24.3888888888889, 24.2777777777778, 24.2222222222222, 24.2777777777778, 24.2222222222222, 24.1111111111111, 24, 24.1111111111111, 24.2222222222222,
+  24.1111111111111, 24, 23.8888888888889, 24, 23.8888888888889, 23.7777777777778, 23.7222222222222, 23.6111111111111, 23.5, 23.3888888888889,
+  23.2777777777778, 23.2222222222222, 23.2777777777778, 23.3888888888889, 23.2777777777778, 23.2222222222222, 23.1111111111111, 23.2222222222222, 23.2777777777778, 23.2222222222222,
+  23.1111111111111, 23, 22.8888888888889, 23, 22.8888888888889, 22.7777777777778, 22.7222222222222, 22.7777777777778, 22.8888888888889, 23,
+  23.1111111111111, 23.2222222222222, 23.2777777777778, 23.3888888888889, 23.5, 23.6111111111111, 23.7222222222222, 23.7777777777778, 23.8888888888889, 24,
+  24.1111111111111, 24.2222222222222, 24.2777777777778, 24.3888888888889, 24.5, 24.6111111111111, 24.7222222222222, 24.7777777777778, 24.8888888888889, 25,
+  25.1111111111111, 25.2222222222222, 25.2777777777778, 25.3888888888889, 25.5, 25.6111111111111, 25.7222222222222, 25.7777777777778, 25.8888888888889, 26,
+  26.1111111111111, 26.2222222222222, 26.2777777777778, 26.3888888888889, 26.5, 26.6111111111111, 26.7222222222222, 26.7777777777778, 26.8888888888889, 27,
+  27.1111111111111, 27.2222222222222, 27.2777777777778, 27.5, 27.7222222222222, 27.8888888888889, 28, 28.1111111111111, 28.2222222222222, 28.2777777777778,
+  28.3888888888889, 28.5, 28.7222222222222, 28.7777777777778, 29, 29.1111111111111, 29.2222222222222, 29.2777777777778, 29.3888888888889, 29.5,
+  29.6111111111111, 29.7222222222222, 29.7777777777778, 29.8888888888889, 30, 30.1111111111111, 30.2222222222222, 30.2777777777778, 30.5, 30.6111111111111,
+  30.7222222222222, 30.7777777777778, 30.8888888888889, 31, 31.1111111111111, 31.2777777777778, 31.3888888888889, 31.2777777777778, 31.3888888888889, 31.5,
+  31.7222222222222, 31.7777777777778, 31.8888888888889, 32, 32.1111111111111, 32.2222222222222, 32.2777777777778, 32.5, 32.6111111111111, 32.2777777777778,
+  32.5, 32.6111111111111, 32.7777777777778, 32.8888888888889, 33, 33.2222222222222, 33.2777777777778, 33.3888888888889, 33.6111111111111, 32,
+  31.8888888888889, 31.7777777777778, 31.8888888888889, 32,
+];
+const ESTERNO_HISTORY_CHART = {
+  entity_id: 'sensor.bresser_7in1_65351_temperature',
+  hours: 18,
+  color: 'rgba(255,200,100,0.15)',
+  threshold_high: 34,
+  color_high: 'rgba(244,67,54,0.18)',
+  threshold_low: 27.6,
+  color_low: 'rgba(33,150,243,0.18)',
+  y_min: 5,
+};
+const esternoCallWS = msg => {
+  if (msg.type === 'history/history_during_period') {
+    const id = msg.entity_ids[0];
+    const now = Date.now() / 1000;
+    const n = ESTERNO_HISTORY_POINTS.length;
+    const step = (ESTERNO_HISTORY_CHART.hours * 3600) / (n - 1);
+    const pts = ESTERNO_HISTORY_POINTS.map((v, i) => ({ s: String(v), lu: now - (n - 1 - i) * step }));
+    log(`callWS esterno history: ${id} → ${pts.length} points`);
+    return Promise.resolve({ [id]: pts });
+  }
+  return Promise.resolve({});
+};
+
+// real dataset: cucina/sensor.soggiornino_ths_temperature, brand-new sensor —
+// HA reports only 2 identical readings until enough history accumulates
+const flatCallWS = msg => {
+  if (msg.type === 'history/history_during_period') {
+    const id = msg.entity_ids[0];
+    const pts = [{ s: '29.4', lu: Date.now() / 1000 - 3600 }, { s: '29.4', lu: Date.now() / 1000 }];
+    log(`callWS flat history: ${id} → ${pts.length} points (identical)`);
+    return Promise.resolve({ [id]: pts });
+  }
+  return Promise.resolve({});
+};
+
+function buildRealDemoCard() {
+  const cfg = loadRealDemoConfig();
+  const container = document.getElementById('real-demo-cards');
+  container.innerHTML = '';
+  const overrides = {
+    debug: cfg.debug,
+    show_camera: cfg.show_camera,
+    controls_collapsed: cfg.controls_collapsed,
+    collapsible_controls: cfg.collapsible_controls,
+  };
+
+  if (cfg.dataset === 'esterno') {
+    mountStatic(container, {
+      area: 'esterno',
+      name: 'Esterno — real dataset',
+      history_chart: ESTERNO_HISTORY_CHART,
+      ...overrides,
+    }, {}, esternoCallWS);
+  } else {
+    mountStatic(container, {
+      area: 'cucina',
+      name: 'Cucina — real dataset',
+      history_chart: { entity_id: 'sensor.soggiornino_ths_temperature', hours: 48, color: 'rgba(255,200,100,0.15)', threshold_high: 27, color_high: 'rgba(244,67,54,0.18)', y_min: 0 },
+      ...overrides,
+    }, {}, flatCallWS);
+  }
+  log('real demo card rebuilt', cfg);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const cfg = loadRealDemoConfig();
+  document.getElementById(`real-demo-${cfg.dataset}`).checked = true;
+  document.querySelectorAll('input[name="real-demo-dataset"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      saveRealDemoConfig({ ...loadRealDemoConfig(), dataset: radio.value });
+      buildRealDemoCard();
+    });
+  });
+  for (const key of ['debug', 'show_camera', 'controls_collapsed', 'collapsible_controls']) {
+    const checkbox = document.getElementById(`real-demo-${key}`);
+    checkbox.checked = cfg[key];
+    checkbox.addEventListener('change', () => {
+      saveRealDemoConfig({ ...loadRealDemoConfig(), [key]: checkbox.checked });
+      buildRealDemoCard();
+    });
+  }
+});
+
 // Build cards after module loads
 window.addEventListener('load', () => {
   setTimeout(() => {
-    const CARDS = [
-      { area: 'living_room' },
-      { area: 'bedroom', mold_threshold: 60 },
-      { area: 'kitchen' },
-      { area: 'bathroom', mold_threshold: 65 },
-      { area: 'cucina' },
-      { area: 'esterno' },
-      { area: 'nonexistent_area' },  // error state
-    ];
-
-    const container = document.getElementById('cards');
-    CARDS.forEach(config => {
-      const el = document.createElement('hass-omnibus-card');
-      el.setConfig(config);
-      el.hass = { ...MOCK_HASS };
-      container.appendChild(el);
-    });
+    buildRoomCards();
+    buildRealDemoCard();
 
     const HISTORY_CARDS = [
       { area: 'living_room', name: 'Default sparkline',   history_chart: { entity_id: 'sensor.temperature' } },
@@ -545,17 +833,7 @@ window.addEventListener('load', () => {
     // ── Flat history (new sensor — 2 identical points) ──────────────────────
     // Simulates real debug log: cucina / sensor.soggiornino_ths_temperature
     // callWS returns only 2 identical points, as HA would for a brand-new sensor
-
-    const flatCallWS = msg => {
-      if (msg.type === 'history/history_during_period') {
-        const id = msg.entity_ids[0];
-        // brand-new sensor: only 2 readings, both identical
-        const pts = [{ s: '29.4', lu: Date.now() / 1000 - 3600 }, { s: '29.4', lu: Date.now() / 1000 }];
-        log(`callWS flat history: ${id} → ${pts.length} points (identical)`);
-        return Promise.resolve({ [id]: pts });
-      }
-      return Promise.resolve({});
-    };
+    // (flatCallWS defined globally above, reused by the Real Data Demo section)
 
     const flatContainer = document.getElementById('flat-history-cards');
 
@@ -577,56 +855,8 @@ window.addEventListener('load', () => {
     mountStatic(flatContainer, { area: 'cucina', name: 'Cucina — area card' }, {});
 
     // ── Real dataset (Esterno outdoor sensor, 244 pts / 18h, thresholds + y_min) ──
-    const ESTERNO_HISTORY_POINTS = [
-      30.6111111111111, 30.7777777777778, 30.8888888888889, 31, 31.2222222222222, 31.2777777777778, 31.3888888888889, 31.5, 31.6111111111111, 31.8888888888889,
-      31.7777777777778, 31.7222222222222, 31.6111111111111, 31.2222222222222, 31.1111111111111, 30.8888888888889, 31, 31.1111111111111, 31.2222222222222, 31.2777777777778,
-      32, 32.1111111111111, 32.2222222222222, 32.2777777777778, 32.3888888888889, 32.5, 32.6111111111111, 32.7222222222222, 32.2777777777778, 32.2222222222222,
-      32.1111111111111, 32, 31.8888888888889, 31.7777777777778, 31.7222222222222, 31.2777777777778, 31.2222222222222, 31.1111111111111, 31, 30.8888888888889,
-      30.7222222222222, 30.6111111111111, 30.5, 30.3888888888889, 30.2777777777778, 30.2222222222222, 29.8888888888889, 29.7777777777778, 29.7222222222222, 29.6111111111111,
-      29.5, 29.3888888888889, 29.2777777777778, 29.2222222222222, 29.1111111111111, 29, 28.8888888888889, 28.7777777777778, 28.7222222222222, 28.6111111111111,
-      28.5, 28.3888888888889, 28.2777777777778, 28.2222222222222, 28, 27.7222222222222, 27.6111111111111, 27.5, 27.3888888888889, 27.2777777777778,
-      27.2222222222222, 27.1111111111111, 27, 26.7777777777778, 26.7222222222222, 26.6111111111111, 26.5, 26.3888888888889, 26.2777777777778, 26.2222222222222,
-      26.1111111111111, 26, 25.8888888888889, 25.7777777777778, 25.7222222222222, 25.6111111111111, 25.5, 25.3888888888889, 25.2777777777778, 25.3888888888889,
-      25.5, 25.3888888888889, 25.2777777777778, 25.2222222222222, 25.1111111111111, 25, 24.8888888888889, 24.7777777777778, 24.7222222222222, 24.6111111111111,
-      24.5, 24.3888888888889, 24.2777777777778, 24.2222222222222, 24.2777777777778, 24.2222222222222, 24.1111111111111, 24, 24.1111111111111, 24.2222222222222,
-      24.1111111111111, 24, 23.8888888888889, 24, 23.8888888888889, 23.7777777777778, 23.7222222222222, 23.6111111111111, 23.5, 23.3888888888889,
-      23.2777777777778, 23.2222222222222, 23.2777777777778, 23.3888888888889, 23.2777777777778, 23.2222222222222, 23.1111111111111, 23.2222222222222, 23.2777777777778, 23.2222222222222,
-      23.1111111111111, 23, 22.8888888888889, 23, 22.8888888888889, 22.7777777777778, 22.7222222222222, 22.7777777777778, 22.8888888888889, 23,
-      23.1111111111111, 23.2222222222222, 23.2777777777778, 23.3888888888889, 23.5, 23.6111111111111, 23.7222222222222, 23.7777777777778, 23.8888888888889, 24,
-      24.1111111111111, 24.2222222222222, 24.2777777777778, 24.3888888888889, 24.5, 24.6111111111111, 24.7222222222222, 24.7777777777778, 24.8888888888889, 25,
-      25.1111111111111, 25.2222222222222, 25.2777777777778, 25.3888888888889, 25.5, 25.6111111111111, 25.7222222222222, 25.7777777777778, 25.8888888888889, 26,
-      26.1111111111111, 26.2222222222222, 26.2777777777778, 26.3888888888889, 26.5, 26.6111111111111, 26.7222222222222, 26.7777777777778, 26.8888888888889, 27,
-      27.1111111111111, 27.2222222222222, 27.2777777777778, 27.5, 27.7222222222222, 27.8888888888889, 28, 28.1111111111111, 28.2222222222222, 28.2777777777778,
-      28.3888888888889, 28.5, 28.7222222222222, 28.7777777777778, 29, 29.1111111111111, 29.2222222222222, 29.2777777777778, 29.3888888888889, 29.5,
-      29.6111111111111, 29.7222222222222, 29.7777777777778, 29.8888888888889, 30, 30.1111111111111, 30.2222222222222, 30.2777777777778, 30.5, 30.6111111111111,
-      30.7222222222222, 30.7777777777778, 30.8888888888889, 31, 31.1111111111111, 31.2777777777778, 31.3888888888889, 31.2777777777778, 31.3888888888889, 31.5,
-      31.7222222222222, 31.7777777777778, 31.8888888888889, 32, 32.1111111111111, 32.2222222222222, 32.2777777777778, 32.5, 32.6111111111111, 32.2777777777778,
-      32.5, 32.6111111111111, 32.7777777777778, 32.8888888888889, 33, 33.2222222222222, 33.2777777777778, 33.3888888888889, 33.6111111111111, 32,
-      31.8888888888889, 31.7777777777778, 31.8888888888889, 32,
-    ];
-    const ESTERNO_HISTORY_CHART = {
-      entity_id: 'sensor.bresser_7in1_65351_temperature',
-      hours: 18,
-      color: 'rgba(255,200,100,0.15)',
-      threshold_high: 34,
-      color_high: 'rgba(244,67,54,0.18)',
-      threshold_low: 27.6,
-      color_low: 'rgba(33,150,243,0.18)',
-      y_min: 5,
-    };
-    const esternoCallWS = msg => {
-      if (msg.type === 'history/history_during_period') {
-        const id = msg.entity_ids[0];
-        const now = Date.now() / 1000;
-        const n = ESTERNO_HISTORY_POINTS.length;
-        const step = (ESTERNO_HISTORY_CHART.hours * 3600) / (n - 1);
-        const pts = ESTERNO_HISTORY_POINTS.map((v, i) => ({ s: String(v), lu: now - (n - 1 - i) * step }));
-        log(`callWS esterno history: ${id} → ${pts.length} points`);
-        return Promise.resolve({ [id]: pts });
-      }
-      return Promise.resolve({});
-    };
-
+    // (ESTERNO_HISTORY_POINTS/CHART + esternoCallWS defined globally above,
+    // reused by the Real Data Demo section)
     const esternoContainer = document.getElementById('esterno-history-cards');
     mountStatic(esternoContainer, {
       area: 'esterno',
