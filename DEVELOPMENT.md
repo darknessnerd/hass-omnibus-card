@@ -133,7 +133,7 @@ flowchart TD
 
   pr["pull request / push to main"]
   ci_wf["ci.yml\nbuild · check dist · npm run test:docker"]
-  tests["37 Playwright\ntests"]
+  tests["98 Playwright\ntests"]
   pass["✅ pass"]
 
   src --> vite --> dist --> commit --> rel_wf --> release --> hacs --> ha
@@ -177,7 +177,7 @@ card-ha/
 ├─ tests/
 │  ├─ fixture.html             # test harness: box-stub icons, animations off, mountCard()
 │  └─ e2e/
-│     ├─ card.spec.js          # 37 Playwright tests (snapshot + behavioral)
+│     ├─ card.spec.js          # 98 Playwright tests (snapshot + behavioral)
 │     └─ snapshots/            # committed baseline PNGs — ground truth for CI
 │        └─ chromium/
 ├─ .github/
