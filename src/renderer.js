@@ -14,7 +14,7 @@ import { getAreaEntities, classify, filterEntities } from './discovery.js';
 import { average, anyOn, activeLights, rgbColor, lowestBattery } from './aggregators.js';
 import { friendlyLabel, entityIcon, batteryIcon, uniqueLabels } from './utils.js';
 import { fireMoreInfo, navigate }     from './events.js';
-import { sparklineSvg, computeScale } from './sparkline.js';
+import { sparklineSvg, computeScale, CORNER_CLEARANCE_PCT } from './sparkline.js';
 
 
 // ── View model ─────────────────────────────────────────────────────────────
@@ -183,10 +183,17 @@ export function buildViewModel(hass, config, historyPoints = null, collapsed = {
     // noise rather than a signature
     historyColor:  hc?.color ?? 'rgba(3, 169, 244, 0.2)',
     historyChart:  hc,
-    historyMin:    (hc?.entity_id && historyPoints?.length >= 2) ? Math.min(...historyPoints) : null,
-    historyMax:    (hc?.entity_id && historyPoints?.length >= 2) ? Math.max(...historyPoints) : null,
+    historyMin:    (hc?.entity_id && historyPoints?.length >= 2) ? Math.min(...historyPoints.map(p => p.v)) : null,
+    historyMax:    (hc?.entity_id && historyPoints?.length >= 2) ? Math.max(...historyPoints.map(p => p.v)) : null,
     historyUnit:   hass.states?.[hc?.entity_id]?.attributes?.unit_of_measurement ?? '',
     historyHours:  hc?.hours ?? 24,
+    // Fetch resolved (not still pending — Array.isArray excludes the null
+    // "loading" state) but produced under 2 numeric readings — happens when
+    // entity_id points at a non-numeric domain (binary_sensor, text) whose
+    // states all fail parseFloat, or a brand-new entity with no history yet.
+    // Distinct from a flat *numeric* series (still >=2 valid points, just
+    // suppressed visually) — that case is intentional and stays silent.
+    historyEmpty:  !!hc?.entity_id && Array.isArray(historyPoints) && historyPoints.length < 2,
 
     // pre-computed chip data keeps template functions free of utility imports
     chipItems: config.show_entities !== false
@@ -363,6 +370,10 @@ function renderCameraPreview({ hasCamera, cameraImage, cameraIcon, cameraEntity,
         ? `<img src="${cameraImage}" alt="${title}" loading="lazy" />`
         : `<div class="camera-placeholder"><ha-icon icon="${cameraIcon}"></ha-icon></div>`}
       ${cameraState === 'recording' ? `<span class="camera-rec-dot" title="Recording"></span>` : ''}
+      ${cameraImage ? `
+        <span class="camera-refresh-btn" role="button" tabindex="0" aria-label="Refresh snapshot" title="Refresh snapshot">
+          <ha-icon icon="mdi:refresh"></ha-icon>
+        </span>` : ''}
     </div>`;
 }
 
@@ -450,31 +461,40 @@ function renderErrorCard(areaId) {
     </ha-card>`;
 }
 
-function renderChartOverlay({ historyMin, historyMax, historyUnit: u, historyHours, historyChart: hc }) {
-  if (historyMin === null) return '';
+function renderChartOverlay({ historyMin, historyMax, historyUnit: u, historyHours, historyChart: hc, historyEmpty }) {
+  if (historyMin === null) {
+    // Fetch resolved with no usable numeric readings — say so instead of
+    // leaving the whole chart area silently blank (e.g. entity_id pointed
+    // at a binary_sensor, or the entity has no history yet).
+    if (historyEmpty) return `<div class="chart-overlay"><span class="chart-stat chart-empty">No numeric history</span></div>`;
+    return '';
+  }
 
   const thresholdLabels = [];
   if (hc?.threshold_high != null || hc?.threshold_low != null) {
     const { min: scaleMin, range } = computeScale(hc, historyMin, historyMax);
     const scaleRange = range || 1;
     const toYPct     = v => (1 - (v - scaleMin) / scaleRange) * 100;
+    // Same clearance sparkline.js applies to the dashed guide line itself —
+    // keeps the label paired with its line instead of drifting apart near an edge.
+    const clampAwayFromCorners = pct => Math.min(100 - CORNER_CLEARANCE_PCT, Math.max(CORNER_CLEARANCE_PCT, pct));
 
     if (hc.threshold_high != null) {
-      const yPct = toYPct(hc.threshold_high);
-      if (yPct > 0 && yPct < 100)
-        thresholdLabels.push(`<span class="chart-threshold" style="top:${yPct.toFixed(1)}%">${hc.threshold_high.toFixed(1)}${u}</span>`);
+      const rawPct = toYPct(hc.threshold_high);
+      if (rawPct > 0 && rawPct < 100)
+        thresholdLabels.push(`<span class="chart-threshold" style="top:${clampAwayFromCorners(rawPct).toFixed(1)}%">${hc.threshold_high.toFixed(1)}${u}</span>`);
     }
     if (hc.threshold_low != null) {
-      const yPct = toYPct(hc.threshold_low);
-      if (yPct > 0 && yPct < 100)
-        thresholdLabels.push(`<span class="chart-threshold" style="top:${yPct.toFixed(1)}%">${hc.threshold_low.toFixed(1)}${u}</span>`);
+      const rawPct = toYPct(hc.threshold_low);
+      if (rawPct > 0 && rawPct < 100)
+        thresholdLabels.push(`<span class="chart-threshold" style="top:${clampAwayFromCorners(rawPct).toFixed(1)}%">${hc.threshold_low.toFixed(1)}${u}</span>`);
     }
   }
 
   return `
     <div class="chart-overlay">
       <span class="chart-stat stat-max">↑ ${historyMax.toFixed(1)}${u}</span>
-      <span class="chart-stat stat-period">${historyHours}h</span>
+      <span class="chart-stat stat-period" title="Tracking ${hc.entity_id} — may differ from the averaged value shown above">${historyHours}h</span>
       <span class="chart-stat stat-min">↓ ${historyMin.toFixed(1)}${u}</span>
       ${thresholdLabels.join('')}
     </div>`;
@@ -581,6 +601,22 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
   const cameraPreview = shadowRoot.querySelector('.camera-preview[data-entity]');
   if (cameraPreview) cameraPreview.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, cameraPreview.dataset.entity); });
 
+  // entity_picture URLs are stable per state — the browser will happily serve
+  // a cached response for the exact same URL, so a manual "refresh" has to
+  // change the URL to force a real re-fetch. Doesn't call any HA service;
+  // camera_proxy ignores unknown query params and serves the current frame.
+  const cameraRefreshBtn = shadowRoot.querySelector('.camera-refresh-btn');
+  if (cameraRefreshBtn) {
+    cameraRefreshBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const img = shadowRoot.querySelector('.camera-preview img');
+      if (!img) return;
+      const url = new URL(img.getAttribute('src'), window.location.href);
+      url.searchParams.set('_refresh', Date.now());
+      img.src = url.pathname + url.search;
+    });
+  }
+
   shadowRoot.querySelectorAll('.control-seg[data-entity]').forEach(el => {
     el.addEventListener('click', e => {
       e.stopPropagation();
@@ -618,5 +654,69 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
 
   shadowRoot.querySelectorAll('.chip[data-entity]').forEach(el => {
     el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
+  });
+
+  bindChartTooltip(shadowRoot);
+}
+
+// Native SVG <title> tooltips only fire on desktop hover — dead on touch,
+// which is most real Home Assistant dashboard usage. pointerenter/pointerleave
+// cover both: a mouse hover fires enter-on-arrival/leave-on-departure, and a
+// touch tap fires enter-on-contact/leave-on-lift, so one pair of listeners
+// drives the value pill (and, for dense series, a round marker dot) for both.
+//
+// The marker is a plain HTML element, not an SVG circle — a circle drawn
+// inside .bg-chart/.chart-hit-layer (stretched via preserveAspectRatio="none")
+// renders as an ellipse whenever the card's real aspect ratio strays from the
+// chart's native 300:60, which on a tall/narrow card shows up as an ugly thin
+// vertical needle instead of a dot. Positioned by percentage from the
+// circle's own viewBox coordinates (0-300 / 0-60), which map 1:1 to percent
+// since the chart layers always stretch to fill the card exactly.
+function bindChartTooltip(shadowRoot) {
+  const circles = shadowRoot.querySelectorAll('.chart-hit-layer circle[data-v]');
+  if (!circles.length) return;
+
+  const card = shadowRoot.querySelector('ha-card');
+  let tooltipEl = null, dotEl = null;
+
+  const positionAt = (el, circle) => {
+    el.style.left = `${(parseFloat(circle.getAttribute('cx')) / 300) * 100}%`;
+    el.style.top  = `${(parseFloat(circle.getAttribute('cy')) / 60) * 100}%`;
+  };
+
+  circles.forEach(circle => {
+    // Sparse series already carry their own always-visible, series-colored
+    // dot (see sparklineSvg's `dot`) — showing the accent marker on top of
+    // it too would read as an unrelated color glitch, so the marker is
+    // dense-only; the value pill still shows for both.
+    const dense = circle.closest('.chart-hit-layer')?.classList.contains('dense');
+
+    circle.addEventListener('pointerenter', e => {
+      e.stopPropagation();
+      if (!tooltipEl) {
+        tooltipEl = document.createElement('div');
+        tooltipEl.className = 'chart-tooltip';
+        card.appendChild(tooltipEl);
+      }
+      tooltipEl.textContent = circle.dataset.v;
+      positionAt(tooltipEl, circle);
+      tooltipEl.style.display = 'block';
+
+      if (dense) {
+        if (!dotEl) {
+          dotEl = document.createElement('div');
+          dotEl.className = 'chart-hover-dot';
+          card.appendChild(dotEl);
+        }
+        positionAt(dotEl, circle);
+        dotEl.style.display = 'block';
+      }
+    });
+
+    circle.addEventListener('pointerleave', e => {
+      e.stopPropagation();
+      if (tooltipEl) tooltipEl.style.display = 'none';
+      if (dotEl) dotEl.style.display = 'none';
+    });
   });
 }

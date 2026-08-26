@@ -76,25 +76,17 @@ export const CARD_STYLES = `
     pointer-events: auto;
   }
 
-  /* Dense series (.dense, see DOT_MAX_POINTS in sparkline.js) render with no
-     permanent per-point dot — avoids scalloping a downsampled curve — so
-     hovering the (otherwise invisible) hit-target is the only cue a point
-     is there. Paint it on hover as the interaction affordance. Sparse
-     series already have their own always-visible, series-colored dot, so
-     this rule is scoped to .dense only — otherwise hover would repaint that
-     dot an unrelated accent color. CSS wins over the inline
-     fill="transparent" attribute regardless of specificity, since
-     presentation attributes always lose to author stylesheet rules. */
-  .chart-hit-layer.dense circle:hover {
-    fill: var(--room-accent-color, var(--primary-color, #03a9f4));
-  }
-
-  .chart-stat, .chart-threshold {
+  /* Background is a fixed dark pill on purpose — text color must be fixed
+     too (not a theme variable like --secondary-text-color) so contrast holds
+     regardless of whether the active HA theme is light or dark; a theme's
+     mid-gray secondary-text-color reads fine on its own light background but
+     can fail contrast against this always-dark chip. */
+  .chart-stat, .chart-threshold, .chart-tooltip {
     position: absolute;
     font-weight: 600;
-    color: var(--secondary-text-color, #888);
+    color: #fff;
     opacity: 0.95;
-    background: rgba(0,0,0,0.34);
+    background: rgba(0,0,0,0.5);
     border-radius: 3px;
     padding: 1px 4px;
     backdrop-filter: blur(3px);
@@ -105,6 +97,12 @@ export const CARD_STYLES = `
 
   .chart-stat { font-size: 8px; }
 
+  .chart-empty {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
   .stat-max    { top: 5px;    right: 7px; }
   .stat-min    { bottom: 5px; right: 7px; }
   .stat-period { bottom: 5px; left:  7px; }
@@ -113,6 +111,39 @@ export const CARD_STYLES = `
     left: 7px;
     font-size: 9px;
     transform: translateY(-50%);
+  }
+
+  /* Tap-to-show value pill for touch devices (bindChartTooltip in renderer.js)
+     — native SVG <title> tooltips never fire on touch, so this is the only
+     feedback a tap on a hit-target circle gets. Positioned via left/top %
+     set inline from the tapped circle's own viewBox coordinates. */
+  .chart-tooltip {
+    display: none;
+    font-size: 10px;
+    z-index: 3;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Dense series (.dense, see DOT_MAX_POINTS in sparkline.js) render with no
+     permanent per-point dot — avoids scalloping a downsampled curve — so
+     hovering the (otherwise invisible) hit-target is the only cue a point
+     is there. This used to be painted by giving the hit-target SVG circle
+     itself a fill on :hover, but that circle lives inside .bg-chart's
+     stretched (preserveAspectRatio="none") viewBox — on a card whose real
+     aspect ratio is far from the chart's native 300:60, the circle renders
+     as a tall/wide ellipse, not a dot. This is a plain HTML marker instead,
+     sized in real pixels and positioned by percentage (bindChartTooltip in
+     renderer.js), so it stays round regardless of how the chart is stretched. */
+  .chart-hover-dot {
+    display: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--room-accent-color, var(--primary-color, #03a9f4));
+    z-index: 3;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
   }
 
   .card-content {
@@ -492,6 +523,29 @@ export const CARD_STYLES = `
     box-shadow: 0 0 6px rgba(244, 67, 54, 0.8);
     animation: occ-blink 1.5s ease-in-out infinite;
   }
+
+  .camera-refresh-btn {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .camera-refresh-btn:hover {
+    background: rgba(0, 0, 0, 0.65);
+  }
+
+  .camera-refresh-btn ha-icon { --mdc-icon-size: 14px; }
 
   /* ── Controls row ── */
 

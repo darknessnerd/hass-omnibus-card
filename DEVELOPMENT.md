@@ -111,8 +111,10 @@ sequenceDiagram
     R-->>C: view model (plain object, no DOM)
     C->>R: render(shadowRoot, host, vm)
     R->>DOM: shadowRoot.innerHTML = renderCard(vm)
-    note over R,DOM: vm.historyPoints → sparklineSvg() injected as .bg-chart SVG layer
+    note over H,R: historyPoints is [{t,v}, ...] — real timestamp per reading,\nso the chart's x-axis tracks elapsed time, not array order
+    note over R,DOM: vm.historyPoints → sparklineSvg() injected as .bg-chart SVG layer\n(memoized by points/color/hc/unit reference — unrelated re-renders skip SVG rebuild)
     R->>DOM: bindEvents(shadowRoot, host, vm)
+    note over R,DOM: bindChartTooltip wires pointerenter/pointerleave on hit-target\ncircles → value pill + (dense-series-only) round marker dot
   else hash unchanged
     C->>C: skip render
   end

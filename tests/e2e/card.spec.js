@@ -413,10 +413,11 @@ test('history chart — sparse series (24 pts, default mock) shows a visible dot
   await expect(page.locator('#mount').locator('.chart-hit-layer')).not.toHaveClass(/dense/);
 });
 
-test('history chart — hit-layer circle exposes value+unit as its tooltip title', async ({ page }) => {
+test('history chart — hit-layer circle exposes value+unit as data-v, no native title (avoids a duplicate browser tooltip)', async ({ page }) => {
   await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
   const firstHit = page.locator('#mount').locator('.chart-hit-layer circle').first();
-  await expect(firstHit.locator('title')).toHaveText('20.0°C'); // i=0 → 20 + sin(0)*3, per BASE_HASS mock history
+  await expect(firstHit).toHaveAttribute('data-v', '20.0°C'); // i=0 → 20 + sin(0)*3, per BASE_HASS mock history
+  await expect(firstHit.locator('title')).toHaveCount(0);
 });
 
 test('history chart — dense series (200 pts, past DOT_MAX_POINTS) hides per-point dots, hit-layer marked dense', async ({ page }) => {
@@ -439,7 +440,7 @@ test('history chart — dense series (200 pts, past DOT_MAX_POINTS) hides per-po
   await expect(page.locator('#mount').locator('.chart-hit-layer')).toHaveClass(/dense/);
 });
 
-test('history chart — hovering a dense hit-target paints it with the accent color', async ({ page }) => {
+test('history chart — hovering a dense hit-target shows a round HTML marker dot, not a stretched SVG circle', async ({ page }) => {
   const points = Array.from({ length: 200 }, (_, i) => 20 + Math.sin(i / 10) * 5);
   await page.evaluate(pts => {
     window.BASE_HASS.callWS = msg => {
@@ -454,17 +455,32 @@ test('history chart — hovering a dense hit-target paints it with the accent co
   }, points);
   await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature', hours: 18 } });
   const hit = page.locator('#mount').locator('.chart-hit-layer circle').first();
+  const marker = page.locator('#mount').locator('.chart-hover-dot');
+  await expect(marker).not.toBeVisible();
+  // dispatchEvent, not .hover() — at this downsampling+stretch a hit-target
+  // is only ~2 real px wide, and Chromium's real pointer-movement hit-testing
+  // doesn't reliably land on a target that thin even when elementFromPoint
+  // says it should (confirmed independently of this change: a plain
+  // getBoundingClientRect-center document.elementFromPoint check resolves to
+  // the circle, but page.mouse.move to that same point never fires
+  // pointerenter). That's a Chromium/SVG sub-pixel hit-testing quirk, not
+  // something this test is about — dispatch the event directly to test our
+  // own listener logic instead of fighting the platform's pixel-hunting.
+  await hit.dispatchEvent('pointerenter');
+  // the SVG hit-target itself stays transparent — the accent dot is now a
+  // sibling HTML element, immune to the chart's non-uniform SVG stretch
   await expect(hit).toHaveCSS('fill', 'rgba(0, 0, 0, 0)');
-  await hit.hover();
-  await expect(hit).toHaveCSS('fill', 'rgb(3, 169, 244)');
+  await expect(marker).toBeVisible();
+  await hit.dispatchEvent('pointerleave');
+  await expect(marker).not.toBeVisible();
 });
 
-test('history chart — hovering a sparse series\' hit-target does NOT repaint its always-visible dot', async ({ page }) => {
+test('history chart — hovering a sparse series\' hit-target does NOT show the dense marker dot (already has its own always-visible dot)', async ({ page }) => {
   await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
   const hit = page.locator('#mount').locator('.chart-hit-layer circle').first();
-  await expect(hit).toHaveCSS('fill', 'rgba(0, 0, 0, 0)');
-  await hit.hover();
-  await expect(hit).toHaveCSS('fill', 'rgba(0, 0, 0, 0)'); // no .dense class on this hit-layer → :hover rule doesn't apply
+  await hit.dispatchEvent('pointerenter');
+  await expect(page.locator('#mount').locator('.chart-hover-dot')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.chart-tooltip')).toBeVisible();
 });
 
 // ── History chart overlay labels ──────────────────────────────────────────────
@@ -628,6 +644,24 @@ test('camera — click opens more-info', async ({ page }) => {
   }));
   await page.locator('#mount').locator('.camera-preview').click();
   expect(await moreInfo).toBe('camera.garage_cam');
+});
+
+test('camera — refresh button changes the img src (cache-busts) without opening more-info', async ({ page }) => {
+  await mount(page, GARAGE);
+  const preview = page.locator('#mount').locator('.camera-preview');
+  const img = preview.locator('img');
+  const srcBefore = await img.getAttribute('src');
+
+  let moreInfoFired = false;
+  await page.evaluate(() => {
+    document.addEventListener('hass-more-info', () => { window.__moreInfoFired = true; }, { once: true });
+  });
+
+  await preview.locator('.camera-refresh-btn').click();
+  await expect(img).not.toHaveAttribute('src', srcBefore);
+  await expect(img).toHaveAttribute('src', /_refresh=/);
+  moreInfoFired = await page.evaluate(() => !!window.__moreInfoFired);
+  expect(moreInfoFired).toBe(false);
 });
 
 // ── Camera controls group ───────────────────────────────────────────────────
