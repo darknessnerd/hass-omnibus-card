@@ -118,6 +118,14 @@ sequenceDiagram
   else hash unchanged
     C->>C: skip render
   end
+
+  opt camera_refresh_interval configured
+    note over C: setInterval started in setConfig() / connectedCallback(),\ncleared in disconnectedCallback() — independent of the hash guard above
+    loop every N minutes
+      C->>R: refreshCameraImage(shadowRoot)
+      R->>DOM: bump <img> src query param (cache-bust, no HA service call)
+    end
+  end
 ```
 
 ### Build & CI pipeline
@@ -211,11 +219,15 @@ HA creates one instance of `HassOmnibusCard` per card on the dashboard.
 
 | HA call | When | What to do |
 |---|---|---|
-| `setConfig(config)` | YAML parsed or changed | Validate config; store it; call `_render()` |
+| `setConfig(config)` | YAML parsed or changed | Validate config; store it; call `_render()`; (re)start the camera auto-refresh timer |
 | `set hass(hass)` | Any state change in HA | Diff; re-render only if area state changed |
+| `connectedCallback()` | Card attached to DOM (incl. re-attach on view/tab switch) | (Re)start the camera auto-refresh timer |
+| `disconnectedCallback()` | Card removed from DOM | Clear the camera auto-refresh timer — dashboards detach cards on tab switches without ever destroying the element, so an unmatched `setInterval` would silently accumulate |
 | `getCardSize()` | Layout calculation | Return integer height hint (rows) |
 | `getConfigElement()` | Visual editor requested | Return `<ha-form>` element (optional) |
 | `getStubConfig()` | Card picker "Add card" | Return minimal valid config object |
+
+`camera_refresh_interval` (minutes, optional) drives a `setInterval` that calls `refreshCameraImage(shadowRoot)` — the same URL-cache-busting logic as the manual refresh button (`src/renderer.js`), just triggered on a timer instead of a click. It only touches the `<img>` src, never `_update()`/hash guard, so it doesn't disturb focus or collapsed-section state.
 
 ### State model
 

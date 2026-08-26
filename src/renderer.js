@@ -381,6 +381,19 @@ function renderCameraPreview({ hasCamera, cameraImage, cameraIcon, cameraEntity,
     </div>`;
 }
 
+// entity_picture URLs are stable per state — the browser will happily serve
+// a cached response for the exact same URL, so a refresh has to change the
+// URL to force a real re-fetch. Doesn't call any HA service; camera_proxy
+// ignores unknown query params and serves the current frame. Shared by the
+// manual refresh button and the camera_refresh_interval auto-refresh timer.
+export function refreshCameraImage(shadowRoot) {
+  const img = shadowRoot.querySelector('.camera-preview img');
+  if (!img) return;
+  const url = new URL(img.getAttribute('src'), window.location.href);
+  url.searchParams.set('_refresh', Date.now());
+  img.src = url.pathname + url.search;
+}
+
 function renderPtzChip({ ptzItems }) {
   if (!ptzItems.length) return '';
   return `
@@ -548,7 +561,7 @@ export function render(shadowRoot, host, vm) {
   if (!vm.error) bindEvents(shadowRoot, host, vm);
   // full innerHTML rewrite drops focus every render — restore it for keyboard users
   // toggling the controls-row label, otherwise a second Enter/Space press is lost
-  if (focusedClass) shadowRoot.querySelector(`.${focusedClass.split(' ').join('.')}`)?.focus();
+  if (focusedClass) shadowRoot.querySelector(`.${focusedClass.trim().split(/\s+/).join('.')}`)?.focus();
 }
 
 function bindEvents(shadowRoot, host, { navPath, chipItems }) {
@@ -605,19 +618,11 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
   const cameraPreview = shadowRoot.querySelector('.camera-preview[data-entity]');
   if (cameraPreview) cameraPreview.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, cameraPreview.dataset.entity); });
 
-  // entity_picture URLs are stable per state — the browser will happily serve
-  // a cached response for the exact same URL, so a manual "refresh" has to
-  // change the URL to force a real re-fetch. Doesn't call any HA service;
-  // camera_proxy ignores unknown query params and serves the current frame.
   const cameraRefreshBtn = shadowRoot.querySelector('.camera-refresh-btn');
   if (cameraRefreshBtn) {
     cameraRefreshBtn.addEventListener('click', e => {
       e.stopPropagation();
-      const img = shadowRoot.querySelector('.camera-preview img');
-      if (!img) return;
-      const url = new URL(img.getAttribute('src'), window.location.href);
-      url.searchParams.set('_refresh', Date.now());
-      img.src = url.pathname + url.search;
+      refreshCameraImage(shadowRoot);
     });
   }
 

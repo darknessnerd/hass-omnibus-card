@@ -5,7 +5,7 @@
  */
 
 import { getAreaEntities }     from './discovery.js';
-import { buildViewModel, render } from './renderer.js';
+import { buildViewModel, render, refreshCameraImage } from './renderer.js';
 import { getHistory }            from './history.js';
 
 export class HassOmnibusCard extends HTMLElement {
@@ -17,6 +17,7 @@ export class HassOmnibusCard extends HTMLElement {
     this._config    = null;
     this._stateHash = null;
     this._collapsed  = null;   // { controls, settings, diagnostics } — always set by setConfig before first use
+    this._cameraRefreshTimer = null;
   }
 
   /** Called by HA when the YAML config is parsed or changed. */
@@ -29,6 +30,20 @@ export class HassOmnibusCard extends HTMLElement {
     const initial   = config.controls_collapsed !== false;
     this._collapsed = { controls: initial, settings: initial, diagnostics: initial };
     if (this._hass) this._update();
+    this._startCameraRefreshTimer();
+  }
+
+  /** Dashboard views detach/reattach cards on tab switches — restart the timer each time, drop it on removal. */
+  connectedCallback() { this._startCameraRefreshTimer(); }
+  disconnectedCallback() { clearInterval(this._cameraRefreshTimer); }
+
+  // On first mount connectedCallback() fires before setConfig() — this._config
+  // is still null then, so the no-op guard below is load-bearing, not incidental.
+  _startCameraRefreshTimer() {
+    clearInterval(this._cameraRefreshTimer);
+    const minutes = this._config?.camera_refresh_interval;
+    if (!minutes || minutes <= 0) return;
+    this._cameraRefreshTimer = setInterval(() => refreshCameraImage(this.shadowRoot), minutes * 60_000);
   }
 
   /** Toggled by a section's collapse icon (controls/settings/diagnostics); re-renders without touching the hash guard. */

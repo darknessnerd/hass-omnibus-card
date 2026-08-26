@@ -173,7 +173,8 @@ controls_collapsed: true      # Start all three collapsed; only applies when col
                                # Each section still toggles independently once rendered — this only sets the initial state
 
 # ── Camera ────────────────────────────────────────────────────────────
-show_camera: true          # Show the camera snapshot preview banner (default: true)
+show_camera: true              # Show the camera snapshot preview banner (default: true)
+camera_refresh_interval: 5     # Auto-refresh the snapshot every N minutes (default: off — manual refresh button only)
 
 # ── Environmental thresholds ──────────────────────────────────────────
 mold_threshold: 70            # Humidity % above which mold risk badge appears (default: 70)

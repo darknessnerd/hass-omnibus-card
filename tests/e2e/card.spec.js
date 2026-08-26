@@ -664,6 +664,27 @@ test('camera — refresh button changes the img src (cache-busts) without openin
   expect(moreInfoFired).toBe(false);
 });
 
+test('camera_refresh_interval — auto-refreshes the snapshot on a timer', async ({ page }) => {
+  await page.clock.install();
+  await mount(page, { ...GARAGE, camera_refresh_interval: 5 });
+  const img = page.locator('#mount').locator('.camera-preview img');
+  const srcBefore = await img.getAttribute('src');
+
+  await page.clock.fastForward('05:00');
+  await expect(img).not.toHaveAttribute('src', srcBefore);
+  await expect(img).toHaveAttribute('src', /_refresh=/);
+});
+
+test('camera_refresh_interval unset — snapshot src stays stable over time (no auto-refresh)', async ({ page }) => {
+  await page.clock.install();
+  await mount(page, GARAGE);
+  const img = page.locator('#mount').locator('.camera-preview img');
+  const srcBefore = await img.getAttribute('src');
+
+  await page.clock.fastForward('30:00');
+  await expect(img).toHaveAttribute('src', srcBefore);
+});
+
 // ── Camera controls group ───────────────────────────────────────────────────
 
 test('controls — siren/button in Controls; device-linked switch/lock in Settings; PTZ buttons form their own group', async ({ page }) => {
@@ -732,6 +753,33 @@ test('controls — label is keyboard-focusable and toggles on Enter/Space', asyn
 
   await page.keyboard.press(' ');
   await expect(chips).not.toBeVisible();
+});
+
+test('re-render with a focused multi-class element (e.g. badge-lights "off") does not throw', async ({ page }) => {
+  // regression: className "badge badge-lights off " (trailing space when
+  // has-offline is empty) split into a trailing empty token, producing the
+  // invalid selector `.badge.badge-lights.off.` in the focus-restore code.
+  const errors = [];
+  page.on('pageerror', err => errors.push(err));
+
+  await mount(page, CARD, {
+    'light.ceiling':    { state: 'off', attributes: { friendly_name: 'Ceiling' } },
+    'light.floor_lamp': { state: 'off', attributes: { friendly_name: 'Floor Lamp' } },
+  });
+
+  const badge = page.locator('#mount').locator('.badge-lights');
+  await badge.focus();
+
+  // force a re-render while the badge is focused. Re-setting `hass` with
+  // unchanged state is a no-op (hash guard), so drive render() through
+  // toggleSectionCollapsed() instead — same _update()/render() path, no
+  // hash check to work around.
+  await page.evaluate(() => {
+    document.querySelector('hass-omnibus-card').toggleSectionCollapsed('controls');
+  });
+
+  expect(errors).toEqual([]);
+  await expect(badge).toBeFocused();
 });
 
 test('controls — collapsed by default, toggle icon shown', async ({ page }) => {
