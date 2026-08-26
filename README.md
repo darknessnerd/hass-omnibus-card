@@ -167,9 +167,10 @@ max_entities: 12           # Max chips to display (default: 12)
 entity_labels:             # Per-entity chip/segment label overrides (optional)
   sensor.bresser_7in1_65351_noise: Noise    # e.g. rename an ambiguous last-word label
 
-# ── Controls / Settings rows ─────────────────────────────────────────────
-collapsible_controls: true    # Add a collapse/expand icon to the Controls header (default: true) — also collapses Settings
-controls_collapsed: true      # Start collapsed; only applies when collapsible_controls is true (default: true)
+# ── Controls / Settings / Diagnostics ────────────────────────────────────
+collapsible_controls: true    # Add a collapse/expand chevron to Controls, Settings, and Diagnostics (default: true)
+controls_collapsed: true      # Start all three collapsed; only applies when collapsible_controls is true (default: true)
+                               # Each section still toggles independently once rendered — this only sets the initial state
 
 # ── Camera ────────────────────────────────────────────────────────────
 show_camera: true          # Show the camera snapshot preview banner (default: true)
