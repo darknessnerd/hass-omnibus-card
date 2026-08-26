@@ -405,12 +405,14 @@ export const CARD_STYLES = `
     white-space: nowrap;
   }
 
-  /* ── Group sections (Weather / Diagnostics / Settings) ──
-     A small visible caption + a color identity per pill type, so the card
-     stops reading as one repeated grey-capsule component wearing three
-     different tooltips. Controls keeps its own pre-existing label/toggle;
-     Diagnostics stays neutral on purpose — it's the "least important,
-     read-only" bucket, and staying quiet is itself part of the hierarchy. */
+  /* ── Group sections (Weather, and Controls/Settings/Diagnostics when
+     collapsible_controls: false) ── A small visible caption + a color
+     identity per pill type, so the card stops reading as one repeated
+     grey-capsule component wearing three different tooltips. Diagnostics
+     stays neutral on purpose — it's the "least important, read-only" bucket,
+     and staying quiet is itself part of the hierarchy. Always-visible; the
+     collapsible variant of Controls/Settings/Diagnostics lives in the
+     .section-tabs rules below instead. */
   .group-section {
     margin-bottom: 8px;
   }
@@ -425,25 +427,6 @@ export const CARD_STYLES = `
     letter-spacing: 0.04em;
     opacity: 0.7;
     margin-bottom: 4px;
-  }
-
-  /* Diagnostics/Settings collapse independently of each other and of Controls —
-     same clickable-caption + chevron language as .controls-label. */
-  .group-label.clickable {
-    cursor: pointer;
-  }
-
-  .group-toggle {
-    --mdc-icon-size: 13px;
-    opacity: 0.8;
-  }
-
-  .group-label.clickable:hover .group-toggle {
-    opacity: 1;
-  }
-
-  .group-section.collapsed .group-pill {
-    display: none;
   }
 
   .group-label-weather     { color: var(--primary-color, #03a9f4); }
@@ -547,44 +530,54 @@ export const CARD_STYLES = `
 
   .camera-refresh-btn ha-icon { --mdc-icon-size: 14px; }
 
-  /* ── Controls row ── */
-
-  .controls-row {
+  /* ── Section tabs (Controls / Settings / Diagnostics, collapsible_controls
+     default) ── One exclusive tab strip instead of three independent
+     chevron accordions: only the active tab's pill is ever in the DOM, so
+     switching tabs can never stack height on top of an already-open one —
+     at most one panel's worth of card-height change, capped by max-height so
+     a long pill scrolls internally instead of pushing sibling cards around
+     in a dashboard grid. */
+  .section-tabs {
     margin-top: 8px;
   }
 
-  .controls-label {
+  .section-tabs-bar {
     display: flex;
-    align-items: center;
+    justify-content: center;
     gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .section-tab {
+    padding: 3px 9px;
+    border-radius: 12px;
     font-size: 0.68rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--secondary-text-color);
     opacity: 0.6;
-    margin-bottom: 4px;
-  }
-
-  .controls-label.clickable {
     cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  .controls-toggle {
-    --mdc-icon-size: 14px;
-    opacity: 0.8;
+  .section-tab:hover { opacity: 0.85; }
+
+  .section-tab.active {
+    background: var(--secondary-background-color, rgba(128, 128, 128, 0.12));
+    opacity: 1;
   }
 
-  .controls-label.clickable:hover .controls-toggle { opacity: 1; }
-
-  .controls-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-
-  .controls-row.collapsed .controls-chips {
+  .section-tab-panel {
     display: none;
+    max-height: 6.5rem;
+    overflow-y: auto;
+  }
+
+  .section-tab-panel.active {
+    display: flex;
+    justify-content: center;
   }
 
   /* ── Alarm bar ── */

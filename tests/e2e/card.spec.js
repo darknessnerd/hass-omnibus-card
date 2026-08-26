@@ -739,20 +739,20 @@ test('controls — read-only sensor/image sharing the camera device stay out of 
   }
 });
 
-test('controls — label is keyboard-focusable and toggles on Enter/Space', async ({ page }) => {
+test('section tabs — Controls tab is keyboard-focusable and toggles on Enter/Space', async ({ page }) => {
   await mount(page, { area: 'garage', max_entities: 20 });
-  const label = page.locator('#mount').locator('.controls-label.clickable');
-  const chips = page.locator('#mount').locator('.controls-chips');
+  const tab   = page.locator('#mount').locator('.section-tab[data-section="controls"]');
+  const panel = page.locator('#mount').locator('.section-tab-panel.active');
 
-  await expect(label).toHaveAttribute('role', 'button');
-  await expect(label).toHaveAttribute('tabindex', '0');
+  await expect(tab).toHaveAttribute('role', 'tab');
+  await expect(tab).toHaveAttribute('tabindex', '0');
 
-  await label.focus();
+  await tab.focus();
   await page.keyboard.press('Enter');
-  await expect(chips).toBeVisible();
+  await expect(panel).toBeVisible();
 
   await page.keyboard.press(' ');
-  await expect(chips).not.toBeVisible();
+  await expect(panel).toHaveCount(0);
 });
 
 test('re-render with a focused multi-class element (e.g. badge-lights "off") does not throw', async ({ page }) => {
@@ -772,116 +772,84 @@ test('re-render with a focused multi-class element (e.g. badge-lights "off") doe
 
   // force a re-render while the badge is focused. Re-setting `hass` with
   // unchanged state is a no-op (hash guard), so drive render() through
-  // toggleSectionCollapsed() instead — same _update()/render() path, no
-  // hash check to work around.
+  // setActiveSection() instead — same _update()/render() path, no hash
+  // check to work around.
   await page.evaluate(() => {
-    document.querySelector('hass-omnibus-card').toggleSectionCollapsed('controls');
+    document.querySelector('hass-omnibus-card').setActiveSection('controls');
   });
 
   expect(errors).toEqual([]);
   await expect(badge).toBeFocused();
 });
 
-test('controls — collapsed by default, toggle icon shown', async ({ page }) => {
+// ── Section tabs (Controls / Settings / Diagnostics — mutually exclusive) ──
+
+test('section tabs — no tab active by default, all panels present but hidden', async ({ page }) => {
   await mount(page, { area: 'garage', max_entities: 20 });
-  await expect(page.locator('#mount').locator('.controls-toggle')).toBeVisible();
-  await expect(page.locator('#mount').locator('.controls-toggle')).toHaveAttribute('icon', 'mdi:chevron-down');
-  await expect(page.locator('#mount').locator('.controls-chips')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.section-tab.active')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.section-tab-panel.active')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.section-tab-panel')).toHaveCount(3); // present, just hidden — see .section-tab-panel CSS
+  await expect(page.locator('#mount').locator('.section-tab[data-section="controls"]')).toBeVisible();
+  await expect(page.locator('#mount').locator('.section-tab[data-section="settings"]')).toBeVisible();
+  await expect(page.locator('#mount').locator('.section-tab[data-section="diagnostics"]')).toBeVisible();
 });
 
-test('controls — clicking the "Controls" label text expands and re-collapses the chip strip', async ({ page }) => {
+test('section tabs — clicking a tab opens its panel; clicking it again closes it', async ({ page }) => {
   await mount(page, { area: 'garage', max_entities: 20 });
-  const label = page.locator('#mount').locator('.controls-label.clickable');
-  const toggle = page.locator('#mount').locator('.controls-toggle');
-  const chips  = page.locator('#mount').locator('.controls-chips');
+  const tab   = page.locator('#mount').locator('.section-tab[data-section="controls"]');
+  const panel = page.locator('#mount').locator('.section-tab-panel.active');
 
-  // click the label text itself, not the chevron icon
-  await label.click({ position: { x: 4, y: 4 } });
-  await expect(chips).toBeVisible();
-  await expect(toggle).toHaveAttribute('icon', 'mdi:chevron-up');
+  await tab.click();
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.controls-chip')).toBeVisible();
+  await expect(tab).toHaveClass(/active/);
 
-  await label.click({ position: { x: 4, y: 4 } });
-  await expect(chips).not.toBeVisible();
-  await expect(toggle).toHaveAttribute('icon', 'mdi:chevron-down');
+  await tab.click();
+  await expect(panel).toHaveCount(0);
+  await expect(tab).not.toHaveClass(/active/);
 });
 
-test('controls — clicking the chevron icon also toggles (bubbles to the label)', async ({ page }) => {
+test('section tabs — switching tabs is exclusive: opening Settings closes an already-open Controls', async ({ page }) => {
   await mount(page, { area: 'garage', max_entities: 20 });
-  const toggle = page.locator('#mount').locator('.controls-toggle');
-  const chips  = page.locator('#mount').locator('.controls-chips');
+  const controlsTab = page.locator('#mount').locator('.section-tab[data-section="controls"]');
+  const settingsTab = page.locator('#mount').locator('.section-tab[data-section="settings"]');
+  const activePanel  = page.locator('#mount').locator('.section-tab-panel.active');
 
-  await toggle.click();
-  await expect(chips).toBeVisible();
-  await expect(toggle).toHaveAttribute('icon', 'mdi:chevron-up');
+  await controlsTab.click();
+  await expect(activePanel.locator('.controls-chip')).toBeVisible();
+
+  await settingsTab.click();
+  await expect(activePanel.locator('.settings-chip')).toBeVisible();
+  await expect(page.locator('#mount').locator('.section-tab-panel.active').locator('.controls-chip')).toHaveCount(0);
+  await expect(controlsTab).not.toHaveClass(/active/);
+  await expect(settingsTab).toHaveClass(/active/);
 });
 
-test('controls — controls_collapsed: false starts the section expanded', async ({ page }) => {
+test('section tabs — controls_collapsed: false opens the first available tab (Controls) by default', async ({ page }) => {
   await mount(page, { area: 'garage', max_entities: 20, controls_collapsed: false });
-  await expect(page.locator('#mount').locator('.controls-chips')).toBeVisible();
-  await expect(page.locator('#mount').locator('.controls-toggle')).toHaveAttribute('icon', 'mdi:chevron-up');
+  const controlsTab = page.locator('#mount').locator('.section-tab[data-section="controls"]');
+  await expect(controlsTab).toHaveClass(/active/);
+  await expect(page.locator('#mount').locator('.section-tab-panel.active .controls-chip')).toBeVisible();
+  // exclusive by construction — only the active panel is ever visible
+  await expect(page.locator('#mount').locator('.section-tab-panel.active .settings-chip')).toHaveCount(0);
 });
 
-test('controls — collapsible_controls: false hides the toggle icon and always shows chips', async ({ page }) => {
+test('section tabs — collapsible_controls: false hides the tab bar entirely and always shows all three sections stacked', async ({ page }) => {
   await mount(page, GARAGE);   // GARAGE sets collapsible_controls: false
-  await expect(page.locator('#mount').locator('.controls-toggle')).not.toBeVisible();
-  await expect(page.locator('#mount').locator('.controls-chips')).toBeVisible();
-});
-
-// ── Settings / Diagnostics — collapsible like Controls, independently ──────
-
-test('settings — collapsed by default, toggle icon shown, same as Controls', async ({ page }) => {
-  await mount(page, { area: 'garage', max_entities: 20 });
-  const label = page.locator('#mount').locator('.group-label-settings.clickable');
-  await expect(label.locator('.group-toggle')).toHaveAttribute('icon', 'mdi:chevron-down');
-  await expect(page.locator('#mount').locator('.settings-chip')).not.toBeVisible();
-});
-
-test('diagnostics — collapsed by default, toggle icon shown, same as Controls', async ({ page }) => {
-  await mount(page, { area: 'garage', max_entities: 20 });
-  const label = page.locator('#mount').locator('.group-label-diagnostics.clickable');
-  await expect(label.locator('.group-toggle')).toHaveAttribute('icon', 'mdi:chevron-down');
-  await expect(page.locator('#mount').locator('.diagnostics-chip')).not.toBeVisible();
-});
-
-test('settings/diagnostics — clicking one label expands only that section', async ({ page }) => {
-  await mount(page, { area: 'garage', max_entities: 20 });
-  await page.locator('#mount').locator('.group-label-settings.clickable').click();
-  await expect(page.locator('#mount').locator('.settings-chip')).toBeVisible();
-  await expect(page.locator('#mount').locator('.diagnostics-chip')).not.toBeVisible();
-  await expect(page.locator('#mount').locator('.controls-chips')).not.toBeVisible();
-});
-
-test('settings/diagnostics — collapsing Controls does not collapse an already-expanded Settings', async ({ page }) => {
-  await mount(page, { area: 'garage', max_entities: 20, controls_collapsed: false }); // all three start expanded
-  await expect(page.locator('#mount').locator('.settings-chip')).toBeVisible();
-  await page.locator('#mount').locator('.controls-label.clickable').click(); // collapse Controls only
-  await expect(page.locator('#mount').locator('.controls-chips')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.section-tabs')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.controls-chip')).toBeVisible();
   await expect(page.locator('#mount').locator('.settings-chip')).toBeVisible();
   await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
 });
 
-test('controls_collapsed: false starts Settings and Diagnostics expanded too (shared config)', async ({ page }) => {
-  await mount(page, { area: 'garage', max_entities: 20, controls_collapsed: false });
-  await expect(page.locator('#mount').locator('.settings-chip')).toBeVisible();
-  await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
-  await expect(page.locator('#mount').locator('.group-label-settings .group-toggle')).toHaveAttribute('icon', 'mdi:chevron-up');
-});
-
-test('collapsible_controls: false hides Settings/Diagnostics toggles too and always shows them', async ({ page }) => {
-  await mount(page, GARAGE); // GARAGE sets collapsible_controls: false
-  await expect(page.locator('#mount').locator('.group-label-settings.clickable')).toHaveCount(0);
-  await expect(page.locator('#mount').locator('.settings-chip')).toBeVisible();
-  await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
-});
-
-test('controls — label click does not trigger card navigation', async ({ page }) => {
+test('section tabs — clicking a tab does not trigger card navigation', async ({ page }) => {
   await mount(page, { area: 'garage', max_entities: 20, navigate_to: '/lovelace/garage' });
   let navigated = false;
   await page.exposeFunction('__onNavigate', () => { navigated = true; });
   await page.evaluate(() => {
     window.addEventListener('location-changed', () => window.__onNavigate());
   });
-  await page.locator('#mount').locator('.controls-label.clickable').click({ position: { x: 4, y: 4 } });
+  await page.locator('#mount').locator('.section-tab[data-section="controls"]').click();
   expect(navigated).toBe(false);
 });
 
@@ -1013,14 +981,14 @@ test('real dataset — Italian PTZ buttons render with correct compass direction
 
 test('real dataset — siren alone in Controls ("press to act"); 5 switches + number + 2 selects grouped into Settings ("configure")', async ({ page }) => {
   await mount(page, ESTERNO_REAL);
-  await page.locator('#mount').locator('.controls-label.clickable').click(); // expand (collapsed by default)
+  // panels stay in the DOM even while their tab is inactive (only hidden via CSS) — no need to open a tab for a presence/count check
   await expect(page.locator('#mount').locator('.controls-chip .control-seg')).toHaveCount(1);
   await expect(page.locator('#mount').locator('.settings-chip .settings-seg')).toHaveCount(8);
 });
 
 test('real dataset — camera diagnostic sensors/binary_sensor/image group into one diagnostics pill, not controls', async ({ page }) => {
   await mount(page, ESTERNO_REAL);
-  await page.locator('#mount').locator('.group-label-diagnostics.clickable').click(); // expand (collapsed by default, like Controls)
+  await page.locator('#mount').locator('.section-tab[data-section="diagnostics"]').click(); // open the tab — this assertion needs actual visibility
   await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
   for (const entityId of [
     'binary_sensor.esterno_cb8c_bh2113803_crittografia_2',

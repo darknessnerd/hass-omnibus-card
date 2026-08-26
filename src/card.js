@@ -12,11 +12,17 @@ export class HassOmnibusCard extends HTMLElement {
 
   constructor() {
     super();
+    // Creates isolated DOM that won't be affected by external styles
     this.attachShadow({ mode: 'open' });
     this._hass      = null;
     this._config    = null;
     this._stateHash = null;
-    this._collapsed  = null;   // { controls, settings, diagnostics } — always set by setConfig before first use
+    // Controls/Settings/Diagnostics tab state: an explicit section key, the
+    // '__default__' sentinel (controls_collapsed: false — open whichever tab
+    // buildViewModel finds first available), or null (no tab open). Resolved
+    // to a concrete key/null in buildViewModel, since only it knows which
+    // tabs currently have content.
+    this._activeSection = null;
     this._cameraRefreshTimer = null;
   }
 
@@ -25,10 +31,12 @@ export class HassOmnibusCard extends HTMLElement {
     if (!config?.area && !config?.entities?.length) {
       throw new Error('[hass-omnibus-card] Missing required field: "area" or "entities"');
     }
+    if (this._config?.debug) {
+      console.debug('[hass-omnibus-card] set config', { config });
+    }
     this._config    = { ...config };
     this._stateHash = null;   // force re-render with new config
-    const initial   = config.controls_collapsed !== false;
-    this._collapsed = { controls: initial, settings: initial, diagnostics: initial };
+    this._activeSection = config.controls_collapsed === false ? '__default__' : null;
     if (this._hass) this._update();
     this._startCameraRefreshTimer();
   }
@@ -40,15 +48,21 @@ export class HassOmnibusCard extends HTMLElement {
   // On first mount connectedCallback() fires before setConfig() — this._config
   // is still null then, so the no-op guard below is load-bearing, not incidental.
   _startCameraRefreshTimer() {
+    if (this._config?.debug) {
+      console.debug('[hass-omnibus-card] start camera refresh timer', { interval: this._config?.camera_refresh_interval });
+    }
     clearInterval(this._cameraRefreshTimer);
     const minutes = this._config?.camera_refresh_interval;
     if (!minutes || minutes <= 0) return;
     this._cameraRefreshTimer = setInterval(() => refreshCameraImage(this.shadowRoot), minutes * 60_000);
   }
 
-  /** Toggled by a section's collapse icon (controls/settings/diagnostics); re-renders without touching the hash guard. */
-  toggleSectionCollapsed(section) {
-    this._collapsed[section] = !this._collapsed[section];
+  /** Tab click — exclusive; re-renders without touching the hash guard. */
+  setActiveSection(section) {
+    if (this._config?.debug) {
+      console.debug('[hass-omnibus-card] set active section', { section });
+    }
+    this._activeSection = this._activeSection === section ? null : section;
     this._update();
   }
 
@@ -57,6 +71,9 @@ export class HassOmnibusCard extends HTMLElement {
    * Hash guard ensures the DOM is only rebuilt when area state actually changes.
    */
   set hass(hass) {
+    if (this._config?.debug) {
+      console.debug('[hass-omnibus-card] set hass', { hass });
+    }
     this._hass = hass;
     if (!this._config) return;
 
@@ -110,7 +127,12 @@ export class HassOmnibusCard extends HTMLElement {
     if (hc?.entity_id) {
       historyPoints = getHistory(this._hass, hc.entity_id, hc.hours ?? 24, () => this._update(), this);
     }
-    const vm = buildViewModel(this._hass, this._config, historyPoints, this._collapsed);
+    const vm = buildViewModel(this._hass, this._config, historyPoints, this._activeSection);
+    // Collapse the '__default__' sentinel (and any now-stale explicit key
+    // whose tab lost its content) down to the concrete key/null buildViewModel
+    // resolved — so a later setActiveSection() toggle compares against what's
+    // actually showing, and closes it on the first click rather than the second.
+    if (!vm.error) this._activeSection = vm.activeSection ?? null;
     if (this._config?.debug) {
       console.debug('[hass-omnibus-card] update', {
         area:      this._config.area,

@@ -46,8 +46,8 @@ area: living_room          entities: [light.x, sensor.y]
       └─ everything else ─► entity chip strip
       │
       ▼
-  Controls / Settings / Diagnostics are each independently collapsible
-  (collapsed by default, chevron toggles, config: collapsible_controls / controls_collapsed)
+  Controls / Settings / Diagnostics share one exclusive tab strip
+  (no tab open by default, config: collapsible_controls / controls_collapsed)
       │
       ▼
   Render compact card with live state
@@ -82,7 +82,7 @@ area: living_room          entities: [light.x, sensor.y]
 | Camera settings | Any other *operable* entity (switch, select, number, lock…) sharing a *device* with a discovered camera groups into a separate "Settings" row (configuration toggles, distinct from Controls) — tap opens more-info. Read-only domains (`sensor`, `binary_sensor`, `image`, `update`) never join either row, even on the same device — see "Camera diagnostics" below |
 | Camera diagnostics | Read-only `sensor`/`binary_sensor`/`image` entities sharing a device with a discovered camera group into a "Diagnostics" pill once there are more than one (IP address, PIR state, alarm codes, etc.) — a single one still renders as a plain chip |
 | PTZ pad | `button` entities matching a PTZ naming pattern (`*_ptz_up/down/left/right`, English or Italian) collapse into a single directional-pad chip instead of one chip per direction; each arrow segment presses its own button |
-| Collapsible sections | Controls, Settings, and Diagnostics each collapse independently (collapsing one doesn't affect the others) and all start collapsed by default; a chevron icon in each header toggles it open/closed. Disable the icons with `collapsible_controls: false` (always expanded, no chevron), or start all three expanded with `controls_collapsed: false`. Toggle state persists across state updates but resets on config reload |
+| Section tabs | Controls, Settings, and Diagnostics group behind one exclusive tab strip instead of three independent accordions — opening a tab closes whichever one was open, so switching never stacks extra height on top of an already-expanded section, and only one panel of chips is ever in the DOM. No tab is open by default; `controls_collapsed: false` opens the first available tab (Controls, else Settings, else Diagnostics) instead. Disable tabs entirely with `collapsible_controls: false` — all three render stacked and always expanded, no tab bar. Active tab persists across state updates but resets on config reload |
 | Weather chip | `sensor` entities with `device_class: wind_speed / precipitation / illuminance / sound_pressure` collapse into a single chip — one icon+value segment per reading, color-tinted by device_class and divided by a hairline — instead of a chip per sensor. Wind gust/max readings (entity_id ending `_max`/`_gust`/`_peak`) get a distinct icon from the plain average, since both share `device_class: wind_speed` |
 | Firmware update badge | Any `update.*` entity reporting an update available (`state: on`) shows a header badge (count if more than one), mirroring the low-battery badge; tap opens more-info |
 | Label overrides | `entity_labels: { entity_id: 'Custom label' }` renames any chip/segment label — useful when an entity's `friendly_name` (often unlocalized/verbose on custom integrations) doesn't produce a good chip label |
@@ -168,9 +168,8 @@ entity_labels:             # Per-entity chip/segment label overrides (optional)
   sensor.bresser_7in1_65351_noise: Noise    # e.g. rename an ambiguous last-word label
 
 # ── Controls / Settings / Diagnostics ────────────────────────────────────
-collapsible_controls: true    # Add a collapse/expand chevron to Controls, Settings, and Diagnostics (default: true)
-controls_collapsed: true      # Start all three collapsed; only applies when collapsible_controls is true (default: true)
-                               # Each section still toggles independently once rendered — this only sets the initial state
+collapsible_controls: true    # Group Controls/Settings/Diagnostics behind one exclusive tab strip — only one panel's chips render at a time (default: true)
+controls_collapsed: true      # Start with no tab open; set to false to open the first available tab (Controls > Settings > Diagnostics) instead (default: true)
 
 # ── Camera ────────────────────────────────────────────────────────────
 show_camera: true              # Show the camera snapshot preview banner (default: true)

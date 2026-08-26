@@ -24,7 +24,7 @@ import { sparklineSvg, computeScale, CORNER_CLEARANCE_PCT } from './sparkline.js
  * Returns { error } when the area is not found and no name override is set.
  * Pure: no DOM access, no side effects.
  */
-export function buildViewModel(hass, config, historyPoints = null, collapsed = {}) {
+export function buildViewModel(hass, config, historyPoints = null, activeSectionInput = null) {
   const areaId = config.area;
   const area   = hass.areas?.[areaId];
 
@@ -52,6 +52,74 @@ export function buildViewModel(hass, config, historyPoints = null, collapsed = {
   const extraCameras = c.cameras.slice(1);
 
   const pendingUpdates = c.updates.filter(u => u.state.state === 'on');
+
+  const controlItems = config.show_entities !== false
+    ? uniqueLabels(c.controls.map(({ entityId, state }) => ({
+        entityId,
+        domain:   entityId.split('.')[0],
+        isActive: ACTIVE_STATES.has(state.state),
+        icon:     entityIcon(entityId, state),
+        label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
+        fullName: state.attributes?.friendly_name ?? entityId,
+        title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
+      })))
+    : [];
+
+  // switch/select/number/lock/cover, etc. sharing a device with the area's
+  // camera — configuration toggles, distinct from the one-shot "press to
+  // act" items (siren/buttons) that stay in controlItems. See discovery.js.
+  const settingsItems = config.show_entities !== false
+    ? uniqueLabels(c.settings.map(({ entityId, state }) => ({
+        entityId,
+        domain:   entityId.split('.')[0],
+        isActive: ACTIVE_STATES.has(state.state),
+        icon:     entityIcon(entityId, state),
+        label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
+        fullName: state.attributes?.friendly_name ?? entityId,
+        title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
+      })))
+    : [];
+
+  // grouped into one pill instead of one chip per PTZ button
+  const ptzItems = config.show_entities !== false
+    ? c.ptz.map(({ entityId, state, direction }) => ({
+        entityId,
+        direction,
+        icon:  PTZ_ICON[direction],
+        title: state.attributes?.friendly_name ?? entityId,
+      }))
+    : [];
+
+  // read-only sensors/binary_sensors/image sharing a device with the area's
+  // camera (IP, PIR state, alarm codes, etc.) — grouped into their own pill
+  // once there are enough of them (see discovery.js) instead of padding out
+  // the generic chip strip with near-identical grey chips.
+  const diagnosticsItems = config.show_entities !== false
+    ? uniqueLabels(c.diagnostics.map(({ entityId, state }) => ({
+        entityId,
+        icon:     entityIcon(entityId, state),
+        label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
+        fullName: state.attributes?.friendly_name ?? entityId,
+        title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
+      })))
+    : [];
+
+  // Controls/Settings/Diagnostics share one exclusive tab strip (see
+  // renderSectionGroup) gated by collapsible_controls. activeSectionInput is
+  // either an explicit section key, the '__default__' sentinel (controls_
+  // collapsed: false — open whichever tab is first available), or null.
+  // An explicit key only wins while its tab still has content (e.g. the open
+  // tab's last entity got removed) — otherwise fall back to no tab open
+  // rather than render an empty panel.
+  const collapsibleControls = config.collapsible_controls !== false;
+  const availableSections = [
+    { key: 'controls',    hasContent: ptzItems.length > 0 || controlItems.length > 0 },
+    { key: 'settings',    hasContent: settingsItems.length > 0 },
+    { key: 'diagnostics', hasContent: diagnosticsItems.length > 0 },
+  ].filter(s => s.hasContent).map(s => s.key);
+  const activeSection = !collapsibleControls ? null
+    : activeSectionInput === '__default__' ? (availableSections[0] ?? null)
+    : availableSections.includes(activeSectionInput) ? activeSectionInput : null;
 
   return {
     areaName:     config.name || area?.name || areaId || '',
@@ -103,50 +171,13 @@ export function buildViewModel(hass, config, historyPoints = null, collapsed = {
     cameraState:  camera?.state.state ?? '',
     cameraOffline: camera?.state.state === 'unavailable',
 
-    controlItems: config.show_entities !== false
-      ? uniqueLabels(c.controls.map(({ entityId, state }) => ({
-          entityId,
-          domain:   entityId.split('.')[0],
-          isActive: ACTIVE_STATES.has(state.state),
-          icon:     entityIcon(entityId, state),
-          label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
-          fullName: state.attributes?.friendly_name ?? entityId,
-          title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
-        })))
-      : [],
+    controlItems,
+    settingsItems,
+    collapsibleControls,
+    activeSection,
+    ptzItems,
+    diagnosticsItems,
 
-    // switch/select/number/lock/cover, etc. sharing a device with the area's
-    // camera — configuration toggles, distinct from the one-shot "press to
-    // act" items (siren/buttons) that stay in controlItems. See discovery.js.
-    settingsItems: config.show_entities !== false
-      ? uniqueLabels(c.settings.map(({ entityId, state }) => ({
-          entityId,
-          domain:   entityId.split('.')[0],
-          isActive: ACTIVE_STATES.has(state.state),
-          icon:     entityIcon(entityId, state),
-          label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
-          fullName: state.attributes?.friendly_name ?? entityId,
-          title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
-        })))
-      : [],
-
-    // Controls/Settings/Diagnostics all share the same collapsible_controls
-    // toggle (whether a chevron shows at all) but track their own open/closed
-    // state independently — collapsing Controls doesn't collapse Settings.
-    collapsibleControls:  config.collapsible_controls !== false,
-    controlsCollapsed:    config.collapsible_controls !== false && !!collapsed.controls,
-    settingsCollapsed:    config.collapsible_controls !== false && !!collapsed.settings,
-    diagnosticsCollapsed: config.collapsible_controls !== false && !!collapsed.diagnostics,
-
-    // grouped into one pill instead of one chip per PTZ button / weather reading
-    ptzItems: config.show_entities !== false
-      ? c.ptz.map(({ entityId, state, direction }) => ({
-          entityId,
-          direction,
-          icon:  PTZ_ICON[direction],
-          title: state.attributes?.friendly_name ?? entityId,
-        }))
-      : [],
     weatherItems: config.show_entities !== false
       ? c.weathers.map(({ entityId, state }) => {
           const num  = parseFloat(state.state);
@@ -161,20 +192,6 @@ export function buildViewModel(hass, config, historyPoints = null, collapsed = {
             title: `${state.attributes?.friendly_name ?? entityId} — ${state.state}${unit}`,
           };
         })
-      : [],
-
-    // read-only sensors/binary_sensors/image sharing a device with the area's
-    // camera (IP, PIR state, alarm codes, etc.) — grouped into their own pill
-    // once there are enough of them (see discovery.js) instead of padding out
-    // the generic chip strip with near-identical grey chips.
-    diagnosticsItems: config.show_entities !== false
-      ? uniqueLabels(c.diagnostics.map(({ entityId, state }) => ({
-          entityId,
-          icon:     entityIcon(entityId, state),
-          label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
-          fullName: state.attributes?.friendly_name ?? entityId,
-          title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
-        })))
       : [],
 
     historyPoints: hc?.entity_id ? historyPoints : null,
@@ -296,24 +313,13 @@ function renderEnvRow({ tempVal, humVal, tempUnit, tempEntities, humEntities, cl
     </div>`;
 }
 
-// Small caption above a grouped pill (Weather/Diagnostics/Settings) — gives
-// each type a name and a color identity instead of three identical grey
-// capsules distinguishable only by a hover tooltip. Diagnostics/Settings are
-// collapsible like Controls (pass sectionKey/collapsible/collapsed); Weather
-// stays always-visible (no opts).
-function renderGroupSection(label, className, pillHtml, { sectionKey, collapsible, collapsed } = {}) {
+// Small caption above a grouped, always-visible pill — gives each type a name
+// and a color identity instead of identical grey capsules distinguishable
+// only by a hover tooltip. Controls/Settings/Diagnostics collapse instead via
+// the exclusive tab strip in renderSectionGroup(); this stays always-visible.
+function renderGroupSection(label, className, pillHtml) {
   if (!pillHtml) return '';
-  if (!collapsible) {
-    return `<div class="group-section"><span class="group-label ${className}">${label}</span>${pillHtml}</div>`;
-  }
-  return `
-    <div class="group-section${collapsed ? ' collapsed' : ''}">
-      <span class="group-label ${className} clickable" data-section="${sectionKey}"
-        role="button" tabindex="0" title="${collapsed ? 'Expand' : 'Collapse'} ${label.toLowerCase()}">
-        ${label}<ha-icon class="group-toggle" icon="mdi:chevron-${collapsed ? 'down' : 'up'}"></ha-icon>
-      </span>
-      <div class="group-pill">${pillHtml}</div>
-    </div>`;
+  return `<div class="group-section"><span class="group-label ${className}">${label}</span>${pillHtml}</div>`;
 }
 
 function renderWeatherChip({ weatherItems }) {
@@ -352,15 +358,12 @@ function renderDiagnosticsChip({ diagnosticsItems }) {
     </div>`;
 }
 
-function renderChips({ chipItems, weatherItems, diagnosticsItems, collapsibleControls, diagnosticsCollapsed }) {
-  const chipsSection = renderGroupSection('', '', renderChipItems({ chipItems }));
-    const weatherSection     = renderGroupSection('Weather', 'group-label-weather', renderWeatherChip({ weatherItems }));
-  const diagnosticsSection = renderGroupSection('Diagnostics', 'group-label-diagnostics', renderDiagnosticsChip({ diagnosticsItems }),
-    { sectionKey: 'diagnostics', collapsible: collapsibleControls, collapsed: diagnosticsCollapsed });
-  if (!chipItems.length && !weatherSection && !diagnosticsSection) return '';
+function renderChips({ chipItems, weatherItems }) {
+  const chipsSection  = renderGroupSection('', '', renderChipItems({ chipItems }));
+  const weatherSection = renderGroupSection('Weather', 'group-label-weather', renderWeatherChip({ weatherItems }));
+  if (!chipItems.length && !weatherSection) return '';
   return `${chipsSection}
     ${weatherSection}
-    ${diagnosticsSection}
     `;
 }
 
@@ -437,22 +440,41 @@ function renderSettingsChip({ settingsItems }) {
     </div>`;
 }
 
-function renderControls({ controlItems, settingsItems, ptzItems, collapsibleControls, controlsCollapsed, settingsCollapsed }) {
-  if (!controlItems.length && !settingsItems.length && !ptzItems.length) return '';
-  const controlsPill = renderPtzChip({ ptzItems }) + renderControlsChip({ controlItems });
+// Controls/Settings/Diagnostics share one exclusive tab strip. All three
+// panels stay in the DOM (CSS hides the inactive ones via .section-tab-panel
+// not carrying .active) rather than being conditionally rendered — segment
+// click handlers and entity lookups keep working the instant a tab opens,
+// with no extra render round-trip, and only ever one panel's worth of height
+// is visible at a time so switching tabs never stacks on top of an
+// already-open one. Clicking the active tab again clears activeSection back
+// to none (see bindEvents). collapsible_controls: false opts out entirely
+// into the old always-expanded stacked layout (no tabs, nothing ever hidden).
+function renderSectionGroup({ controlItems, settingsItems, ptzItems, diagnosticsItems, collapsibleControls, activeSection }) {
+  const sections = [
+    { key: 'controls',    label: 'Controls',    pill: renderPtzChip({ ptzItems }) + renderControlsChip({ controlItems }) },
+    { key: 'settings',    label: 'Settings',    pill: renderSettingsChip({ settingsItems }) },
+    { key: 'diagnostics', label: 'Diagnostics', pill: renderDiagnosticsChip({ diagnosticsItems }) },
+  ].filter(s => s.pill);
+  if (!sections.length) return '';
+
+  if (!collapsibleControls) {
+    return sections.map(({ key, label, pill }) => `
+      <div class="group-section">
+        <span class="group-label group-label-${key}">${label}</span>
+        <div class="group-pill">${pill}</div>
+      </div>`).join('');
+  }
+
   return `
-    ${controlsPill ? `
-      <div class="controls-row${controlsCollapsed ? ' collapsed' : ''}">
-        <span class="controls-label${collapsibleControls ? ' clickable' : ''}"
-          data-section="controls"
-          ${collapsibleControls ? `role="button" tabindex="0" title="${controlsCollapsed ? 'Expand' : 'Collapse'} controls"` : ''}
-          >Controls${collapsibleControls
-            ? `<ha-icon class="controls-toggle" icon="mdi:chevron-${controlsCollapsed ? 'down' : 'up'}"></ha-icon>`
-            : ''}</span>
-        <div class="controls-chips">${controlsPill}</div>
-      </div>` : ''}
-    ${renderGroupSection('Settings', 'group-label-settings', renderSettingsChip({ settingsItems }),
-      { sectionKey: 'settings', collapsible: collapsibleControls, collapsed: settingsCollapsed })}`;
+    <div class="section-tabs">
+      <div class="section-tabs-bar" role="tablist">
+        ${sections.map(({ key, label }) => `
+          <span class="section-tab${activeSection === key ? ' active' : ''}" data-section="${key}"
+            role="tab" tabindex="0" aria-selected="${activeSection === key}">${label}</span>`).join('')}
+      </div>
+      ${sections.map(({ key, pill }) => `
+        <div class="section-tab-panel${activeSection === key ? ' active' : ''}">${pill}</div>`).join('')}
+    </div>`;
 }
 
 function renderAlarmBar({ smokeOn, gasOn, waterOn, moldRisk }) {
@@ -538,7 +560,7 @@ function renderCard(vm) {
         ${renderHeader(vm)}
         ${renderEnvRow(vm)}
         ${renderChips(vm)}
-        ${renderControls(vm)}
+        ${renderSectionGroup(vm)}
         ${renderAlarmBar(vm)}
       </div>
     </ha-card>`;
@@ -560,7 +582,7 @@ export function render(shadowRoot, host, vm) {
   shadowRoot.innerHTML = vm.error ? renderErrorCard(vm.error) : renderCard(vm);
   if (!vm.error) bindEvents(shadowRoot, host, vm);
   // full innerHTML rewrite drops focus every render — restore it for keyboard users
-  // toggling the controls-row label, otherwise a second Enter/Space press is lost
+  // toggling a section tab, otherwise a second Enter/Space press is lost
   if (focusedClass) shadowRoot.querySelector(`.${focusedClass.trim().split(/\s+/).join('.')}`)?.focus();
 }
 
@@ -570,14 +592,14 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
       if (!e.target.closest('.chip') && !e.target.closest('.env-chip')
           && !e.target.closest('.badge-lights') && !e.target.closest('.status-seg-battery')
           && !e.target.closest('.status-seg-update') && !e.target.closest('.camera-preview')
-          && !e.target.closest('.controls-label.clickable') && !e.target.closest('.group-label.clickable')) navigate(navPath);
+          && !e.target.closest('.section-tab')) navigate(navPath);
     });
   }
 
-  // Every interactive element carries role="button" + tabindex="0" in its
-  // template; this one delegated listener turns Enter/Space into a click for
-  // all of them instead of a bespoke keydown handler per element type.
-  shadowRoot.querySelectorAll('[role="button"][tabindex]').forEach(el => {
+  // Every interactive element carries role="button"/"tab" + tabindex="0" in
+  // its template; this one delegated listener turns Enter/Space into a click
+  // for all of them instead of a bespoke keydown handler per element type.
+  shadowRoot.querySelectorAll('[role="button"][tabindex], [role="tab"][tabindex]').forEach(el => {
     el.addEventListener('keydown', e => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       e.preventDefault();
@@ -586,13 +608,12 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
     });
   });
 
-  // Controls/Settings/Diagnostics section headers — each toggles its own
-  // independent collapsed state on the host (collapsing Controls doesn't
-  // collapse Settings, and vice versa).
-  shadowRoot.querySelectorAll('.controls-label.clickable[data-section], .group-label.clickable[data-section]').forEach(el => {
+  // Controls/Settings/Diagnostics tabs — mutually exclusive; clicking the
+  // active tab again closes it (back to no panel shown).
+  shadowRoot.querySelectorAll('.section-tab[data-section]').forEach(el => {
     el.addEventListener('click', e => {
       e.stopPropagation();
-      host.toggleSectionCollapsed(el.dataset.section);
+      host.setActiveSection(el.dataset.section);
     });
   });
 
