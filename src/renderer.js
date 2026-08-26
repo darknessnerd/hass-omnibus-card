@@ -328,6 +328,16 @@ function renderWeatherChip({ weatherItems }) {
     </div>`;
 }
 
+function renderChipItems({ chipItems }) {
+    return `${chipItems.length ? `
+      <div class="entity-chips">
+        ${chipItems.map(({ entityId, isActive, icon, label, title }) => `
+          <div class="chip${isActive ? ' on' : ''}" data-entity="${entityId}" role="button" tabindex="0" aria-label="${title}" title="${title}">
+            <ha-icon icon="${icon}"></ha-icon>
+            <span class="chip-label">${label}</span>
+          </div>`).join('')}
+      </div>` : ''}`;
+}
 // Camera diagnostics (IP, PIR state, alarm codes, etc.) — read-only, so segments
 // carry no data-domain/on-state, just entity + label like the weather chip.
 function renderDiagnosticsChip({ diagnosticsItems }) {
@@ -343,21 +353,15 @@ function renderDiagnosticsChip({ diagnosticsItems }) {
 }
 
 function renderChips({ chipItems, weatherItems, diagnosticsItems, collapsibleControls, diagnosticsCollapsed }) {
-  const weatherSection     = renderGroupSection('Weather', 'group-label-weather', renderWeatherChip({ weatherItems }));
+  const chipsSection = renderGroupSection('', '', renderChipItems({ chipItems }));
+    const weatherSection     = renderGroupSection('Weather', 'group-label-weather', renderWeatherChip({ weatherItems }));
   const diagnosticsSection = renderGroupSection('Diagnostics', 'group-label-diagnostics', renderDiagnosticsChip({ diagnosticsItems }),
     { sectionKey: 'diagnostics', collapsible: collapsibleControls, collapsed: diagnosticsCollapsed });
   if (!chipItems.length && !weatherSection && !diagnosticsSection) return '';
-  return `
+  return `${chipsSection}
     ${weatherSection}
     ${diagnosticsSection}
-    ${chipItems.length ? `
-      <div class="entity-chips">
-        ${chipItems.map(({ entityId, isActive, icon, label, title }) => `
-          <div class="chip${isActive ? ' on' : ''}" data-entity="${entityId}" role="button" tabindex="0" aria-label="${title}" title="${title}">
-            <ha-icon icon="${icon}"></ha-icon>
-            <span class="chip-label">${label}</span>
-          </div>`).join('')}
-      </div>` : ''}`;
+    `;
 }
 
 function renderCameraPreview({ hasCamera, cameraImage, cameraIcon, cameraEntity, cameraTitle, cameraState, cameraOffline }) {

@@ -412,7 +412,7 @@ export const CARD_STYLES = `
      Diagnostics stays neutral on purpose — it's the "least important,
      read-only" bucket, and staying quiet is itself part of the hierarchy. */
   .group-section {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
 
   .group-label {
