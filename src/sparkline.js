@@ -24,7 +24,7 @@
  *      </svg>'
  *   (value 8, the min, maps to y=60/bottom; value 14, the max, maps to y=0/top;
  *    hovering/tapping any hit-target shows its value in a custom pill built
- *    from `data-v`, not a native title — see bindChartTooltip in renderer.js)
+ *    from `data-v`, not a native title — see bindChartTooltip in dom.js)
  *
  * When hc.threshold_high / threshold_low are set, the same area fill is
  * split into colored zones by drawing colored rectangles and clipping them
@@ -117,7 +117,7 @@ const DOT_MAX_POINTS = 40;
 
 // .stat-max/.stat-period/.stat-min corner labels (styles.js) always occupy
 // the top and bottom edges of the chart — a threshold guide line landing
-// under one is unreadable. Shared with renderer.js's .chart-threshold label
+// under one is unreadable. Shared with templates.js's .chart-threshold label
 // clamp so the dashed line and its caption stay visually paired instead of
 // the label drifting away from the line it's supposed to caption.
 export const CORNER_CLEARANCE_PCT = 14;
@@ -186,7 +186,7 @@ export function sparklineSvg(points, color, hc = null, unit = '') {
     if (!Number.isFinite(reduced[i].v)) return ''; // unavailable/unknown reading → no tooltip to show
     const label = `${reduced[i].v.toFixed(1)}${unit}`;
     // `data-v` backs the value pill + (dense-only) round marker dot shown on
-    // pointerenter/pointerleave (bindChartTooltip in renderer.js) — no native
+    // pointerenter/pointerleave (bindChartTooltip in dom.js) — no native
     // <title> here, it'd show its own delayed browser tooltip on top of ours.
     return `<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="${hitR}" fill="transparent" data-v="${label}"/>`;
   }).join('');
@@ -211,7 +211,7 @@ export function sparklineSvg(points, color, hc = null, unit = '') {
   // position, clamped to the chart so out-of-range thresholds degrade to
   // a full-height or zero-height rect instead of drawing off-canvas.
   const toY = v => Math.max(0, Math.min(H, H - ((v - min) / effectiveRange) * H));
-  // Only the dashed *line* (and its label in renderer.js) nudge away from the
+  // Only the dashed *line* (and its label in templates.js) nudge away from the
   // corners — the colored rect fills below stay at the true, unclamped
   // position since they encode real data, not a caption.
   const clearance = H * (CORNER_CLEARANCE_PCT / 100);

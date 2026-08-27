@@ -591,13 +591,15 @@ Module responsibilities (`src/`):
 ```
 index.js        — registers custom element, emits HACS init log
 card.js         — HA lifecycle (setConfig / set hass), hash-diff guard, _update()
-renderer.js     — buildViewModel() + render() + template functions (pure)
-discovery.js    — getAreaEntities(), classify(), filterEntities()
+viewModel.js    — buildViewModel() — hass/config → plain view-model object (pure)
+templates.js    — renderCard() + template functions — (ViewModel) → HTML string (pure)
+dom.js          — render(), refreshCameraImage(), bindEvents() — the only DOM writes
+discovery.js    — getAreaEntities(), classify(), filterEntities(), groupTabsByDevice()
 aggregators.js  — average(), anyOn(), activeLights(), rgbColor() (pure)
 sparkline.js    — sparklineSvg() — SVG string generator, y_min/y_max/thresholds
 history.js      — callWS history fetch, TTL cache, async callback
 events.js       — fireMoreInfo(), navigate()
-utils.js        — friendlyLabel(), entityIcon()
+utils.js        — friendlyLabel(), entityIcon(), deviceLabel()
 constants.js    — CARD_TAG, CARD_VERSION, ACTIVE_STATES, icon maps, CLIMATE_MAP
 styles.js       — CARD_STYLES CSS string
 ```

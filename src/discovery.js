@@ -4,7 +4,7 @@
  * Open for extension: add new buckets to classify() without touching the card.
  */
 
-import { deviceLabel } from './utils.js';
+import { deviceLabel, uniqueLabels } from './utils.js';
 
 /**
  * Returns all entities that belong to the given area.
@@ -151,9 +151,30 @@ export function classify(areaEntities) {
   return out;
 }
 
+// Label collisions only matter within the same rendered pill — once tabs are
+// per-device, that's a device's own controls+settings+diagnostics segments
+// (ptz segments carry no label, so they're excluded), not the whole area.
+// Deduping per role *before* grouping (the old fixed Controls/Settings/
+// Diagnostics-tab world) was too broad — two unrelated devices' items
+// sharing a label got needlessly disambiguated even though they now render
+// in separate tabs — and too narrow — a settings item and a diagnostics
+// item on the *same* device, sharing a tab, never got compared against each
+// other since each role was deduped in its own array. Running it once per
+// device, across all three label-bearing roles combined, fixes both.
+function dedupeBucketLabels(bucket) {
+  const { controls, settings, diagnostics } = bucket;
+  const combined = uniqueLabels([...controls, ...settings, ...diagnostics]);
+  return {
+    ptz: bucket.ptz,
+    controls:    combined.slice(0, controls.length),
+    settings:    combined.slice(controls.length, controls.length + settings.length),
+    diagnostics: combined.slice(controls.length + settings.length),
+  };
+}
+
 /**
  * Regroups the Controls/Settings/Diagnostics tab pools (ptz/controls/settings/
- * diagnostics — the display-mapped arrays from renderer.js buildViewModel,
+ * diagnostics — the display-mapped arrays from viewModel.js buildViewModel,
  * each item still carrying its original `deviceId`) by physical device, so
  * the tab strip reads "which device is this" instead of "what kind of action
  * is this". A device pushing only 1 item into these pools isn't worth its own
@@ -184,15 +205,17 @@ export function groupTabsByDevice(hass, { ptz, controls, settings, diagnostics }
   }
 
   const groups = [];
-  const other  = emptyBucket();
+  let other  = emptyBucket();
   for (const [deviceId, bucket] of byDevice) {
     if (deviceId == null || countOf(bucket) < 2) {
       for (const role of ['ptz', 'controls', 'settings', 'diagnostics']) other[role].push(...bucket[role]);
     } else {
-      const allItems = [...bucket.ptz, ...bucket.controls, ...bucket.settings, ...bucket.diagnostics];
-      groups.push({ key: deviceId, label: deviceLabel(hass, deviceId, allItems), ...bucket });
+      const deduped  = dedupeBucketLabels(bucket);
+      const allItems = [...deduped.ptz, ...deduped.controls, ...deduped.settings, ...deduped.diagnostics];
+      groups.push({ key: deviceId, label: deviceLabel(hass, deviceId, allItems), ...deduped });
     }
   }
+  other = dedupeBucketLabels(other);
 
   groups.sort((a, b) => {
     if (a.key === cameraDeviceId) return -1;

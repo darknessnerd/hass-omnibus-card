@@ -4,9 +4,10 @@
  * Single Responsibility: manage the HA interface contract.
  */
 
-import { getAreaEntities }     from './discovery.js';
-import { buildViewModel, render, refreshCameraImage } from './renderer.js';
-import { getHistory }            from './history.js';
+import { getAreaEntities }            from './discovery.js';
+import { buildViewModel }             from './viewModel.js';
+import { render, refreshCameraImage } from './dom.js';
+import { getHistory }                 from './history.js';
 
 export class HassOmnibusCard extends HTMLElement {
 

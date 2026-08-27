@@ -113,7 +113,7 @@ export const CARD_STYLES = `
     transform: translateY(-50%);
   }
 
-  /* Tap-to-show value pill for touch devices (bindChartTooltip in renderer.js)
+  /* Tap-to-show value pill for touch devices (bindChartTooltip in dom.js)
      — native SVG <title> tooltips never fire on touch, so this is the only
      feedback a tap on a hit-target circle gets. Positioned via left/top %
      set inline from the tapped circle's own viewBox coordinates. */
@@ -134,7 +134,7 @@ export const CARD_STYLES = `
      aspect ratio is far from the chart's native 300:60, the circle renders
      as a tall/wide ellipse, not a dot. This is a plain HTML marker instead,
      sized in real pixels and positioned by percentage (bindChartTooltip in
-     renderer.js), so it stays round regardless of how the chart is stretched. */
+     dom.js), so it stays round regardless of how the chart is stretched. */
   .chart-hover-dot {
     display: none;
     width: 6px;

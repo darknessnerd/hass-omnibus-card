@@ -146,9 +146,19 @@ test('IR blaster with no camera: a second, unrelated 2-entity device (LED) sweep
 
 const HASS_NO_NAMES = { devices: {} };
 
+// groupTabsByDevice dedupes segment labels per device tab (see
+// dedupeBucketLabels in discovery.js), so it expects the already
+// display-mapped shape viewModel.js's mapEntityItem produces — not classify()'s
+// raw { entityId, state, deviceId } items. label/fullName content doesn't
+// matter for these tests (none assert on rendered label text), just presence.
+const withLabels = items => items.map(i => ({ ...i, label: i.entityId, fullName: i.entityId }));
+const asDisplayPools = ({ ptz, controls, settings, diagnostics }) => ({
+  ptz: withLabels(ptz), controls: withLabels(controls), settings: withLabels(settings), diagnostics: withLabels(diagnostics),
+});
+
 test('groupTabsByDevice: one device pushing every role (ptz/controls/settings/diagnostics) gets a single tab with nothing lost', () => {
   const { ptz, controls, settings, diagnostics } = classify(REAL_AREA_ENTITIES);
-  const groups = groupTabsByDevice(HASS_NO_NAMES, { ptz, controls, settings, diagnostics });
+  const groups = groupTabsByDevice(HASS_NO_NAMES, asDisplayPools({ ptz, controls, settings, diagnostics }));
   assert.equal(groups.length, 1);
   const [group] = groups;
   assert.equal(group.key, CAM_DEVICE);
@@ -160,14 +170,14 @@ test('groupTabsByDevice: one device pushing every role (ptz/controls/settings/di
 
 test('groupTabsByDevice: falls back to the common entity_id prefix as a label when the device registry has no name', () => {
   const { ptz, controls, settings, diagnostics } = classify(REAL_AREA_ENTITIES);
-  const [group] = groupTabsByDevice(HASS_NO_NAMES, { ptz, controls, settings, diagnostics });
+  const [group] = groupTabsByDevice(HASS_NO_NAMES, asDisplayPools({ ptz, controls, settings, diagnostics }));
   assert.equal(group.label, 'Esterno Cb8c Bh2113803');
 });
 
 test('groupTabsByDevice: device registry name wins over the fallback', () => {
   const { ptz, controls, settings, diagnostics } = classify(REAL_AREA_ENTITIES);
   const hass = { devices: { [CAM_DEVICE]: { name: 'Esterno Cam' } } };
-  const [group] = groupTabsByDevice(hass, { ptz, controls, settings, diagnostics });
+  const [group] = groupTabsByDevice(hass, asDisplayPools({ ptz, controls, settings, diagnostics }));
   assert.equal(group.label, 'Esterno Cam');
 });
 
@@ -177,7 +187,7 @@ test('groupTabsByDevice: device registry name wins over the fallback', () => {
 // not in any of the ptz/controls/settings/diagnostics pools passed in below.
 test('groupTabsByDevice: IR blaster + LED each get their own tab, independently of each other', () => {
   const { ptz, controls, settings, diagnostics } = classify(IR_AREA_ENTITIES);
-  const groups = groupTabsByDevice(HASS_NO_NAMES, { ptz, controls, settings, diagnostics });
+  const groups = groupTabsByDevice(HASS_NO_NAMES, asDisplayPools({ ptz, controls, settings, diagnostics }));
   const byKey = Object.fromEntries(groups.map(g => [g.key, g]));
 
   assert.ok(byKey[IR_DEVICE]);
@@ -198,7 +208,7 @@ test('groupTabsByDevice: IR blaster + LED each get their own tab, independently 
 test('groupTabsByDevice: a lone control-pool item on a single-entity device folds into "Other"', () => {
   const items = {
     ptz: [],
-    controls: [{ entityId: 'button.lone_button', deviceId: 'dev_lone_button' }],
+    controls: [{ entityId: 'button.lone_button', deviceId: 'dev_lone_button', label: 'lone_button', fullName: 'lone_button' }],
     settings: [],
     diagnostics: [],
   };
@@ -214,16 +224,58 @@ test('groupTabsByDevice: the camera\'s device tab always sorts first, regardless
     ptz: [],
     controls: [],
     settings: [
-      { entityId: 'switch.big_device_a', deviceId: 'dev_big' },
-      { entityId: 'switch.big_device_b', deviceId: 'dev_big' },
-      { entityId: 'switch.big_device_c', deviceId: 'dev_big' },
-      { entityId: 'switch.cam_device_a', deviceId: 'dev_cam' },
-      { entityId: 'switch.cam_device_b', deviceId: 'dev_cam' },
+      { entityId: 'switch.big_device_a', deviceId: 'dev_big', label: 'a', fullName: 'a' },
+      { entityId: 'switch.big_device_b', deviceId: 'dev_big', label: 'b', fullName: 'b' },
+      { entityId: 'switch.big_device_c', deviceId: 'dev_big', label: 'c', fullName: 'c' },
+      { entityId: 'switch.cam_device_a', deviceId: 'dev_cam', label: 'a', fullName: 'a' },
+      { entityId: 'switch.cam_device_b', deviceId: 'dev_cam', label: 'b', fullName: 'b' },
     ],
     diagnostics: [],
   };
   const groups = groupTabsByDevice(HASS_NO_NAMES, items, 'dev_cam');
   assert.deepEqual(groups.map(g => g.key), ['dev_cam', 'dev_big']);
+});
+
+// Label collisions only matter within the same rendered tab — dedupeBucketLabels
+// runs per device, not across the whole area. dev_big and dev_cam each have
+// their own "a"/"b" labels above; since they render in separate tabs, neither
+// should get needlessly disambiguated just because the other device also has
+// an "a" and a "b".
+test('groupTabsByDevice: same label on two different devices does not trigger cross-device disambiguation', () => {
+  const items = {
+    ptz: [],
+    controls: [],
+    settings: [
+      { entityId: 'switch.big_device_a', deviceId: 'dev_big', label: 'a', fullName: 'a' },
+      { entityId: 'switch.big_device_b', deviceId: 'dev_big', label: 'b', fullName: 'b' },
+      { entityId: 'switch.big_device_c', deviceId: 'dev_big', label: 'c', fullName: 'c' },
+      { entityId: 'switch.cam_device_a', deviceId: 'dev_cam', label: 'a', fullName: 'a' },
+      { entityId: 'switch.cam_device_b', deviceId: 'dev_cam', label: 'b', fullName: 'b' },
+    ],
+    diagnostics: [],
+  };
+  const groups = groupTabsByDevice(HASS_NO_NAMES, items, 'dev_cam');
+  const byKey = Object.fromEntries(groups.map(g => [g.key, g]));
+  assert.deepEqual(byKey.dev_big.settings.map(s => s.label), ['a', 'b', 'c']);
+  assert.deepEqual(byKey.dev_cam.settings.map(s => s.label), ['a', 'b']);
+});
+
+// The inverse case: a settings item and a diagnostics item on the *same*
+// device, both rendering inside that device's one tab, DO need to be
+// compared against each other — the old per-role (not per-device) dedup
+// missed this, since settings/diagnostics were deduped in separate arrays.
+test('groupTabsByDevice: colliding labels across roles on the SAME device get disambiguated', () => {
+  const items = {
+    ptz: [],
+    controls: [],
+    settings: [{ entityId: 'switch.dev_x_power', deviceId: 'dev_x', label: 'Power', fullName: 'Dev X Power' }],
+    diagnostics: [{ entityId: 'sensor.dev_x_power', deviceId: 'dev_x', label: 'Power', fullName: 'Dev X Sensor Power' }],
+  };
+  const groups = groupTabsByDevice(HASS_NO_NAMES, items);
+  const [group] = groups;
+  const labels = [...group.settings, ...group.diagnostics].map(i => i.label);
+  assert.notDeepEqual(labels, ['Power', 'Power']);
+  assert.equal(new Set(labels).size, 2);
 });
 
 // Third real production shape, no camera at all: a D017 dehumidifier device
@@ -275,7 +327,7 @@ test('groupTabsByDevice: D017 dehumidifier and THS sensor get independent tabs, 
       [THS_DEVICE]: { name: 'ripostiglio_interno_ths' },
     },
   };
-  const groups = groupTabsByDevice(hass, { ptz, controls, settings, diagnostics });
+  const groups = groupTabsByDevice(hass, asDisplayPools({ ptz, controls, settings, diagnostics }));
   const byKey = Object.fromEntries(groups.map(g => [g.key, g]));
 
   assert.equal(byKey[D017_DEVICE].label, 'D017-Dehumidifier-5V');

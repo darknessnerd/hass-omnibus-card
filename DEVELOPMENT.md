@@ -34,7 +34,9 @@ graph TD
   end
 
   subgraph view["View layer"]
-    renderer["renderer.js\nbuildViewModel · templates · render"]
+    viewModel["viewModel.js\nbuildViewModel"]
+    templates["templates.js\nrenderCard · renderErrorCard"]
+    dom["dom.js\nrender · refreshCameraImage · bindEvents"]
     styles["styles.js\nCSS string"]
     sparkline["sparkline.js\nsparklineSvg"]
   end
@@ -55,16 +57,20 @@ graph TD
   index --> constants
 
   card --> discovery
-  card --> renderer
+  card --> viewModel
+  card --> dom
   card --> history
 
-  renderer --> styles
-  renderer --> constants
-  renderer --> discovery
-  renderer --> aggregators
-  renderer --> utils
-  renderer --> events
-  renderer --> sparkline
+  viewModel --> constants
+  viewModel --> discovery
+  viewModel --> aggregators
+  viewModel --> utils
+
+  templates --> styles
+  templates --> sparkline
+
+  dom --> templates
+  dom --> events
 
   discovery --> utils
   utils --> constants
@@ -78,7 +84,8 @@ sequenceDiagram
   participant C  as card.js
   participant H  as history.js
   participant D  as discovery.js
-  participant R  as renderer.js
+  participant VM as viewModel.js
+  participant DM as dom.js
   participant DOM as Shadow DOM
 
   HA->>C: setConfig(config)
@@ -107,15 +114,15 @@ sequenceDiagram
       end
     end
 
-    C->>R: buildViewModel(hass, config, historyPoints)
-    note over R: filterEntities → classify → groupTabsByDevice → aggregate → pre-compute chip + sparkline data
-    R-->>C: view model (plain object, no DOM)
-    C->>R: render(shadowRoot, host, vm)
-    R->>DOM: shadowRoot.innerHTML = renderCard(vm)
-    note over H,R: historyPoints is [{t,v}, ...] — real timestamp per reading,\nso the chart's x-axis tracks elapsed time, not array order
-    note over R,DOM: vm.historyPoints → sparklineSvg() injected as .bg-chart SVG layer\n(memoized by points/color/hc/unit reference — unrelated re-renders skip SVG rebuild)
-    R->>DOM: bindEvents(shadowRoot, host, vm)
-    note over R,DOM: bindChartTooltip wires pointerenter/pointerleave on hit-target\ncircles → value pill + (dense-series-only) round marker dot
+    C->>VM: buildViewModel(hass, config, historyPoints)
+    note over VM: filterEntities → classify → groupTabsByDevice → aggregate → pre-compute chip + sparkline data
+    VM-->>C: view model (plain object, no DOM)
+    C->>DM: render(shadowRoot, host, vm)
+    DM->>DOM: shadowRoot.innerHTML = renderCard(vm)  (renderCard lives in templates.js)
+    note over H,DM: historyPoints is [{t,v}, ...] — real timestamp per reading,\nso the chart's x-axis tracks elapsed time, not array order
+    note over DM,DOM: vm.historyPoints → sparklineSvg() injected as .bg-chart SVG layer\n(memoized by points/color/hc/unit reference — unrelated re-renders skip SVG rebuild)
+    DM->>DOM: bindEvents(shadowRoot, host, vm)
+    note over DM,DOM: bindChartTooltip wires pointerenter/pointerleave on hit-target\ncircles → value pill + (dense-series-only) round marker dot
   else hash unchanged
     C->>C: skip render
   end
@@ -123,8 +130,8 @@ sequenceDiagram
   opt camera_refresh_interval configured
     note over C: setInterval started in setConfig() / connectedCallback(),\ncleared in disconnectedCallback() — independent of the hash guard above
     loop every N minutes
-      C->>R: refreshCameraImage(shadowRoot)
-      R->>DOM: bump <img> src query param (cache-bust, no HA service call)
+      C->>DM: refreshCameraImage(shadowRoot)
+      DM->>DOM: bump <img> src query param (cache-bust, no HA service call)
     end
   end
 ```
@@ -182,7 +189,9 @@ card-ha/
 │  ├─ events.js                # fireMoreInfo(), navigate()
 │  ├─ history.js               # getHistory() — callWS wrapper with 5-min TTL cache
 │  ├─ sparkline.js             # sparklineSvg() — inline SVG background chart
-│  └─ renderer.js              # buildViewModel() + templates + render()
+│  ├─ viewModel.js             # buildViewModel() — hass/config → plain view-model object
+│  ├─ templates.js             # renderCard() + renderErrorCard() — (ViewModel) → HTML string
+│  └─ dom.js                   # render(), refreshCameraImage(), bindEvents() — the only DOM writes
 ├─ dist/
 │  └─ hass-omnibus-card.js     # built IIFE — commit before tagging
 ├─ tests/
@@ -228,7 +237,7 @@ HA creates one instance of `HassOmnibusCard` per card on the dashboard.
 | `getConfigElement()` | Visual editor requested | Return `<ha-form>` element (optional) |
 | `getStubConfig()` | Card picker "Add card" | Return minimal valid config object |
 
-`camera_refresh_interval` (minutes, optional) drives a `setInterval` that calls `refreshCameraImage(shadowRoot)` — the same URL-cache-busting logic as the manual refresh button (`src/renderer.js`), just triggered on a timer instead of a click. It only touches the `<img>` src, never `_update()`/hash guard, so it doesn't disturb focus or collapsed-section state.
+`camera_refresh_interval` (minutes, optional) drives a `setInterval` that calls `refreshCameraImage(shadowRoot)` — the same URL-cache-busting logic as the manual refresh button (`src/dom.js`), just triggered on a timer instead of a click. It only touches the `<img>` src, never `_update()`/hash guard, so it doesn't disturb focus or collapsed-section state.
 
 ### State model
 
@@ -346,13 +355,16 @@ The hash includes:
 
 The card uses `innerHTML` on the Shadow Root for simplicity — no virtual DOM, no Lit reactive properties. This is intentional: the diff guard ensures re-renders are infrequent enough that full `innerHTML` replacement has no perceptible cost.
 
-`src/renderer.js` handles all rendering in two steps:
+Rendering is split across three modules, each with one job:
 
 ```javascript
-// 1. buildViewModel() — pure, no DOM access
+// 1. viewModel.js — buildViewModel(): pure, no DOM access
 const vm = buildViewModel(hass, config);   // → plain object
 
-// 2. render() — single innerHTML write, then bind events
+// 2. templates.js — renderCard()/renderErrorCard(): pure, (ViewModel) → HTML string
+// (consumed by dom.js below, never called directly outside it)
+
+// 3. dom.js — render(): single innerHTML write, then bind events
 export function render(shadowRoot, host, vm) {
   shadowRoot.innerHTML = vm.error ? renderErrorCard(vm.error) : renderCard(vm);
   if (!vm.error) bindEvents(shadowRoot, host, vm);
@@ -413,7 +425,7 @@ const out = {
 }
 ```
 
-**Step 2** — expose computed fan data in `src/renderer.js` → `buildViewModel()`:
+**Step 2** — expose computed fan data in `src/viewModel.js` → `buildViewModel()`:
 
 ```javascript
 const activeFans = c.fans.filter(f => f.state.state === 'on');
@@ -421,7 +433,7 @@ const activeFans = c.fans.filter(f => f.state.state === 'on');
 fanCount: activeFans.length,
 ```
 
-**Step 3** — add a template function in `src/renderer.js`:
+**Step 3** — add a template function in `src/templates.js`:
 
 ```javascript
 function renderFanBadge({ fanCount }) {
@@ -490,7 +502,7 @@ numeric/enum state rather than a simple on/off.
 ## How to add a config option
 
 1. Add it to the YAML config reference in `README.md`
-2. Read it in `src/renderer.js` → `buildViewModel()` via `config.your_option ?? defaultValue`
+2. Read it in `src/viewModel.js` → `buildViewModel()` via `config.your_option ?? defaultValue`
 3. Expose it as a view model field and use it in the relevant template function
 4. Update `getStubConfig()` in `src/card.js` if it should appear in the card picker stub
 5. No validation framework — HA displays `setConfig()` thrown errors as a red card
@@ -498,7 +510,7 @@ numeric/enum state rather than a simple on/off.
 Example — add `show_climate: false` option:
 
 ```javascript
-// In buildViewModel() — src/renderer.js:
+// In buildViewModel() — src/viewModel.js:
 showClimate: config.show_climate !== false,   // default true
 
 // In renderEnvRow() template function:
@@ -846,7 +858,7 @@ set hass(hass) {
 
 ### innerHTML event listeners lost after re-render
 
-All `addEventListener` calls in `bindEvents()` (`src/renderer.js`) target the freshly-written DOM. They are discarded on the next `innerHTML` write together with those elements. This is intentional — `bindEvents()` is always called immediately after each `innerHTML` write, so listeners are always current.
+All `addEventListener` calls in `bindEvents()` (`src/dom.js`) target the freshly-written DOM. They are discarded on the next `innerHTML` write together with those elements. This is intentional — `bindEvents()` is always called immediately after each `innerHTML` write, so listeners are always current.
 
 ---
 
