@@ -552,6 +552,7 @@ export const CARD_STYLES = `
      at 3 — wrap onto a second row (bar above) and ellipsis any single label
      that's still too long for one tab, rather than overflowing the card. */
   .section-tab {
+    display: inline-block;
     max-width: 6.5rem;
     padding: 3px 9px;
     border-radius: 12px;
@@ -584,6 +585,7 @@ export const CARD_STYLES = `
 
   .section-tab-panel.active {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
   }
 
