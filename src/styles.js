@@ -42,11 +42,26 @@ export const CARD_STYLES = `
 
   /* ── Layout ── */
 
+  /* max-height caps these three to roughly a card's height with no device
+     tab open (camera preview + header + env row + chips + tab bar) — an open
+     tab's own content isn't part of what the chart is meant to back. Without
+     this, growing a tab (see .section-tab-panel — no scroll cap, by design)
+     stretches the chart/hit-layer proportionally with it: since top+bottom
+     stay pinned (inset: 0) but the container's actual height grows, every
+     percentage-positioned hit-target circle drifts further down in real
+     pixels, eventually landing on top of unrelated controls below the chart
+     (confirmed: it could intercept clicks on a second device tab once a
+     first tab's content had pushed the card tall enough). max-height clamps
+     the box at that ceiling instead, anchored to the top via inset: 0's own
+     top: 0 — content taller than the cap just grows past the chart's
+     bottom edge rather than dragging the chart (and its hit-targets) down
+     with it. */
   .bg-chart {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
+    max-height: 22rem;
     z-index: 0;
     pointer-events: none;
   }
@@ -54,19 +69,29 @@ export const CARD_STYLES = `
   .chart-overlay {
     position: absolute;
     inset: 0;
+    max-height: 22rem;
     pointer-events: none;
     z-index: 0;
   }
 
-  /* Invisible hover hit-targets for sparkline dots — must sit ABOVE
-     .card-content (z-index 1), otherwise it swallows the hover before it
-     reaches the (visually lower, z-index 0) sparkline dots underneath. */
+  /* Invisible hover hit-targets for sparkline dots — sit BELOW .card-content
+     (z-index 2), on purpose: real controls (a device tab, a chip) always win
+     a click/hover over an invisible dot that happens to share their screen
+     position, rather than the dot silently swallowing it. This used to be
+     inverted (hit-layer above card-content, so a dot's hover would register
+     even where content visually covered it) — confirmed broken by a real
+     case: a dense series' hit-target circle landed exactly on a second
+     device tab and ate every click meant for it. The cost is dot-hover only
+     works where the chart is visually exposed (gaps between chips/tabs), not
+     "through" solid content — a worse hover nicety is a fair trade for
+     controls that are reliably clickable everywhere. */
   .chart-hit-layer {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    z-index: 2;
+    max-height: 22rem;
+    z-index: 1;
     pointer-events: none;
   }
 
@@ -148,7 +173,7 @@ export const CARD_STYLES = `
 
   .card-content {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     padding: 14px 16px 12px;
   }
 
@@ -431,6 +456,28 @@ export const CARD_STYLES = `
 
   .group-label-weather { color: var(--primary-color, #03a9f4); }
 
+  /* Sub-caption for a role's pill (PTZ/Controls/Settings/Diagnostics) inside
+     one device's tab/stacked group. Once a device bundles multiple role
+     pills together, the tab/group label alone ("Cam Cucina") no longer says
+     where its settings end and its diagnostics begin — this restores that
+     boundary as a text caption rather than a forced color, so diagnostics
+     can stay visually neutral (see .group-section above) while still being
+     distinguishable from ptz/controls above/below it. Smaller and dimmer
+     than .group-label — it's one level deeper, captioning a pill within a
+     device, not the device itself. */
+  .device-role { margin-bottom: 6px; }
+  .device-role:last-child { margin-bottom: 0; }
+
+  .device-role-label {
+    display: block;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.5;
+    margin-bottom: 2px;
+  }
+
   .weather-chip  { background: rgba(3, 169, 244, 0.08); }
   .settings-chip { background: rgba(84, 110, 122, 0.14); }
 
@@ -528,13 +575,17 @@ export const CARD_STYLES = `
 
   .camera-refresh-btn ha-icon { --mdc-icon-size: 14px; }
 
-  /* ── Section tabs (Controls / Settings / Diagnostics, collapsible_controls
-     default) ── One exclusive tab strip instead of three independent
-     chevron accordions: only the active tab's pill is ever in the DOM, so
-     switching tabs can never stack height on top of an already-open one —
-     at most one panel's worth of card-height change, capped by max-height so
-     a long pill scrolls internally instead of pushing sibling cards around
-     in a dashboard grid. */
+  /* ── Section tabs (one per device, collapsible_controls default) ── One
+     exclusive tab strip instead of one accordion per device: only the
+     active tab's pill is ever visible, so switching tabs can never stack
+     height on top of an already-open one — at most one panel's worth of
+     card-height change. No internal scroll/max-height on purpose: a nested
+     scroll region inside a card that's already inside a scrolling dashboard
+     is a scroll trap on touch (a swipe meant for the page scrolls the tiny
+     box instead), and a hard-clipped edge with no fade/affordance reads as
+     "that's everything" rather than "there's more below" — a busy device
+     (a real IR blaster can expose 25+ segments) just makes the card taller
+     instead of hiding content either way. */
   .section-tabs {
     margin-top: 8px;
   }
@@ -579,8 +630,6 @@ export const CARD_STYLES = `
 
   .section-tab-panel {
     display: none;
-    max-height: 6.5rem;
-    overflow-y: auto;
   }
 
   .section-tab-panel.active {

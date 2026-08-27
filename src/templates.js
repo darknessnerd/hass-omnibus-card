@@ -223,20 +223,43 @@ function renderSettingsChip({ settingsItems }) {
 // again clears activeSection back to none (see dom.js bindEvents).
 // collapsible_controls: false opts out entirely into the old always-expanded
 // stacked layout (no tabs, nothing ever hidden).
+// Sub-caption per role within a device's tab — once ptz/controls/settings/
+// diagnostics share one device tab instead of each owning its own labeled
+// tab, the role boundary between them (e.g. "where do this device's settings
+// end and its diagnostics begin") has no other cue: only .settings-chip
+// carries a background tint, ptz/controls/diagnostics all render as the same
+// neutral grey pill (diagnostics is neutral on purpose, see .group-label
+// below — a text caption doesn't fight that, a forced color would).
+const ROLE_LABELS = { ptz: 'PTZ', controls: 'Controls', settings: 'Settings', diagnostics: 'Diagnostics' };
+
+function renderDeviceRoleSections({ ptz, controls, settings, diagnostics }) {
+  return [
+    { role: 'ptz',         pill: renderPtzChip({ ptzItems: ptz }) },
+    { role: 'controls',    pill: renderControlsChip({ controlItems: controls }) },
+    { role: 'settings',    pill: renderSettingsChip({ settingsItems: settings }) },
+    { role: 'diagnostics', pill: renderDiagnosticsChip({ diagnosticsItems: diagnostics }) },
+  ].filter(s => s.pill);
+}
+
+function renderRoleSections(roleSections) {
+  return roleSections.map(({ role, pill }) => `
+    <div class="device-role">
+      <span class="device-role-label">${ROLE_LABELS[role]}</span>
+      ${pill}
+    </div>`).join('');
+}
+
 function renderSectionGroup({ deviceGroups, collapsibleControls, activeSection }) {
-  const sections = deviceGroups.map(({ key, label, ptz, controls, settings, diagnostics }) => ({
-    key,
-    label,
-    pill: renderPtzChip({ ptzItems: ptz }) + renderControlsChip({ controlItems: controls })
-        + renderSettingsChip({ settingsItems: settings }) + renderDiagnosticsChip({ diagnosticsItems: diagnostics }),
-  })).filter(s => s.pill);
+  const sections = deviceGroups
+    .map(({ key, label, ptz, controls, settings, diagnostics }) => ({ key, label, roleSections: renderDeviceRoleSections({ ptz, controls, settings, diagnostics }) }))
+    .filter(s => s.roleSections.length);
   if (!sections.length) return '';
 
   if (!collapsibleControls) {
-    return sections.map(({ label, pill }) => `
+    return sections.map(({ label, roleSections }) => `
       <div class="group-section">
         <span class="group-label">${label}</span>
-        <div class="group-pill">${pill}</div>
+        ${renderRoleSections(roleSections)}
       </div>`).join('');
   }
 
@@ -247,8 +270,8 @@ function renderSectionGroup({ deviceGroups, collapsibleControls, activeSection }
           <span class="section-tab${activeSection === key ? ' active' : ''}" data-section="${key}"
             role="tab" tabindex="0" aria-selected="${activeSection === key}" title="${label}">${label}</span>`).join('')}
       </div>
-      ${sections.map(({ key, pill }) => `
-        <div class="section-tab-panel${activeSection === key ? ' active' : ''}">${pill}</div>`).join('')}
+      ${sections.map(({ key, roleSections }) => `
+        <div class="section-tab-panel${activeSection === key ? ' active' : ''}">${renderRoleSections(roleSections)}</div>`).join('')}
     </div>`;
 }
 

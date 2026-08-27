@@ -798,6 +798,25 @@ test('section tabs — device tab is keyboard-focusable and toggles on Enter/Spa
   await expect(panel).toHaveCount(0);
 });
 
+test('section tabs — a device with all 4 roles captions each role pill and has no scroll cap on the panel', async ({ page }) => {
+  // dev_cam (garage) carries ptz + controls + settings + diagnostics all at
+  // once — the real multi-role shape (e.g. a camera device) that used to lose
+  // its role boundary once bundled into one device tab with no per-tab label.
+  await mount(page, { area: 'garage', max_entities: 20 });
+  await page.locator('#mount').locator('.section-tab[data-section="dev_cam"]').click();
+  const panel = page.locator('#mount').locator('.section-tab-panel.active');
+
+  const labels = panel.locator('.device-role-label');
+  await expect(labels).toHaveCount(4);
+  await expect(labels).toHaveText(['PTZ', 'Controls', 'Settings', 'Diagnostics']);
+
+  // no nested scroll region — a busy device grows the card instead
+  const overflowY = await panel.evaluate(el => getComputedStyle(el).overflowY);
+  expect(overflowY).toBe('visible');
+  const maxHeight = await panel.evaluate(el => getComputedStyle(el).maxHeight);
+  expect(maxHeight).toBe('none');
+});
+
 test('re-render with a focused multi-class element (e.g. badge-lights "off") does not throw', async ({ page }) => {
   // regression: className "badge badge-lights off " (trailing space when
   // has-offline is empty) split into a trailing empty token, producing the
