@@ -10,7 +10,7 @@
 
 import { CLIMATE_MAP, ACTIVE_STATES, PTZ_ICON } from './constants.js';
 import { CARD_STYLES }                from './styles.js';
-import { getAreaEntities, classify, filterEntities } from './discovery.js';
+import { getAreaEntities, classify, filterEntities, groupTabsByDevice } from './discovery.js';
 import { average, anyOn, activeLights, rgbColor, lowestBattery } from './aggregators.js';
 import { friendlyLabel, entityIcon, batteryIcon, uniqueLabels, resolveThreshold } from './utils.js';
 import { fireMoreInfo, navigate }     from './events.js';
@@ -71,8 +71,9 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
   const pendingUpdates = c.updates.filter(u => u.state.state === 'on');
 
   const controlItems = config.show_entities !== false
-    ? uniqueLabels(c.controls.map(({ entityId, state }) => ({
+    ? uniqueLabels(c.controls.map(({ entityId, state, deviceId }) => ({
         entityId,
+        deviceId,
         domain:   entityId.split('.')[0],
         isActive: ACTIVE_STATES.has(state.state),
         icon:     entityIcon(entityId, state),
@@ -82,12 +83,14 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
       })))
     : [];
 
-  // switch/select/number/lock/cover, etc. sharing a device with the area's
-  // camera — configuration toggles, distinct from the one-shot "press to
-  // act" items (siren/buttons) that stay in controlItems. See discovery.js.
+  // switch/select/number/lock/cover, etc. sharing a device with another
+  // operable/settings-style entity — configuration toggles, distinct from
+  // the one-shot "press to act" items (siren/buttons) that stay in
+  // controlItems. See discovery.js classify().
   const settingsItems = config.show_entities !== false
-    ? uniqueLabels(c.settings.map(({ entityId, state }) => ({
+    ? uniqueLabels(c.settings.map(({ entityId, state, deviceId }) => ({
         entityId,
+        deviceId,
         domain:   entityId.split('.')[0],
         isActive: ACTIVE_STATES.has(state.state),
         icon:     entityIcon(entityId, state),
@@ -99,21 +102,24 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
 
   // grouped into one pill instead of one chip per PTZ button
   const ptzItems = config.show_entities !== false
-    ? c.ptz.map(({ entityId, state, direction }) => ({
+    ? c.ptz.map(({ entityId, state, direction, deviceId }) => ({
         entityId,
+        deviceId,
         direction,
         icon:  PTZ_ICON[direction],
         title: state.attributes?.friendly_name ?? entityId,
       }))
     : [];
 
-  // read-only sensors/binary_sensors/image sharing a device with the area's
-  // camera (IP, PIR state, alarm codes, etc.) — grouped into their own pill
-  // once there are enough of them (see discovery.js) instead of padding out
-  // the generic chip strip with near-identical grey chips.
+  // read-only sensors/binary_sensors/image sharing a device with another
+  // operable/settings-style entity (IP, PIR state, alarm codes, etc.) —
+  // grouped into their own pill once there are enough of them (see
+  // discovery.js) instead of padding out the generic chip strip with
+  // near-identical grey chips.
   const diagnosticsItems = config.show_entities !== false
-    ? uniqueLabels(c.diagnostics.map(({ entityId, state }) => ({
+    ? uniqueLabels(c.diagnostics.map(({ entityId, state, deviceId }) => ({
         entityId,
+        deviceId,
         icon:     entityIcon(entityId, state),
         label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
         fullName: state.attributes?.friendly_name ?? entityId,
@@ -121,19 +127,24 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
       })))
     : [];
 
-  // Controls/Settings/Diagnostics share one exclusive tab strip (see
+  // Each physical device gets its own tab (see discovery.js groupTabsByDevice)
+  // instead of the old fixed Controls/Settings/Diagnostics-by-action-type
+  // split — a room with an unrelated camera + IR blaster + LED used to mash
+  // all three into one shared "Settings" pill with no indication of which
+  // entity belonged to which device. Tabs share one exclusive strip (see
   // renderSectionGroup) gated by collapsible_controls. activeSectionInput is
-  // either an explicit section key, the '__default__' sentinel (controls_
-  // collapsed: false — open whichever tab is first available), or null.
-  // An explicit key only wins while its tab still has content (e.g. the open
-  // tab's last entity got removed) — otherwise fall back to no tab open
-  // rather than render an empty panel.
+  // either an explicit section key (deviceId, or '__other__'), the
+  // '__default__' sentinel (controls_collapsed: false — open whichever tab is
+  // first available), or null. An explicit key only wins while its tab still
+  // has content (e.g. the open tab's last entity got removed) — otherwise
+  // fall back to no tab open rather than render an empty panel.
   const collapsibleControls = config.collapsible_controls !== false;
-  const availableSections = [
-    { key: 'controls',    hasContent: ptzItems.length > 0 || controlItems.length > 0 },
-    { key: 'settings',    hasContent: settingsItems.length > 0 },
-    { key: 'diagnostics', hasContent: diagnosticsItems.length > 0 },
-  ].filter(s => s.hasContent).map(s => s.key);
+  const deviceGroups = groupTabsByDevice(
+    hass,
+    { ptz: ptzItems, controls: controlItems, settings: settingsItems, diagnostics: diagnosticsItems },
+    camera?.deviceId ?? null,
+  );
+  const availableSections = deviceGroups.map(g => g.key);
   const activeSection = !collapsibleControls ? null
     : activeSectionInput === '__default__' ? (availableSections[0] ?? null)
     : availableSections.includes(activeSectionInput) ? activeSectionInput : null;
@@ -188,12 +199,9 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
     cameraState:  camera?.state.state ?? '',
     cameraOffline: camera?.state.state === 'unavailable',
 
-    controlItems,
-    settingsItems,
+    deviceGroups,
     collapsibleControls,
     activeSection,
-    ptzItems,
-    diagnosticsItems,
 
     weatherItems: config.show_entities !== false
       ? c.weathers.map(({ entityId, state }) => {
@@ -457,27 +465,35 @@ function renderSettingsChip({ settingsItems }) {
     </div>`;
 }
 
-// Controls/Settings/Diagnostics share one exclusive tab strip. All three
-// panels stay in the DOM (CSS hides the inactive ones via .section-tab-panel
-// not carrying .active) rather than being conditionally rendered — segment
-// click handlers and entity lookups keep working the instant a tab opens,
-// with no extra render round-trip, and only ever one panel's worth of height
-// is visible at a time so switching tabs never stacks on top of an
-// already-open one. Clicking the active tab again clears activeSection back
-// to none (see bindEvents). collapsible_controls: false opts out entirely
-// into the old always-expanded stacked layout (no tabs, nothing ever hidden).
-function renderSectionGroup({ controlItems, settingsItems, ptzItems, diagnosticsItems, collapsibleControls, activeSection }) {
-  const sections = [
-    { key: 'controls',    label: 'Controls',    pill: renderPtzChip({ ptzItems }) + renderControlsChip({ controlItems }) },
-    { key: 'settings',    label: 'Settings',    pill: renderSettingsChip({ settingsItems }) },
-    { key: 'diagnostics', label: 'Diagnostics', pill: renderDiagnosticsChip({ diagnosticsItems }) },
-  ].filter(s => s.pill);
+// One tab per physical device (see discovery.js groupTabsByDevice) instead of
+// the old fixed Controls/Settings/Diagnostics-by-action-type split — an area
+// with an unrelated camera + IR blaster + LED used to mash all three into one
+// shared "Settings" pill with no indication of which entity belonged to which
+// device. Within a device's tab, PTZ/controls/settings/diagnostics segments
+// still render via the same per-role chip functions (unchanged segment
+// classes/data-attributes, so bindEvents needs no changes), just scoped to
+// that device's own subset. All panels stay in the DOM (CSS hides the
+// inactive ones via .section-tab-panel not carrying .active) rather than
+// being conditionally rendered — segment click handlers and entity lookups
+// keep working the instant a tab opens, with no extra render round-trip, and
+// only ever one panel's worth of height is visible at a time so switching
+// tabs never stacks on top of an already-open one. Clicking the active tab
+// again clears activeSection back to none (see bindEvents).
+// collapsible_controls: false opts out entirely into the old always-expanded
+// stacked layout (no tabs, nothing ever hidden).
+function renderSectionGroup({ deviceGroups, collapsibleControls, activeSection }) {
+  const sections = deviceGroups.map(({ key, label, ptz, controls, settings, diagnostics }) => ({
+    key,
+    label,
+    pill: renderPtzChip({ ptzItems: ptz }) + renderControlsChip({ controlItems: controls })
+        + renderSettingsChip({ settingsItems: settings }) + renderDiagnosticsChip({ diagnosticsItems: diagnostics }),
+  })).filter(s => s.pill);
   if (!sections.length) return '';
 
   if (!collapsibleControls) {
-    return sections.map(({ key, label, pill }) => `
+    return sections.map(({ label, pill }) => `
       <div class="group-section">
-        <span class="group-label group-label-${key}">${label}</span>
+        <span class="group-label">${label}</span>
         <div class="group-pill">${pill}</div>
       </div>`).join('');
   }
@@ -487,7 +503,7 @@ function renderSectionGroup({ controlItems, settingsItems, ptzItems, diagnostics
       <div class="section-tabs-bar" role="tablist">
         ${sections.map(({ key, label }) => `
           <span class="section-tab${activeSection === key ? ' active' : ''}" data-section="${key}"
-            role="tab" tabindex="0" aria-selected="${activeSection === key}">${label}</span>`).join('')}
+            role="tab" tabindex="0" aria-selected="${activeSection === key}" title="${label}">${label}</span>`).join('')}
       </div>
       ${sections.map(({ key, pill }) => `
         <div class="section-tab-panel${activeSection === key ? ' active' : ''}">${pill}</div>`).join('')}

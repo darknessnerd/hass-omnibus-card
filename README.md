@@ -38,15 +38,20 @@ area: living_room          entities: [light.x, sensor.y]
       ├─ smoke/gas/water ─► pulsing alarm bar
       ├─ battery ─────────► chip strip + low-battery badge (badge only when ≤ threshold)
       ├─ camera ──────────► snapshot preview banner (tap → more-info / live view)
-      ├─ siren/button ────► Controls pill — "press to act" (siren: tap toggles; button: tap presses; PTZ buttons group into one pad)
+      ├─ siren/button ────► "press to act" (siren: tap toggles; button: tap presses; PTZ buttons group into one pad)
       ├─ weather sensors ─► one grouped chip (wind/rain/illuminance/noise, icon + value per reading)
       ├─ update ──────────► header badge when an update is pending (like the battery badge)
-      ├─ camera device-linked switch/select/number/lock… ─► Settings pill — "configure" (tap opens more-info)
-      ├─ camera device-linked sensor/binary_sensor/image (≥2) ─► Diagnostics pill (read-only)
+      ├─ device-linked switch/select/number/lock… ─► "configure" (tap opens more-info)
+      ├─ device-linked sensor/binary_sensor/image ─► read-only diagnostic reading
       └─ everything else ─► entity chip strip
       │
       ▼
-  Controls / Settings / Diagnostics share one exclusive tab strip
+  Regroup press-to-act/configure/diagnostic entities by physical device
+  (one device pushing ≥2 of them clears the "worth a tab" threshold;
+  devices below that fold into a shared "Other" tab)
+      │
+      ▼
+  One tab per device shares one exclusive tab strip
   (no tab open by default, config: collapsible_controls / controls_collapsed)
       │
       ▼
@@ -78,11 +83,11 @@ area: living_room          entities: [light.x, sensor.y]
 | History Y axis | `y_min` / `y_max` pin the sparkline scale floor/ceiling — data never clips, scale expands to fit |
 | Debug logging | `debug: true` emits console.debug on every render with entity states and view-model snapshot |
 | Camera preview | First `camera.*` entity in the area renders as a snapshot banner (uses the entity's own `entity_picture`); tap opens more-info; refresh button (top-left) re-fetches the snapshot; red dot while `state: recording`; dimmed + "(offline)" title while `state: unavailable`; disable with `show_camera: false`. Additional cameras in the same area still appear as regular chips |
-| Camera controls | `siren`/`button` entities always group into a dedicated "Controls" row (one-shot, "press to act"). Tap: button → `button.press`, siren → `siren.toggle` |
-| Camera settings | Any other *operable* entity (switch, select, number, lock…) sharing a *device* with a discovered camera groups into a separate "Settings" row (configuration toggles, distinct from Controls) — tap opens more-info. Read-only domains (`sensor`, `binary_sensor`, `image`, `update`) never join either row, even on the same device — see "Camera diagnostics" below |
-| Camera diagnostics | Read-only `sensor`/`binary_sensor`/`image` entities sharing a device with a discovered camera group into a "Diagnostics" pill once there are more than one (IP address, PIR state, alarm codes, etc.) — a single one still renders as a plain chip |
+| Controls | `siren`/`button` entities always group into a "press to act" pill, regardless of device. Tap: button → `button.press`, siren → `siren.toggle` |
+| Settings | Any other *operable* entity (switch, select, number, lock…) that shares a *device* with at least one other operable/diagnostic entity groups into a "configure" pill — tap opens more-info. Read-only domains (`sensor`, `binary_sensor`, `image`) never join it, even on the same device — see "Diagnostics" below |
+| Diagnostics | Read-only `sensor`/`binary_sensor`/`image` entities sharing a device with at least one other operable/diagnostic entity group into a pill (IP address, PIR state, alarm codes, battery, etc.). A device that clears this threshold via its *other* entities still gets a diagnostics pill even for a single reading of its own — see [DEVELOPMENT.md](DEVELOPMENT.md) |
 | PTZ pad | `button` entities matching a PTZ naming pattern (`*_ptz_up/down/left/right`, English or Italian) collapse into a single directional-pad chip instead of one chip per direction; each arrow segment presses its own button |
-| Section tabs | Controls, Settings, and Diagnostics group behind one exclusive tab strip instead of three independent accordions — opening a tab closes whichever one was open, so switching never stacks extra height on top of an already-expanded section, and only one panel of chips is ever in the DOM. No tab is open by default; `controls_collapsed: false` opens the first available tab (Controls, else Settings, else Diagnostics) instead. Disable tabs entirely with `collapsible_controls: false` — all three render stacked and always expanded, no tab bar. Active tab persists across state updates but resets on config reload |
+| Device tabs | Controls/Settings/Diagnostics/PTZ segments regroup by *physical device* — not by action type — into one exclusive tab strip: a room with an unrelated camera + IR blaster + LED gets 3 separate tabs (one per device) instead of one shared "Settings" pill with no indication of which entity belongs to which device. A device pushing only 1 qualifying entity isn't worth its own tab and folds into a shared "Other" tab; tab label comes from the device registry name. Opening a tab closes whichever one was open, so switching never stacks extra height on top of an already-expanded section, and only one panel of chips is ever in the DOM. No tab is open by default; `controls_collapsed: false` opens the first available tab (the camera's device first, then by entity count) instead. Disable tabs entirely with `collapsible_controls: false` — every device renders stacked and always expanded, no tab bar. Active tab persists across state updates but resets on config reload |
 | Weather chip | `sensor` entities with `device_class: wind_speed / precipitation / illuminance / sound_pressure` collapse into a single chip — one icon+value segment per reading, color-tinted by device_class and divided by a hairline — instead of a chip per sensor. Wind gust/max readings (entity_id ending `_max`/`_gust`/`_peak`) get a distinct icon from the plain average, since both share `device_class: wind_speed` |
 | Firmware update badge | Any `update.*` entity reporting an update available (`state: on`) shows a header badge (count if more than one), mirroring the low-battery badge; tap opens more-info |
 | Label overrides | `entity_labels: { entity_id: 'Custom label' }` renames any chip/segment label — useful when an entity's `friendly_name` (often unlocalized/verbose on custom integrations) doesn't produce a good chip label |
@@ -167,9 +172,9 @@ max_entities: 12           # Max chips to display (default: 12)
 entity_labels:             # Per-entity chip/segment label overrides (optional)
   sensor.bresser_7in1_65351_noise: Noise    # e.g. rename an ambiguous last-word label
 
-# ── Controls / Settings / Diagnostics ────────────────────────────────────
-collapsible_controls: true    # Group Controls/Settings/Diagnostics behind one exclusive tab strip — only one panel's chips render at a time (default: true)
-controls_collapsed: true      # Start with no tab open; set to false to open the first available tab (Controls > Settings > Diagnostics) instead (default: true)
+# ── Device tabs (Controls/Settings/Diagnostics/PTZ, regrouped by device) ──
+collapsible_controls: true    # Group entities behind one exclusive tab strip, one tab per device — only one panel's chips render at a time (default: true)
+controls_collapsed: true      # Start with no tab open; set to false to open the first available tab (the camera's device first, then by entity count) instead (default: true)
 
 # ── Camera ────────────────────────────────────────────────────────────
 show_camera: true              # Show the camera snapshot preview banner (default: true)
@@ -222,10 +227,11 @@ debug: false                   # true → console.debug on every render with ent
 | Any entity with state `unavailable` | Problem badge |
 | `camera.*` (first found) | Camera snapshot preview banner |
 | `camera.*` (any additional) | Entity chip strip |
-| `button.*` matching a PTZ naming pattern (`*_ptz_up/down/left/right`, EN or IT) | Grouped into one directional-pad chip in the Controls row |
-| `siren.*`, `button.*` (non-PTZ) | Controls row (always, regardless of device) — "press to act" |
-| Any other *operable* domain sharing a *device* with a discovered camera | Settings row — "configure", split from Controls |
-| `sensor`/`binary_sensor`/`image` sharing a *device* with a discovered camera | Diagnostics pill once there are ≥2 of them (else a plain chip) — never Controls/Settings, read-only |
+| `button.*` matching a PTZ naming pattern (`*_ptz_up/down/left/right`, EN or IT) | Grouped into one directional-pad chip, inside its device's tab |
+| `siren.*`, `button.*` (non-PTZ) | "press to act" pill (always, regardless of device) |
+| Any other *operable* domain sharing a *device* with ≥1 other operable/diagnostic entity | "configure" pill — split from Controls |
+| `sensor`/`binary_sensor`/`image` sharing a *device* with ≥1 other operable/diagnostic entity | Diagnostics pill (else a plain chip) — never Controls/Settings, read-only |
+| Controls/Settings/Diagnostics/PTZ pills for the same device | Regrouped into that device's own tab — see "Device tabs" above |
 | `update.*` | Header badge when an update is pending (`state: on`); never a chip; `unavailable` counts as a problem instead |
 | `sensor` + `device_class: wind_speed/precipitation/illuminance/sound_pressure` | Grouped into one weather chip (icon + value per reading) |
 | Everything else | Entity chip strip (capped at `max_entities`) |
@@ -333,7 +339,7 @@ type: custom:hass-omnibus-card
 area: esterno
 ```
 
-The camera entity's snapshot renders as a banner at the top of the card, with a small refresh button (top-left) that re-fetches the current snapshot on demand — the browser otherwise happily serves the same cached image for an unchanged `entity_picture` URL. The siren groups into a "Controls" row below the chip strip (tap to toggle) alongside any PTZ pad; everything else sharing a device with the camera (IR light, status light, audio, sensitivity, alert sound…) groups into a separate "Settings" row instead — tap anything there to open more-info. PTZ buttons (`*_ptz_up/down/left/right`) collapse into a single directional-pad chip inside the Controls row instead of one chip per direction. A pending firmware `update.*` entity shows as a header badge instead of a chip. Read-only diagnostic sensors on the same device (IP, PIR state, alarm codes) group into their own "Diagnostics" pill once there's more than one.
+The camera entity's snapshot renders as a banner at the top of the card, with a small refresh button (top-left) that re-fetches the current snapshot on demand — the browser otherwise happily serves the same cached image for an unchanged `entity_picture` URL. The siren (tap to toggle) and any PTZ pad group into a "press to act" pill; everything else sharing a device with the camera (IR light, status light, audio, sensitivity, alert sound…) groups into a separate "configure" pill instead — tap anything there to open more-info. PTZ buttons (`*_ptz_up/down/left/right`) collapse into a single directional-pad chip instead of one chip per direction. A pending firmware `update.*` entity shows as a header badge instead of a chip. Read-only diagnostic sensors on the same device (IP, PIR state, alarm codes) group into their own diagnostics pill. All of the above land together in the camera's own device tab — if the area has other multi-entity devices too (an IR blaster, a smart plug…), each gets its own separate tab instead of sharing the camera's.
 
 Hide just the preview and keep the controls:
 
@@ -412,10 +418,9 @@ cards:
 | `y_min` / `y_max` set | Sparkline Y axis anchored to fixed floor/ceiling; data never clips, scale expands if data exceeds bounds |
 | Area not found | Dashed red error card with explanation |
 | Camera recording | Pulsing red dot on the snapshot preview banner |
-| Camera controls present | "Controls" label + segmented pill (siren/PTZ) below the chip strip |
-| Camera settings present | "Settings" label + segmented pill (switch/select/number, etc.) below Controls |
-| Camera diagnostics present (≥2) | "Diagnostics" label + segmented pill above the chip strip |
-| PTZ buttons present | Single directional-pad chip (one arrow segment per direction) inside the Controls row |
+| Device with controls/settings/diagnostics entities | Its own tab, labeled from the device registry name — segmented pills (press-to-act, configure, diagnostic) inside |
+| Multiple qualifying devices in one area | One tab per device, camera's device first, then by entity count; devices with only 1 qualifying entity share an "Other" tab |
+| PTZ buttons present | Single directional-pad chip (one arrow segment per direction) inside its device's tab |
 | Weather sensors present | "Weather" label + segmented pill (one icon+value segment per reading) above the chip strip |
 | Update pending | Blue header badge (count if more than one) |
 
@@ -427,7 +432,7 @@ cards:
 npm install             # install dependencies (Vite + Playwright)
 npm run dev             # start live-reload dev server → http://localhost:5173/dev.html
 npm run build           # bundle src/ → dist/hass-omnibus-card.js
-npm run test:docker     # run 98 E2E tests in Docker (Playwright + Chromium, matches CI)
+npm run test:docker     # run 107 E2E tests in Docker (Playwright + Chromium, matches CI)
 npm run test:update-ci  # regenerate baselines in Docker after intentional visual changes
 ```
 
@@ -442,7 +447,7 @@ Source is split into single-responsibility modules under `src/`. See [DEVELOPMEN
 - Navigation uses `history.pushState` + `location-changed` event — standard HA SPA routing. Does not work if Kiosk mode intercepts navigation.
 - No support for `tap_action: call-service` on individual chips (chips always open more-info) — except the controls row, where `button` chips call `button.press` and `siren` chips call `siren.toggle` directly.
 - The camera preview uses the camera entity's own `entity_picture` (a live snapshot proxy URL) rather than a dedicated `image.*` helper entity — it refreshes whenever the camera's state/attributes change.
-- Camera-linked control grouping requires the entity to share a *device* (`device_id`) with the camera entity; entities only sharing an area are left as regular chips.
+- Controls/Settings/Diagnostics grouping (and the device tabs built from it) requires the entity to share a *device* (`device_id`) with at least one other qualifying entity; entities only sharing an area (no `device_id` at all) are left as regular chips.
 - Only the first `camera.*` entity discovered in an area gets the preview banner; any others fall back to the chip strip.
 - PTZ grouping matches `button` entity IDs ending in `_ptz_up/down/left/right` (English) or `_ptz_su/giu/sinistra/destra` (Italian) — a pattern match on the stable, unlocalized `entity_id` slug, not the `friendly_name`. Other languages or naming conventions won't group and stay individual Controls chips.
 - The weather chip only groups `sensor` entities with `device_class: wind_speed/precipitation/illuminance/sound_pressure`; there's no standard HA device_class for UV index, so those stay ungrouped chips.

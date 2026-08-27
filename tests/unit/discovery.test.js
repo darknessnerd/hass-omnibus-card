@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classify } from '../../src/discovery.js';
+import { classify, groupTabsByDevice } from '../../src/discovery.js';
 
 // Shape modeled on a real production debug log: an EZVIZ camera device
 // ("esterno_cb8c_bh2113803") exposing Italian PTZ buttons, several switches,
@@ -92,4 +92,197 @@ test('real Bresser weather station: recognized device_classes group as weather; 
   assert.equal(temperatures.length, 1);
   assert.equal(humidities.length, 1);
   assert.ok(others.some(o => o.entityId === 'sensor.bresser_7in1_65351_wind_direction'));
+});
+
+// IR blaster device with no camera at all, pushing a pile of switches/selects/
+// numbers plus a couple of read-only sensors into the area — the exact shape
+// that used to flood the generic chip strip untouched, since the old sweep
+// only ever looked at devices sharing a camera.
+const IR_DEVICE = 'dev_ir_clima_cucina';
+const IR_AREA_ENTITIES = [
+  item('switch.ir_clima_cucina_switch1', { state: 'on' }, IR_DEVICE),
+  item('switch.ir_clima_cucina_switch2', { state: 'off' }, IR_DEVICE),
+  item('select.ir_clima_cucina_switch1_on', { state: 'registered' }, IR_DEVICE),
+  item('number.ir_clima_cucina_temperature_calibration', { state: '0' }, IR_DEVICE),
+  item('sensor.ir_clima_cucina_learned_ir_code', { state: 'JgBM...' }, IR_DEVICE),
+  item('sensor.ir_clima_cucina_battery', { state: '75', attributes: { device_class: 'battery' } }, IR_DEVICE),
+  // Zigbee2MQTT LED, a *separate* device with 2 entities of its own (its
+  // firmware update entity is diverted to the Updates bucket before it ever
+  // reaches `others`, so only these 2 count toward the sweep threshold) —
+  // must sweep independently of the IR device, not get lumped in with it.
+  item('switch.led_cucina', { state: 'off' }, 'dev_led_cucina'),
+  item('select.led_cucina_power_on_behavior', { state: 'off' }, 'dev_led_cucina'),
+  // Unrelated single switch on its own device — stays a plain chip, not worth its own pill
+  item('switch.lone_switch', { state: 'off' }, 'dev_lone_switch'),
+];
+
+test('IR blaster with no camera: multiple switches/select/number swept into settings, multiple passive sensors into diagnostics', () => {
+  const { settings, diagnostics, others, batteries } = classify(IR_AREA_ENTITIES);
+  const settingsIds = settings.map(s => s.entityId);
+  assert.ok(settingsIds.includes('switch.ir_clima_cucina_switch1'));
+  assert.ok(settingsIds.includes('switch.ir_clima_cucina_switch2'));
+  assert.ok(settingsIds.includes('select.ir_clima_cucina_switch1_on'));
+  assert.ok(settingsIds.includes('number.ir_clima_cucina_temperature_calibration'));
+
+  const diagIds = diagnostics.map(d => d.entityId);
+  assert.ok(diagIds.includes('sensor.ir_clima_cucina_learned_ir_code'));
+  assert.ok(diagIds.includes('sensor.ir_clima_cucina_battery'));
+  assert.equal(batteries.length, 1);
+
+  assert.ok(others.some(o => o.entityId === 'switch.lone_switch'));
+});
+
+test('IR blaster with no camera: a second, unrelated 2-entity device (LED) sweeps into settings independently', () => {
+  const { settings } = classify(IR_AREA_ENTITIES);
+  const settingsIds = settings.map(s => s.entityId);
+  assert.ok(settingsIds.includes('switch.led_cucina'));
+  assert.ok(settingsIds.includes('select.led_cucina_power_on_behavior'));
+});
+
+// ── groupTabsByDevice ────────────────────────────────────────────────────────
+// Regroups the ptz/controls/settings/diagnostics pools by physical device
+// instead of by action-type, so the tab strip reads "which device is this"
+// rather than "what kind of action is this".
+
+const HASS_NO_NAMES = { devices: {} };
+
+test('groupTabsByDevice: one device pushing every role (ptz/controls/settings/diagnostics) gets a single tab with nothing lost', () => {
+  const { ptz, controls, settings, diagnostics } = classify(REAL_AREA_ENTITIES);
+  const groups = groupTabsByDevice(HASS_NO_NAMES, { ptz, controls, settings, diagnostics });
+  assert.equal(groups.length, 1);
+  const [group] = groups;
+  assert.equal(group.key, CAM_DEVICE);
+  assert.equal(group.ptz.length, ptz.length);
+  assert.equal(group.controls.length, controls.length);
+  assert.equal(group.settings.length, settings.length);
+  assert.equal(group.diagnostics.length, diagnostics.length);
+});
+
+test('groupTabsByDevice: falls back to the common entity_id prefix as a label when the device registry has no name', () => {
+  const { ptz, controls, settings, diagnostics } = classify(REAL_AREA_ENTITIES);
+  const [group] = groupTabsByDevice(HASS_NO_NAMES, { ptz, controls, settings, diagnostics });
+  assert.equal(group.label, 'Esterno Cb8c Bh2113803');
+});
+
+test('groupTabsByDevice: device registry name wins over the fallback', () => {
+  const { ptz, controls, settings, diagnostics } = classify(REAL_AREA_ENTITIES);
+  const hass = { devices: { [CAM_DEVICE]: { name: 'Esterno Cam' } } };
+  const [group] = groupTabsByDevice(hass, { ptz, controls, settings, diagnostics });
+  assert.equal(group.label, 'Esterno Cam');
+});
+
+// Note: switch.lone_switch never reaches groupTabsByDevice at all here — its
+// single-device threshold is enforced one layer up, by classify() itself
+// (see the "stays in others" assertion above); it lands in `others`/chipItems,
+// not in any of the ptz/controls/settings/diagnostics pools passed in below.
+test('groupTabsByDevice: IR blaster + LED each get their own tab, independently of each other', () => {
+  const { ptz, controls, settings, diagnostics } = classify(IR_AREA_ENTITIES);
+  const groups = groupTabsByDevice(HASS_NO_NAMES, { ptz, controls, settings, diagnostics });
+  const byKey = Object.fromEntries(groups.map(g => [g.key, g]));
+
+  assert.ok(byKey[IR_DEVICE]);
+  assert.equal(byKey[IR_DEVICE].settings.length, 4);    // 2 switches + 1 select + 1 number
+  assert.equal(byKey[IR_DEVICE].diagnostics.length, 2); // battery + learned-code sensor
+
+  assert.ok(byKey.dev_led_cucina);
+  assert.equal(byKey.dev_led_cucina.settings.length, 2);
+
+  assert.equal(byKey.__other__, undefined);
+});
+
+// Unlike settings/diagnostics, classify() routes siren/button unconditionally
+// into `controls` with no device-entity-count threshold (a lone reboot button
+// is still a valid control on its own) — so groupTabsByDevice has to apply its
+// own "not worth a dedicated tab" threshold for a single-item device reached
+// through the controls/ptz pools, same fold as it would via settings/diagnostics.
+test('groupTabsByDevice: a lone control-pool item on a single-entity device folds into "Other"', () => {
+  const items = {
+    ptz: [],
+    controls: [{ entityId: 'button.lone_button', deviceId: 'dev_lone_button' }],
+    settings: [],
+    diagnostics: [],
+  };
+  const groups = groupTabsByDevice(HASS_NO_NAMES, items);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].key, '__other__');
+  assert.equal(groups[0].label, 'Other');
+  assert.ok(groups[0].controls.some(c => c.entityId === 'button.lone_button'));
+});
+
+test('groupTabsByDevice: the camera\'s device tab always sorts first, regardless of entity count', () => {
+  const items = {
+    ptz: [],
+    controls: [],
+    settings: [
+      { entityId: 'switch.big_device_a', deviceId: 'dev_big' },
+      { entityId: 'switch.big_device_b', deviceId: 'dev_big' },
+      { entityId: 'switch.big_device_c', deviceId: 'dev_big' },
+      { entityId: 'switch.cam_device_a', deviceId: 'dev_cam' },
+      { entityId: 'switch.cam_device_b', deviceId: 'dev_cam' },
+    ],
+    diagnostics: [],
+  };
+  const groups = groupTabsByDevice(HASS_NO_NAMES, items, 'dev_cam');
+  assert.deepEqual(groups.map(g => g.key), ['dev_cam', 'dev_big']);
+});
+
+// Third real production shape, no camera at all: a D017 dehumidifier device
+// (2 switches + 2 selects + 1 number + a lone error sensor) and a *separate*
+// ripostiglio_interno_ths climate-sensor device (2 calibration numbers + vpd +
+// battery sensors) in the same area. The dehumidifier's error sensor is the
+// only diagnostic-role item on its device, but the device as a whole clears
+// the sweep threshold (6 others-eligible entities total) — proves the
+// threshold is per-device, not per-role.
+const D017_DEVICE = 'dev_d017_dehumidifier';
+const THS_DEVICE  = 'dev_ths_ripostiglio';
+const DEHUMIDIFIER_AREA_ENTITIES = [
+  item('switch.d017_dehumidifier_5v_power', { state: 'on' }, D017_DEVICE),
+  item('switch.d017_dehumidifier_5v_child_lock', { state: 'on' }, D017_DEVICE),
+  item('select.d017_dehumidifier_5v_fan', { state: '2' }, D017_DEVICE),
+  item('select.d017_dehumidifier_5v_mode', { state: 'dehumidifier,laundry,mute,wind' }, D017_DEVICE),
+  item('number.d017_dehumidifier_5v_humidity_tartget', { state: '55' }, D017_DEVICE),
+  item('sensor.d017_dehumidifier_5v_error', { state: '0' }, D017_DEVICE),
+  item('number.ripostiglio_interno_ths_humidity_calibration', { state: '0' }, THS_DEVICE),
+  item('number.ripostiglio_interno_ths_temperature_calibration', { state: '0' }, THS_DEVICE),
+  item('sensor.ripostiglio_interno_ths_vpd', { state: '1.83' }, THS_DEVICE),
+  item('sensor.ripostiglio_interno_ths_battery', { state: '100', attributes: { device_class: 'battery' } }, THS_DEVICE),
+];
+
+test('D017 dehumidifier + THS sensor, no camera: operable entities swept into settings, passive into diagnostics, per device', () => {
+  const { settings, diagnostics } = classify(DEHUMIDIFIER_AREA_ENTITIES);
+  const settingsIds    = settings.map(s => s.entityId);
+  const diagnosticsIds = diagnostics.map(d => d.entityId);
+
+  for (const id of [
+    'switch.d017_dehumidifier_5v_power', 'switch.d017_dehumidifier_5v_child_lock',
+    'select.d017_dehumidifier_5v_fan', 'select.d017_dehumidifier_5v_mode',
+    'number.d017_dehumidifier_5v_humidity_tartget',
+    'number.ripostiglio_interno_ths_humidity_calibration', 'number.ripostiglio_interno_ths_temperature_calibration',
+  ]) assert.ok(settingsIds.includes(id), id);
+
+  // the D017 device's lone diagnostic reading still sweeps — the >1 threshold
+  // is on the device's total others-eligible count (6), not the diagnostics
+  // role count (1) in isolation
+  for (const id of ['sensor.d017_dehumidifier_5v_error', 'sensor.ripostiglio_interno_ths_vpd', 'sensor.ripostiglio_interno_ths_battery'])
+    assert.ok(diagnosticsIds.includes(id), id);
+});
+
+test('groupTabsByDevice: D017 dehumidifier and THS sensor get independent tabs, each labeled from the device registry', () => {
+  const { ptz, controls, settings, diagnostics } = classify(DEHUMIDIFIER_AREA_ENTITIES);
+  const hass = {
+    devices: {
+      [D017_DEVICE]: { name: 'D017-Dehumidifier-5V' },
+      [THS_DEVICE]: { name: 'ripostiglio_interno_ths' },
+    },
+  };
+  const groups = groupTabsByDevice(hass, { ptz, controls, settings, diagnostics });
+  const byKey = Object.fromEntries(groups.map(g => [g.key, g]));
+
+  assert.equal(byKey[D017_DEVICE].label, 'D017-Dehumidifier-5V');
+  assert.equal(byKey[D017_DEVICE].settings.length, 5);
+  assert.equal(byKey[D017_DEVICE].diagnostics.length, 1);
+
+  assert.equal(byKey[THS_DEVICE].label, 'ripostiglio_interno_ths');
+  assert.equal(byKey[THS_DEVICE].settings.length, 2);
+  assert.equal(byKey[THS_DEVICE].diagnostics.length, 2);
 });

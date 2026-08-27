@@ -289,17 +289,18 @@ Conceptually:
 
 ---
 
-## Camera Controls
+## Controls / Settings / Diagnostics, regrouped by device
 
-Entities that exist purely to operate a camera (PTZ buttons, siren, IR/status light, audio, sensitivity, alert-sound select) are grouped into a dedicated "Controls" section, separate from the passive entity chip strip.
+Entities that exist purely to operate something (PTZ buttons, siren, IR/status light, audio, sensitivity, alert-sound select — on a camera, an IR blaster, a dehumidifier, or any other multi-entity device) are grouped by *action type* first, then those groups are regrouped by *physical device* into one tab per device — separate from the passive entity chip strip.
 
 Grouping rule:
 
-* `siren` and `button` domain entities always join Controls, regardless of device.
-* Any other otherwise-generic *operable* entity (switch, select, number, lock, cover, …) joins Controls only when it shares a *device* with a discovered camera — this avoids pulling unrelated switches (e.g. a nearby smart plug) into the group just because they're in the same area, while still covering camera-accessory domains beyond the original switch/select/number set.
-* Read-only domains (`sensor`, `binary_sensor`, `image`, `update`) never join Controls, even when the camera's own device exposes them (e.g. an IP-address sensor, a motion-snapshot `image` entity, or a firmware `update` entity on the camera device) — they're informational, not something to operate, so they stay in the chip strip.
+* `siren` and `button` domain entities always join the "press to act" (Controls) pill, regardless of device.
+* Any other otherwise-generic *operable* entity (switch, select, number, lock, cover, …) joins the "configure" (Settings) pill only when it shares a *device* with at least one other qualifying entity (any of controls/settings/diagnostics) — this avoids pulling unrelated switches (e.g. a nearby smart plug on its own single-entity device) into the group just because they're in the same area, while still covering any accessory domain beyond the original switch/select/number set. The threshold is on the device's *total* qualifying-entity count, not per action-type — a device with 5 settings entities and a single diagnostic reading still sweeps that lone reading in too.
+* Read-only domains (`sensor`, `binary_sensor`, `image`) never join Controls/Settings, even when the device exposes them alongside operable entities (e.g. an IP-address sensor, a motion-snapshot `image` entity) — they're informational, not something to operate; they join the Diagnostics pill instead (or stay a plain chip if their device doesn't clear the threshold). `update.*` entities never join any of these — they're diverted to their own header-badge bucket before this grouping ever sees them.
+* Every device that clears the threshold gets its own exclusive tab — Controls/Settings/Diagnostics/PTZ pills for that device render together inside it. A device that doesn't clear the threshold (≤1 qualifying entity, or no `device_id` at all) folds into a shared "Other" tab instead of getting a dedicated one. Tab order: the camera's device first (if any), then by descending entity count, "Other" last. Tab label resolves from the device registry's own name, falling back to the entities' common `entity_id` prefix.
 
-Interaction differs by domain:
+Interaction differs by domain, not by which tab it lands in:
 
 * `button` → pressed directly (`button.press`)
 * `siren` → toggled directly (`siren.toggle`)

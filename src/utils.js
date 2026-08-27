@@ -49,6 +49,31 @@ export function uniqueLabels(items) {
 }
 
 /**
+ * Resolves a display label for a device tab (see discovery.js groupTabsByDevice).
+ * Prefers the device registry's own name (real HA always sets this — it's the
+ * name shown in Settings → Devices & Services), user override taking priority
+ * over the integration-assigned one. Falls back to the longest common leading
+ * word-prefix across the device's own entity_ids (e.g. switch.ir_clima_cucina_switch1
+ * + switch.ir_clima_cucina_switch2 → "Ir Clima Cucina") for mocks/tests with no
+ * device name, and finally to a generic label if even that comes up empty.
+ */
+export function deviceLabel(hass, deviceId, items) {
+  const device = hass.devices?.[deviceId];
+  const registryName = device?.name_by_user ?? device?.name;
+  if (registryName) return registryName;
+
+  const slugs = items.map(({ entityId }) => entityId.split('.')[1].split('_'));
+  let prefix = slugs[0] ?? [];
+  for (const slug of slugs.slice(1)) {
+    let i = 0;
+    while (i < prefix.length && i < slug.length && prefix[i] === slug[i]) i++;
+    prefix = prefix.slice(0, i);
+  }
+  if (!prefix.length) return 'Device';
+  return prefix.map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+}
+
+/**
  * Resolves the best icon for an entity.
  * Priority: entity-defined icon → device_class map → domain map → fallback.
  */

@@ -2,6 +2,11 @@ import { test, expect } from '@playwright/test';
 
 const FIXTURE = '/tests/fixture.html';
 const CARD    = { area: 'living_room' };
+// cucina: IR blaster device + a separate Zigbee2MQTT LED device, no camera —
+// the one area fixture with 2+ device tabs, used by the device-tab-switching
+// tests below (see the "Real dataset — cucina IR blaster + LED" block further
+// down for the full real-production-data context this models).
+const CUCINA_IR = { area: 'cucina' };
 const SNAP    = { maxDiffPixels: 5 };   // allow ≤5px anti-aliasing drift
 
 async function mount(page, config, stateOverrides) {
@@ -777,9 +782,9 @@ test('controls — read-only sensor/image sharing the camera device stay out of 
   }
 });
 
-test('section tabs — Controls tab is keyboard-focusable and toggles on Enter/Space', async ({ page }) => {
+test('section tabs — device tab is keyboard-focusable and toggles on Enter/Space', async ({ page }) => {
   await mount(page, { area: 'garage', max_entities: 20 });
-  const tab   = page.locator('#mount').locator('.section-tab[data-section="controls"]');
+  const tab   = page.locator('#mount').locator('.section-tab[data-section="dev_cam"]');
   const panel = page.locator('#mount').locator('.section-tab-panel.active');
 
   await expect(tab).toHaveAttribute('role', 'tab');
@@ -813,28 +818,31 @@ test('re-render with a focused multi-class element (e.g. badge-lights "off") doe
   // setActiveSection() instead — same _update()/render() path, no hash
   // check to work around.
   await page.evaluate(() => {
-    document.querySelector('hass-omnibus-card').setActiveSection('controls');
+    document.querySelector('hass-omnibus-card').setActiveSection('dev_cam');
   });
 
   expect(errors).toEqual([]);
   await expect(badge).toBeFocused();
 });
 
-// ── Section tabs (Controls / Settings / Diagnostics — mutually exclusive) ──
+// ── Section tabs (one per device — mutually exclusive) ──
+// GARAGE has exactly one qualifying device (dev_cam, owning ptz+controls+
+// settings+diagnostics all at once), so it's used for the single-tab checks.
+// CUCINA_IR has 2 independent devices (IR blaster + LED), needed for the
+// multi-tab ordering/switching checks below.
 
-test('section tabs — no tab active by default, all panels present but hidden', async ({ page }) => {
-  await mount(page, { area: 'garage', max_entities: 20 });
+test('section tabs — no tab active by default, panels present but hidden (one per device)', async ({ page }) => {
+  await mount(page, CUCINA_IR);
   await expect(page.locator('#mount').locator('.section-tab.active')).toHaveCount(0);
   await expect(page.locator('#mount').locator('.section-tab-panel.active')).toHaveCount(0);
-  await expect(page.locator('#mount').locator('.section-tab-panel')).toHaveCount(3); // present, just hidden — see .section-tab-panel CSS
-  await expect(page.locator('#mount').locator('.section-tab[data-section="controls"]')).toBeVisible();
-  await expect(page.locator('#mount').locator('.section-tab[data-section="settings"]')).toBeVisible();
-  await expect(page.locator('#mount').locator('.section-tab[data-section="diagnostics"]')).toBeVisible();
+  await expect(page.locator('#mount').locator('.section-tab-panel')).toHaveCount(2); // present, just hidden — see .section-tab-panel CSS
+  await expect(page.locator('#mount').locator('.section-tab[data-section="dev_ir_clima"]')).toBeVisible();
+  await expect(page.locator('#mount').locator('.section-tab[data-section="dev_led_cucina"]')).toBeVisible();
 });
 
-test('section tabs — clicking a tab opens its panel; clicking it again closes it', async ({ page }) => {
+test('section tabs — clicking a device tab opens its panel; clicking it again closes it', async ({ page }) => {
   await mount(page, { area: 'garage', max_entities: 20 });
-  const tab   = page.locator('#mount').locator('.section-tab[data-section="controls"]');
+  const tab   = page.locator('#mount').locator('.section-tab[data-section="dev_cam"]');
   const panel = page.locator('#mount').locator('.section-tab-panel.active');
 
   await tab.click();
@@ -847,37 +855,39 @@ test('section tabs — clicking a tab opens its panel; clicking it again closes 
   await expect(tab).not.toHaveClass(/active/);
 });
 
-test('section tabs — switching tabs is exclusive: opening Settings closes an already-open Controls', async ({ page }) => {
-  await mount(page, { area: 'garage', max_entities: 20 });
-  const controlsTab = page.locator('#mount').locator('.section-tab[data-section="controls"]');
-  const settingsTab = page.locator('#mount').locator('.section-tab[data-section="settings"]');
-  const activePanel  = page.locator('#mount').locator('.section-tab-panel.active');
+test('section tabs — switching tabs is exclusive: opening the LED tab closes an already-open IR blaster tab', async ({ page }) => {
+  await mount(page, CUCINA_IR);
+  const irTab  = page.locator('#mount').locator('.section-tab[data-section="dev_ir_clima"]');
+  const ledTab = page.locator('#mount').locator('.section-tab[data-section="dev_led_cucina"]');
+  const activePanel = page.locator('#mount').locator('.section-tab-panel.active');
 
-  await controlsTab.click();
-  await expect(activePanel.locator('.controls-chip')).toBeVisible();
+  await irTab.click();
+  // diagnostics (battery + learned-code sensor) only exist on the IR device
+  await expect(activePanel.locator('.diagnostics-chip')).toBeVisible();
 
-  await settingsTab.click();
-  await expect(activePanel.locator('.settings-chip')).toBeVisible();
-  await expect(page.locator('#mount').locator('.section-tab-panel.active').locator('.controls-chip')).toHaveCount(0);
-  await expect(controlsTab).not.toHaveClass(/active/);
-  await expect(settingsTab).toHaveClass(/active/);
+  await ledTab.click();
+  await expect(activePanel.locator('.settings-seg[data-entity="switch.led_cucina"]')).toBeVisible();
+  await expect(page.locator('#mount').locator('.section-tab-panel.active').locator('.diagnostics-chip')).toHaveCount(0);
+  await expect(irTab).not.toHaveClass(/active/);
+  await expect(ledTab).toHaveClass(/active/);
 });
 
-test('section tabs — controls_collapsed: false opens the first available tab (Controls) by default', async ({ page }) => {
-  await mount(page, { area: 'garage', max_entities: 20, controls_collapsed: false });
-  const controlsTab = page.locator('#mount').locator('.section-tab[data-section="controls"]');
-  await expect(controlsTab).toHaveClass(/active/);
-  await expect(page.locator('#mount').locator('.section-tab-panel.active .controls-chip')).toBeVisible();
+test('section tabs — controls_collapsed: false opens the first available tab (the busier device, IR blaster) by default', async ({ page }) => {
+  await mount(page, { ...CUCINA_IR, controls_collapsed: false });
+  const irTab  = page.locator('#mount').locator('.section-tab[data-section="dev_ir_clima"]');
+  const ledTab = page.locator('#mount').locator('.section-tab[data-section="dev_led_cucina"]');
+  await expect(irTab).toHaveClass(/active/);
+  await expect(page.locator('#mount').locator('.section-tab-panel.active .diagnostics-chip')).toBeVisible();
   // exclusive by construction — only the active panel is ever visible
-  await expect(page.locator('#mount').locator('.section-tab-panel.active .settings-chip')).toHaveCount(0);
+  await expect(ledTab).not.toHaveClass(/active/);
 });
 
-test('section tabs — collapsible_controls: false hides the tab bar entirely and always shows all three sections stacked', async ({ page }) => {
-  await mount(page, GARAGE);   // GARAGE sets collapsible_controls: false
+test('section tabs — collapsible_controls: false hides the tab bar entirely and shows one stacked group per device', async ({ page }) => {
+  await mount(page, { ...CUCINA_IR, collapsible_controls: false });
   await expect(page.locator('#mount').locator('.section-tabs')).toHaveCount(0);
-  await expect(page.locator('#mount').locator('.controls-chip')).toBeVisible();
-  await expect(page.locator('#mount').locator('.settings-chip')).toBeVisible();
-  await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
+  // one settings-chip pill per device (IR blaster + LED), both always visible — no tabs to open
+  await expect(page.locator('#mount').locator('.settings-chip')).toHaveCount(2);
+  await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible(); // IR blaster only
 });
 
 test('section tabs — clicking a tab does not trigger card navigation', async ({ page }) => {
@@ -887,7 +897,7 @@ test('section tabs — clicking a tab does not trigger card navigation', async (
   await page.evaluate(() => {
     window.addEventListener('location-changed', () => window.__onNavigate());
   });
-  await page.locator('#mount').locator('.section-tab[data-section="controls"]').click();
+  await page.locator('#mount').locator('.section-tab[data-section="dev_cam"]').click();
   expect(navigated).toBe(false);
 });
 
@@ -1026,7 +1036,7 @@ test('real dataset — siren alone in Controls ("press to act"); 5 switches + nu
 
 test('real dataset — camera diagnostic sensors/binary_sensor/image group into one diagnostics pill, not controls', async ({ page }) => {
   await mount(page, ESTERNO_REAL);
-  await page.locator('#mount').locator('.section-tab[data-section="diagnostics"]').click(); // open the tab — this assertion needs actual visibility
+  await page.locator('#mount').locator('.section-tab[data-section="dev_esterno_cam"]').click(); // open the tab — this assertion needs actual visibility
   await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
   for (const entityId of [
     'binary_sensor.esterno_cb8c_bh2113803_crittografia_2',
@@ -1051,16 +1061,60 @@ test('real dataset — full card snapshot', async ({ page }) => {
   await expect(page.locator('#mount')).toHaveScreenshot('real-dataset-esterno.png', SNAP);
 });
 
+// ── Real dataset — cucina IR blaster + LED (no camera at all, 2 device tabs) ──
+// From an actual production debug log: an IR blaster device with 2 switches +
+// a select + a number, plus a battery + learned-code sensor, and a *separate*
+// Zigbee2MQTT LED device (switch + power-on-behavior select — its firmware
+// update entity is diverted to the Updates bucket before it ever reaches
+// `others`, so it doesn't count toward the sweep threshold on its own).
+// CUCINA_IR is declared near the top of the file (with GARAGE) since it's
+// also used by the device-tab-switching tests, which need 2+ device tabs.
+
+test('real dataset — IR blaster + LED, no camera: switches/selects/number swept into Settings, one tab per device', async ({ page }) => {
+  await mount(page, CUCINA_IR);
+  // both devices' settings segments exist in the DOM regardless of which tab is open
+  await expect(page.locator('#mount').locator('.settings-chip .settings-seg')).toHaveCount(6);
+
+  await page.locator('#mount').locator('.section-tab[data-section="dev_ir_clima"]').click();
+  for (const entityId of [
+    'switch.ir_clima_cucina_switch1',
+    'switch.ir_clima_cucina_switch2',
+    'select.ir_clima_cucina_switch1_on',
+    'number.ir_clima_cucina_temperature_calibration',
+  ]) {
+    await expect(page.locator('#mount').locator(`.settings-seg[data-entity="${entityId}"]`)).toBeVisible();
+  }
+
+  await page.locator('#mount').locator('.section-tab[data-section="dev_led_cucina"]').click();
+  for (const entityId of ['switch.led_cucina', 'select.led_cucina_power_on_behavior']) {
+    await expect(page.locator('#mount').locator(`.settings-seg[data-entity="${entityId}"]`)).toBeVisible();
+  }
+});
+
+test('real dataset — IR blaster with no camera: battery + learned-code sensors swept into its own Diagnostics tab', async ({ page }) => {
+  await mount(page, CUCINA_IR);
+  await page.locator('#mount').locator('.section-tab[data-section="dev_ir_clima"]').click();
+  await expect(page.locator('#mount').locator('.diagnostics-chip .diagnostics-seg')).toHaveCount(2);
+  for (const entityId of ['sensor.ir_clima_cucina_battery', 'sensor.ir_clima_cucina_learned_ir_code']) {
+    await expect(page.locator('#mount').locator(`.diagnostics-seg[data-entity="${entityId}"]`)).toBeVisible();
+  }
+});
+
+test('real dataset — lone switch on its own single-entity device stays a plain chip, not swept into Settings', async ({ page }) => {
+  await mount(page, CUCINA_IR);
+  await expect(page.locator('#mount').locator('.chip[data-entity="switch.lone_switch"]')).toBeVisible();
+  await expect(page.locator('#mount').locator('.settings-seg[data-entity="switch.lone_switch"]')).toHaveCount(0);
+});
+
 // ── Real dataset — ripostiglio_interno (dehumidifier + THS sensor, entity-backed thresholds) ──
 // Config + humidity history from an actual production debug log: mold_threshold is a plain
 // number, history_chart.threshold_low is an entity_id (number.d017_dehumidifier_5v_humidity_tartget,
 // state 55) — exercises resolveThreshold's entity-ref path end to end, not just in isolation.
 
 const RIPOSTIGLIO_HUMIDITY_POINTS = [
-  58, 59, 57, 57, 57, 58, 58, 59, 59, 59.8, 60.8, 58.8, 57.8, 58.8, 59.8, 60.8, 61.8, 60.8, 59.8, 58.8,
-  57.8, 58.8, 59.8, 60.8, 61.8, 62.1, 61.8, 61.3, 61.3, 60.3, 59.3, 59.3, 60.3, 60.3, 60.3, 60.3, 60.3,
-  60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 59.5, 59.2, 58.9, 58.3, 58.4,
-  58.4, 58.4, 57.7,
+  59, 59.8, 60.8, 58.8, 57.8, 58.8, 59.8, 60.8, 61.8, 60.8, 59.8, 58.8, 57.8, 58.8, 59.8, 60.8, 61.8,
+  62.1, 61.8, 61.3, 61.3, 60.3, 59.3, 59.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3,
+  60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 59.5, 59.2, 58.9, 58.3, 58.4, 58.4, 58.4, 57.7, 54.8,
 ];
 
 const RIPOSTIGLIO_CONFIG = {
@@ -1103,7 +1157,7 @@ async function mountRipostiglio(page) {
   await mount(page, RIPOSTIGLIO_CONFIG);
 }
 
-test('real dataset — ripostiglio_interno: mold badge absent (humidity 57.7% avg vs threshold 60)', async ({ page }) => {
+test('real dataset — ripostiglio_interno: mold badge absent (humidity 45.9% avg vs threshold 60)', async ({ page }) => {
   await mountRipostiglio(page);
   await expect(page.locator('#mount').locator('.alarm-mold')).not.toBeVisible();
 });
@@ -1119,4 +1173,42 @@ test('real dataset — ripostiglio_interno: history_chart.threshold_low resolves
 test('real dataset — ripostiglio_interno: full card snapshot', async ({ page }) => {
   await mountRipostiglio(page);
   await expect(page.locator('#mount')).toHaveScreenshot('real-dataset-ripostiglio.png', SNAP);
+});
+
+// Two more devices with no camera at all — same shape as cucina's IR blaster +
+// LED, different domain (a dehumidifier + a climate sensor). D017 dehumidifier
+// gets its own tab (2 switches + 2 selects + 1 number → Settings, its lone
+// error sensor → Diagnostics — the device clears the sweep threshold as a
+// whole, so even a single diagnostic reading rides along into its tab). The
+// THS sensor is a separate device (2 calibration numbers → Settings, vpd +
+// battery sensors → Diagnostics).
+test('real dataset — ripostiglio_interno: D017 dehumidifier and THS sensor each get their own device tab', async ({ page }) => {
+  await mountRipostiglio(page);
+  await expect(page.locator('#mount').locator('.settings-chip .settings-seg')).toHaveCount(7); // 5 (D017) + 2 (THS)
+  await expect(page.locator('#mount').locator('.diagnostics-chip .diagnostics-seg')).toHaveCount(3); // 1 (D017 error) + 2 (THS vpd + battery)
+
+  const d017Tab = page.locator('#mount').locator('.section-tab[data-section="dev_d017_dehumidifier"]');
+  const thsTab  = page.locator('#mount').locator('.section-tab[data-section="dev_ths_ripostiglio"]');
+  await expect(d017Tab).toHaveText('D017-Dehumidifier-5V');
+  await expect(thsTab).toHaveText('ripostiglio_interno_ths');
+
+  await d017Tab.click();
+  for (const entityId of [
+    'switch.d017_dehumidifier_5v_power',
+    'switch.d017_dehumidifier_5v_child_lock',
+    'select.d017_dehumidifier_5v_fan',
+    'select.d017_dehumidifier_5v_mode',
+    'number.d017_dehumidifier_5v_humidity_tartget',
+  ]) {
+    await expect(page.locator('#mount').locator(`.settings-seg[data-entity="${entityId}"]`)).toBeVisible();
+  }
+  await expect(page.locator('#mount').locator('.diagnostics-seg[data-entity="sensor.d017_dehumidifier_5v_error"]')).toBeVisible();
+
+  await thsTab.click();
+  for (const entityId of ['number.ripostiglio_interno_ths_humidity_calibration', 'number.ripostiglio_interno_ths_temperature_calibration']) {
+    await expect(page.locator('#mount').locator(`.settings-seg[data-entity="${entityId}"]`)).toBeVisible();
+  }
+  for (const entityId of ['sensor.ripostiglio_interno_ths_vpd', 'sensor.ripostiglio_interno_ths_battery']) {
+    await expect(page.locator('#mount').locator(`.diagnostics-seg[data-entity="${entityId}"]`)).toBeVisible();
+  }
 });

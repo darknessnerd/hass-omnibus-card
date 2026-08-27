@@ -4,6 +4,8 @@
  * Open for extension: add new buckets to classify() without touching the card.
  */
 
+import { deviceLabel } from './utils.js';
+
 /**
  * Returns all entities that belong to the given area.
  * Covers two assignment paths:
@@ -120,30 +122,85 @@ export function classify(areaEntities) {
     else                                                                                    out.others.push(item);
   }
 
-  // Any otherwise-generic, *operable* entity (switch, select, number, lock, cover, ...)
-  // that shares a device with a discovered camera belongs to that camera, one way or
-  // another. Split by "press to act" vs "configure": siren/button already landed in
-  // `controls` unconditionally above (they can never reach this sweep); everything else
-  // operable here is a settings-style toggle, so it goes to `settings`, not `controls`.
-  // Read-only domains (plain sensors, image snapshots, update entities) stay out of both —
-  // they're informational, grouped into `diagnostics` instead.
-  const cameraDeviceIds = new Set(out.cameras.map(c => c.deviceId).filter(Boolean));
-  if (cameraDeviceIds.size) {
-    const stillOthers = [];
-    const passiveLinked = []; // read-only entities on the same camera device — candidates for the diagnostics group
-    for (const item of out.others) {
-      const domain = item.entityId.split('.')[0];
-      const linked = item.deviceId && cameraDeviceIds.has(item.deviceId);
-      if (linked && !PASSIVE_DOMAINS.has(domain)) out.settings.push(item);
-      else if (linked && PASSIVE_DOMAINS.has(domain)) passiveLinked.push(item);
-      else stillOthers.push(item);
-    }
-    // A single diagnostic sensor reads fine as a plain chip — only worth its
-    // own labeled pill once there are enough of them to actually clutter the strip.
-    if (passiveLinked.length > 1) out.diagnostics.push(...passiveLinked);
-    else stillOthers.push(...passiveLinked);
-    out.others = stillOthers;
+  // Any device pushing more than one entity into `others` gets swept into the
+  // Controls/Settings/Diagnostics tabs instead of padding out the generic chip
+  // strip — originally limited to devices sharing a camera, but a lone IR
+  // blaster or Zigbee dimmer can just as easily push a dozen switches/selects/
+  // numbers into an area with no camera at all. Split by "press to act" vs
+  // "configure": siren/button already landed in `controls` unconditionally
+  // above (they can never reach this sweep); everything else operable here is
+  // a settings-style toggle, so it goes to `settings`. Read-only domains
+  // (plain sensors, image snapshots) go to `diagnostics`.
+  const othersByDevice = new Map();
+  for (const item of out.others) {
+    if (!item.deviceId) continue;
+    if (!othersByDevice.has(item.deviceId)) othersByDevice.set(item.deviceId, []);
+    othersByDevice.get(item.deviceId).push(item);
   }
 
+  const stillOthers = [];
+  for (const item of out.others) {
+    const deviceItems = item.deviceId ? othersByDevice.get(item.deviceId) : null;
+    if (!deviceItems || deviceItems.length < 2) { stillOthers.push(item); continue; }
+    const domain = item.entityId.split('.')[0];
+    if (PASSIVE_DOMAINS.has(domain)) out.diagnostics.push(item);
+    else out.settings.push(item);
+  }
+  out.others = stillOthers;
+
   return out;
+}
+
+/**
+ * Regroups the Controls/Settings/Diagnostics tab pools (ptz/controls/settings/
+ * diagnostics — the display-mapped arrays from renderer.js buildViewModel,
+ * each item still carrying its original `deviceId`) by physical device, so
+ * the tab strip reads "which device is this" instead of "what kind of action
+ * is this". A device pushing only 1 item into these pools isn't worth its own
+ * tab — it folds into a shared `__other__` group, same threshold philosophy as
+ * classify()'s device-link sweep. Entities with no deviceId at all always land
+ * in `__other__` too (can't attribute them to one physical device).
+ *
+ * Tab order: the device owning the area's camera (if any) first, then by
+ * descending item count, `__other__` always last.
+ *
+ * Returns [{ key, label, ptz, controls, settings, diagnostics }], where each
+ * of ptz/controls/settings/diagnostics is the device's own subset of that
+ * pool — feed straight into the existing renderPtzChip/renderControlsChip/
+ * renderSettingsChip/renderDiagnosticsChip template functions unchanged.
+ */
+export function groupTabsByDevice(hass, { ptz, controls, settings, diagnostics }, cameraDeviceId = null) {
+  const pools = { ptz, controls, settings, diagnostics };
+  const emptyBucket = () => ({ ptz: [], controls: [], settings: [], diagnostics: [] });
+  const countOf = b => b.ptz.length + b.controls.length + b.settings.length + b.diagnostics.length;
+
+  const byDevice = new Map();
+  for (const [role, list] of Object.entries(pools)) {
+    for (const item of list) {
+      const deviceId = item.deviceId ?? null;
+      if (!byDevice.has(deviceId)) byDevice.set(deviceId, emptyBucket());
+      byDevice.get(deviceId)[role].push(item);
+    }
+  }
+
+  const groups = [];
+  const other  = emptyBucket();
+  for (const [deviceId, bucket] of byDevice) {
+    if (deviceId == null || countOf(bucket) < 2) {
+      for (const role of ['ptz', 'controls', 'settings', 'diagnostics']) other[role].push(...bucket[role]);
+    } else {
+      const allItems = [...bucket.ptz, ...bucket.controls, ...bucket.settings, ...bucket.diagnostics];
+      groups.push({ key: deviceId, label: deviceLabel(hass, deviceId, allItems), ...bucket });
+    }
+  }
+
+  groups.sort((a, b) => {
+    if (a.key === cameraDeviceId) return -1;
+    if (b.key === cameraDeviceId) return 1;
+    return countOf(b) - countOf(a);
+  });
+
+  if (countOf(other) > 0) groups.push({ key: '__other__', label: 'Other', ...other });
+
+  return groups;
 }

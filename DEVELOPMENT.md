@@ -40,9 +40,9 @@ graph TD
   end
 
   subgraph data["Data layer"]
-    discovery["discovery.js\ngetAreaEntities · filterEntities · classify"]
+    discovery["discovery.js\ngetAreaEntities · filterEntities · classify · groupTabsByDevice"]
     aggregators["aggregators.js\naverage · anyOn · rgbColor"]
-    utils["utils.js\nentityIcon · friendlyLabel"]
+    utils["utils.js\nentityIcon · friendlyLabel · deviceLabel"]
     history["history.js\ngetHistory · TTL cache"]
   end
 
@@ -66,6 +66,7 @@ graph TD
   renderer --> events
   renderer --> sparkline
 
+  discovery --> utils
   utils --> constants
 ```
 
@@ -107,7 +108,7 @@ sequenceDiagram
     end
 
     C->>R: buildViewModel(hass, config, historyPoints)
-    note over R: filterEntities → classify → aggregate → pre-compute chip + sparkline data
+    note over R: filterEntities → classify → groupTabsByDevice → aggregate → pre-compute chip + sparkline data
     R-->>C: view model (plain object, no DOM)
     C->>R: render(shadowRoot, host, vm)
     R->>DOM: shadowRoot.innerHTML = renderCard(vm)
@@ -175,9 +176,9 @@ card-ha/
 │  ├─ card.js                  # HassOmnibusCard — HA lifecycle only
 │  ├─ constants.js             # CARD_TAG, versioning, icon maps
 │  ├─ styles.js                # CSS string (Shadow DOM)
-│  ├─ discovery.js             # getAreaEntities() + classify()
+│  ├─ discovery.js             # getAreaEntities() + classify() + groupTabsByDevice()
 │  ├─ aggregators.js           # average(), anyOn(), rgbColor()
-│  ├─ utils.js                 # entityIcon(), friendlyLabel(), uniqueLabels()
+│  ├─ utils.js                 # entityIcon(), friendlyLabel(), uniqueLabels(), deviceLabel()
 │  ├─ events.js                # fireMoreInfo(), navigate()
 │  ├─ history.js               # getHistory() — callWS wrapper with 5-min TTL cache
 │  ├─ sparkline.js             # sparklineSvg() — inline SVG background chart
@@ -657,9 +658,9 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 | Entity filtering | `exclude_entities` on classified entity, on chip-strip entity; `add_entities` from outside area; `entities` whitelist overrides area discovery |
 | History chart | SVG rendered when configured; absent when not configured; gradient thresholds (both); high-threshold only |
 | Camera preview | Snapshot image + recording dot rendered; hidden with no camera entity; hidden with `show_camera: false`; click opens more-info; dims + "(offline)" title when `unavailable`; a second camera in the area falls back to a chip instead of being lost |
-| Camera controls | siren + generic button grouped into Controls (press-to-act); device-linked switch/select/number/lock grouped into Settings (configure) instead; device-linked `sensor`/`binary_sensor`/`image` group into Diagnostics once there are ≥2 (else stay a plain chip, never swept in); button click calls `button.press`; siren click calls `siren.toggle`; Settings/Diagnostics click opens more-info |
-| Section tabs | Controls/Settings/Diagnostics behind one exclusive tab strip, `host._activeSection` — no tab active by default; opening one closes whichever was open; `controls_collapsed: false` opens the first available tab; `collapsible_controls: false` drops the tab bar and always shows all three stacked |
-| PTZ pad | `_ptz_up/down/left/right` buttons collapse into one pad chip with N arrow segments; each segment presses its own button; non-PTZ button on the same device stays a separate Controls chip |
+| Controls/Settings/Diagnostics sweep | siren + generic button always land in Controls (press-to-act), regardless of device; any other operable domain sharing a *device* with ≥1 other qualifying entity lands in Settings (configure) instead; read-only `sensor`/`binary_sensor`/`image` on that same device land in Diagnostics — threshold is per-device total (≥2 qualifying entities on the device, not per-role), else the entity stays a plain chip; button click calls `button.press`; siren click calls `siren.toggle`; Settings/Diagnostics click opens more-info |
+| Device tabs | `groupTabsByDevice()` regroups Controls/Settings/Diagnostics/PTZ by `deviceId` into one exclusive tab strip, `host._activeSection` keyed by deviceId (or `'__other__'`) — no tab active by default; opening one closes whichever was open; a device with <2 qualifying entities folds into a shared "Other" tab; tab order is the camera's device first, then by descending entity count; `controls_collapsed: false` opens the first available tab; `collapsible_controls: false` drops the tab bar and always shows every device stacked; tab label resolves from `hass.devices[id].name`, falling back to the common entity_id prefix (`deviceLabel()` in `utils.js`) |
+| PTZ pad | `_ptz_up/down/left/right` buttons collapse into one pad chip with N arrow segments; each segment presses its own button; non-PTZ button on the same device stays a separate Controls-pill chip, inside the same device tab |
 | Weather chip | wind/rain/illuminance/noise sensors collapse into one chip with icon+value segments; segment click opens more-info; not also rendered as plain chips |
 | Firmware update badge | `update.*` with `state: on` shows header badge (not a chip); `state: off` shows neither; badge click opens more-info; `state: unavailable` counts as a problem instead of vanishing |
 | PTZ fallback | pad segment click falls back to more-info when `callService` is unavailable, matching the plain Controls button/siren behavior |
@@ -773,7 +774,7 @@ Vite serves `src/` as native ES modules — no bundling in dev. Edit any `src/` 
 
 ### What dev.html provides
 
-- Six rooms rendered: Living Room, Bedroom, Kitchen, Bathroom, Cucina, Esterno (camera + PTZ/siren/switch controls + weather sensors — mirrors a real HA debug log)
+- Seven rooms rendered: Living Room, Bedroom, Kitchen, Bathroom, Cucina, Esterno, Ripostiglio Interno — Cucina/Esterno mirror real HA debug logs (camera + PTZ/siren/switch controls + weather sensors); Cucina and Ripostiglio Interno additionally model multiple no-camera devices (IR blaster + LED; dehumidifier + climate sensor) each getting their own device tab
 - One error-state card (`nonexistent_area`) to validate error rendering
 - Five history chart cards (default, custom color, 48h, gradient thresholds both, high-only) with `callWS` stub; each shows min/max/period labels and dashed threshold lines
 - Scenario toggle buttons:

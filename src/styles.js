@@ -429,9 +429,7 @@ export const CARD_STYLES = `
     margin-bottom: 4px;
   }
 
-  .group-label-weather     { color: var(--primary-color, #03a9f4); }
-  .group-label-diagnostics { color: var(--secondary-text-color, #888); }
-  .group-label-settings    { color: #546e7a; }
+  .group-label-weather { color: var(--primary-color, #03a9f4); }
 
   .weather-chip  { background: rgba(3, 169, 244, 0.08); }
   .settings-chip { background: rgba(84, 110, 122, 0.14); }
@@ -544,11 +542,17 @@ export const CARD_STYLES = `
   .section-tabs-bar {
     display: flex;
     justify-content: center;
+    flex-wrap: wrap;
     gap: 4px;
     margin-bottom: 4px;
   }
 
+  /* Device names run longer and more varied than the old fixed "Controls" /
+     "Settings" / "Diagnostics" labels, and the tab count is no longer capped
+     at 3 — wrap onto a second row (bar above) and ellipsis any single label
+     that's still too long for one tab, rather than overflowing the card. */
   .section-tab {
+    max-width: 6.5rem;
     padding: 3px 9px;
     border-radius: 12px;
     font-size: 0.68rem;
@@ -560,6 +564,9 @@ export const CARD_STYLES = `
     cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .section-tab:hover { opacity: 0.85; }

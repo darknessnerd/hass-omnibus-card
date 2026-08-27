@@ -105,13 +105,31 @@ window.BASE_HASS = {
     garage:              { area_id: 'garage',              name: 'Garage',              icon: 'mdi:garage' },
     esterno:             { area_id: 'esterno',             name: 'Esterno',             icon: 'mdi:tree' },
     ripostiglio_interno: { area_id: 'ripostiglio_interno', name: 'Ripostiglio Interno', icon: 'mdi:archive' },
+    cucina:              { area_id: 'cucina',              name: 'Cucina',              icon: 'mdi:silverware-fork-knife' },
   },
   devices: {
     dev_lr:  { area_id: 'living_room' },
-    dev_cam: { area_id: 'garage' },
+    dev_cam: { area_id: 'garage', name: 'Garage Cam' },
     // real production EZVIZ camera device — see tests/unit/discovery.test.js
     // for the same shape tested at the classify() level
-    dev_esterno_cam: { area_id: 'esterno' },
+    dev_esterno_cam: { area_id: 'esterno', name: 'Esterno Cam' },
+    // IR blaster device with NO camera at all — same real-world shape (a pile
+    // of switches/selects/numbers plus a couple of read-only sensors) as the
+    // camera-linked devices above, but the sweep into Settings/Diagnostics
+    // must not depend on a camera being present in the area.
+    dev_ir_clima: { area_id: 'cucina', name: 'ir_clima_cucina' },
+    // Zigbee2MQTT LED strip — 2 entities on one device (switch + power-on-behavior
+    // select; its firmware update entity is diverted to the Updates bucket before
+    // it ever reaches `others`, so it doesn't count toward the sweep threshold)
+    dev_led_cucina: { area_id: 'cucina', name: 'Led Cucina' },
+    // single-entity device — not worth its own Settings pill, must stay a plain chip
+    dev_lone_switch: { area_id: 'cucina' },
+    // D017 dehumidifier + a separate ripostiglio_interno_ths climate sensor —
+    // real production device ids from an actual debug log (ripostiglio_interno,
+    // no camera at all): 2 switches + 2 selects + 1 number on the dehumidifier,
+    // 2 calibration numbers + vpd/battery sensors on the THS device.
+    dev_d017_dehumidifier: { area_id: 'ripostiglio_interno', name: 'D017-Dehumidifier-5V' },
+    dev_ths_ripostiglio:   { area_id: 'ripostiglio_interno', name: 'ripostiglio_interno_ths' },
   },
   entities: {
     'light.ceiling':          { area_id: null,          device_id: 'dev_lr', hidden_by: null },
@@ -130,10 +148,10 @@ window.BASE_HASS = {
     'sensor.bed_humidity':    { area_id: 'bedroom',     device_id: null,     hidden_by: null },
     'camera.garage_cam':          { area_id: null,     device_id: 'dev_cam', hidden_by: null },
     'camera.garage_cam_2':        { area_id: 'garage', device_id: null,      hidden_by: null },
-    'button.garage_cam_ptz_up':   { area_id: 'garage', device_id: null,      hidden_by: null },
-    'button.garage_cam_ptz_down': { area_id: 'garage', device_id: null,      hidden_by: null },
-    'button.garage_cam_reboot':   { area_id: 'garage', device_id: null,      hidden_by: null },
-    'siren.garage_alarm':         { area_id: 'garage', device_id: null,      hidden_by: null },
+    'button.garage_cam_ptz_up':   { area_id: null, device_id: 'dev_cam',     hidden_by: null },
+    'button.garage_cam_ptz_down': { area_id: null, device_id: 'dev_cam',     hidden_by: null },
+    'button.garage_cam_reboot':   { area_id: null, device_id: 'dev_cam',     hidden_by: null },
+    'siren.garage_alarm':         { area_id: null, device_id: 'dev_cam',     hidden_by: null },
     'switch.garage_cam_ir_light': { area_id: null,     device_id: 'dev_cam', hidden_by: null },
     'lock.garage_cam_housing':    { area_id: null,     device_id: 'dev_cam', hidden_by: null },
     'sensor.garage_cam_ip':       { area_id: null,     device_id: 'dev_cam', hidden_by: null },
@@ -181,22 +199,38 @@ window.BASE_HASS = {
 
     // real dehumidifier + THS climate sensor, no camera in this room — from
     // an actual production debug log (entity_id/threshold-entity mold_threshold test)
-    'number.d017_dehumidifier_5v_humidity_tartget':          { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'number.ripostiglio_interno_ths_humidity_calibration':   { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'number.ripostiglio_interno_ths_temperature_calibration':{ area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'select.d017_dehumidifier_5v_fan':                       { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'select.d017_dehumidifier_5v_mode':                      { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'sensor.d017_dehumidifier_5v_error':                     { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'sensor.d017_dehumidifier_5v_humidity':                  { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'sensor.d017_dehumidifier_5v_temperature':                { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'sensor.ripostiglio_interno_ths_battery':                { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'sensor.ripostiglio_interno_ths_dew_point':               { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'sensor.ripostiglio_interno_ths_humidity':                { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'sensor.ripostiglio_interno_ths_temperature':              { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'sensor.ripostiglio_interno_ths_vpd':                      { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'switch.d017_dehumidifier_5v_child_lock':                { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'switch.d017_dehumidifier_5v_power':                     { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
-    'update.ripostiglio_interno_ths':                        { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'number.d017_dehumidifier_5v_humidity_tartget':          { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
+    'number.ripostiglio_interno_ths_humidity_calibration':   { area_id: null, device_id: 'dev_ths_ripostiglio',   hidden_by: null },
+    'number.ripostiglio_interno_ths_temperature_calibration':{ area_id: null, device_id: 'dev_ths_ripostiglio',   hidden_by: null },
+    'select.d017_dehumidifier_5v_fan':                       { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
+    'select.d017_dehumidifier_5v_mode':                      { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
+    'sensor.d017_dehumidifier_5v_error':                     { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
+    'sensor.d017_dehumidifier_5v_humidity':                  { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
+    'sensor.d017_dehumidifier_5v_temperature':                { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
+    'sensor.ripostiglio_interno_ths_battery':                { area_id: null, device_id: 'dev_ths_ripostiglio',   hidden_by: null },
+    'sensor.ripostiglio_interno_ths_dew_point':               { area_id: null, device_id: 'dev_ths_ripostiglio',   hidden_by: null },
+    'sensor.ripostiglio_interno_ths_humidity':                { area_id: null, device_id: 'dev_ths_ripostiglio',   hidden_by: null },
+    'sensor.ripostiglio_interno_ths_temperature':              { area_id: null, device_id: 'dev_ths_ripostiglio',   hidden_by: null },
+    'sensor.ripostiglio_interno_ths_vpd':                      { area_id: null, device_id: 'dev_ths_ripostiglio',   hidden_by: null },
+    'switch.d017_dehumidifier_5v_child_lock':                { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
+    'switch.d017_dehumidifier_5v_power':                     { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
+    'update.ripostiglio_interno_ths':                        { area_id: null, device_id: 'dev_ths_ripostiglio',   hidden_by: null },
+
+    // IR blaster device, no camera in this area — from an actual production
+    // debug log (cucina). Two switches + a select + a number all share
+    // dev_ir_clima, so the device-link sweep must move them into Settings;
+    // its battery + learned-code sensors are read-only, so they go to
+    // Diagnostics instead.
+    'switch.ir_clima_cucina_switch1':                    { area_id: null, device_id: 'dev_ir_clima', hidden_by: null },
+    'switch.ir_clima_cucina_switch2':                    { area_id: null, device_id: 'dev_ir_clima', hidden_by: null },
+    'select.ir_clima_cucina_switch1_on':                 { area_id: null, device_id: 'dev_ir_clima', hidden_by: null },
+    'number.ir_clima_cucina_temperature_calibration':    { area_id: null, device_id: 'dev_ir_clima', hidden_by: null },
+    'sensor.ir_clima_cucina_battery':                    { area_id: null, device_id: 'dev_ir_clima', hidden_by: null },
+    'sensor.ir_clima_cucina_learned_ir_code':             { area_id: null, device_id: 'dev_ir_clima', hidden_by: null },
+    'switch.led_cucina':                                 { area_id: null, device_id: 'dev_led_cucina', hidden_by: null },
+    'select.led_cucina_power_on_behavior':               { area_id: null, device_id: 'dev_led_cucina', hidden_by: null },
+    'update.led_cucina':                                 { area_id: null, device_id: 'dev_led_cucina', hidden_by: null },
+    'switch.lone_switch':                                { area_id: null, device_id: 'dev_lone_switch', hidden_by: null },
   },
   states: {
     'light.ceiling':          { state: 'on',     attributes: { friendly_name: 'Ceiling', rgb_color: [255, 200, 100], brightness: 200 } },
@@ -271,16 +305,28 @@ window.BASE_HASS = {
     'select.d017_dehumidifier_5v_fan':                        { state: '2',  attributes: { friendly_name: 'D017-Dehumidifier-5V fan' } },
     'select.d017_dehumidifier_5v_mode':                       { state: 'dehumidifier,laundry,mute,wind', attributes: { friendly_name: 'D017-Dehumidifier-5V mode' } },
     'sensor.d017_dehumidifier_5v_error':                      { state: '0',  attributes: { friendly_name: 'D017-Dehumidifier-5V error' } },
-    'sensor.d017_dehumidifier_5v_humidity':                   { state: '38', attributes: { friendly_name: 'D017-Dehumidifier-5V humidity', device_class: 'humidity', unit_of_measurement: '%' } },
+    'sensor.d017_dehumidifier_5v_humidity':                   { state: '37', attributes: { friendly_name: 'D017-Dehumidifier-5V humidity', device_class: 'humidity', unit_of_measurement: '%' } },
     'sensor.d017_dehumidifier_5v_temperature':                { state: '31', attributes: { friendly_name: 'D017-Dehumidifier-5V temperature', device_class: 'temperature', unit_of_measurement: '°C' } },
     'sensor.ripostiglio_interno_ths_battery':                 { state: '100', attributes: { friendly_name: 'ripostiglio_interno_ths Batteria', device_class: 'battery', unit_of_measurement: '%' } },
-    'sensor.ripostiglio_interno_ths_dew_point':               { state: '20.1', attributes: { friendly_name: 'ripostiglio_interno_ths Dew point', device_class: 'temperature', unit_of_measurement: '°C' } },
-    'sensor.ripostiglio_interno_ths_humidity':                { state: '57.7', attributes: { friendly_name: 'ripostiglio_interno_ths Umidità', device_class: 'humidity', unit_of_measurement: '%' } },
-    'sensor.ripostiglio_interno_ths_temperature':              { state: '29.3', attributes: { friendly_name: 'ripostiglio_interno_ths Temperatura', device_class: 'temperature', unit_of_measurement: '°C' } },
-    'sensor.ripostiglio_interno_ths_vpd':                      { state: '1.72', attributes: { friendly_name: 'ripostiglio_interno_ths Vpd' } },
+    'sensor.ripostiglio_interno_ths_dew_point':               { state: '19.2', attributes: { friendly_name: 'ripostiglio_interno_ths Dew point', device_class: 'temperature', unit_of_measurement: '°C' } },
+    'sensor.ripostiglio_interno_ths_humidity':                { state: '54.8', attributes: { friendly_name: 'ripostiglio_interno_ths Umidità', device_class: 'humidity', unit_of_measurement: '%' } },
+    'sensor.ripostiglio_interno_ths_temperature':              { state: '29.2', attributes: { friendly_name: 'ripostiglio_interno_ths Temperatura', device_class: 'temperature', unit_of_measurement: '°C' } },
+    'sensor.ripostiglio_interno_ths_vpd':                      { state: '1.83', attributes: { friendly_name: 'ripostiglio_interno_ths Vpd' } },
     'switch.d017_dehumidifier_5v_child_lock':                 { state: 'on',  attributes: { friendly_name: 'D017-Dehumidifier-5V child-lock' } },
     'switch.d017_dehumidifier_5v_power':                      { state: 'on',  attributes: { friendly_name: 'D017-Dehumidifier-5V power' } },
     'update.ripostiglio_interno_ths':                         { state: 'off', attributes: { friendly_name: 'ripostiglio_interno_ths' } },
+
+    // IR blaster device (cucina, no camera)
+    'switch.ir_clima_cucina_switch1':                 { state: 'on',  attributes: { friendly_name: 'ir_clima_cucina Switch1' } },
+    'switch.ir_clima_cucina_switch2':                 { state: 'off', attributes: { friendly_name: 'ir_clima_cucina Switch2' } },
+    'select.ir_clima_cucina_switch1_on':              { state: 'registered', attributes: { friendly_name: 'ir_clima_cucina Switch1 on' } },
+    'number.ir_clima_cucina_temperature_calibration': { state: '0',   attributes: { friendly_name: 'ir_clima_cucina Temperature calibration' } },
+    'sensor.ir_clima_cucina_battery':                 { state: '75',  attributes: { friendly_name: 'ir_clima_cucina Batteria', device_class: 'battery', unit_of_measurement: '%' } },
+    'sensor.ir_clima_cucina_learned_ir_code':         { state: 'JgBMAm80IBcSJA8MDwwODA8n', attributes: { friendly_name: 'ir_clima_cucina Learned ir code' } },
+    'switch.led_cucina':                              { state: 'off', attributes: { friendly_name: 'Led Cucina' } },
+    'select.led_cucina_power_on_behavior':            { state: 'off', attributes: { friendly_name: 'Led Cucina Power-on behavior' } },
+    'update.led_cucina':                              { state: 'off', attributes: { friendly_name: 'Led Cucina Firmware' } },
+    'switch.lone_switch':                             { state: 'off', attributes: { friendly_name: 'Lone Switch' } },
   },
 };
 
