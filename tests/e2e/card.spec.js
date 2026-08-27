@@ -1050,3 +1050,73 @@ test('real dataset — full card snapshot', async ({ page }) => {
   await expect(page.locator('#mount').locator('.controls-chip')).toBeVisible();
   await expect(page.locator('#mount')).toHaveScreenshot('real-dataset-esterno.png', SNAP);
 });
+
+// ── Real dataset — ripostiglio_interno (dehumidifier + THS sensor, entity-backed thresholds) ──
+// Config + humidity history from an actual production debug log: mold_threshold is a plain
+// number, history_chart.threshold_low is an entity_id (number.d017_dehumidifier_5v_humidity_tartget,
+// state 55) — exercises resolveThreshold's entity-ref path end to end, not just in isolation.
+
+const RIPOSTIGLIO_HUMIDITY_POINTS = [
+  58, 59, 57, 57, 57, 58, 58, 59, 59, 59.8, 60.8, 58.8, 57.8, 58.8, 59.8, 60.8, 61.8, 60.8, 59.8, 58.8,
+  57.8, 58.8, 59.8, 60.8, 61.8, 62.1, 61.8, 61.3, 61.3, 60.3, 59.3, 59.3, 60.3, 60.3, 60.3, 60.3, 60.3,
+  60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 60.3, 59.5, 59.2, 58.9, 58.3, 58.4,
+  58.4, 58.4, 57.7,
+];
+
+const RIPOSTIGLIO_CONFIG = {
+  area: 'ripostiglio_interno',
+  icon: 'mdi:archive',
+  mold_threshold: 60,
+  history_chart: {
+    entity_id: 'sensor.ripostiglio_interno_ths_humidity',
+    hours: 24,
+    color: 'rgba(255,200,100,0.15)',
+    threshold_high: 65,
+    threshold_low: 'number.d017_dehumidifier_5v_humidity_tartget', // entity-backed — resolves to 55
+    color_high: 'rgba(244,67,54,0.18)',
+    // y_min: 30 in the original production config sat far below the real
+    // 57-62% data range — the fill-to-baseline area dominated the whole
+    // card, drowning the sparkline's actual variation, and threshold_high
+    // (65) landed off-scale (no y_max) so its zone/line never rendered.
+    // 45/70 keeps both thresholds a comfortable margin inside the scale —
+    // both zones render, and the live data still reads as a visible trend
+    // instead of a solid-color wall.
+    y_min: 45,
+    y_max: 70,
+  },
+  show_entities: true,
+  max_entities: 20,
+};
+
+async function mountRipostiglio(page) {
+  await page.evaluate(pts => {
+    window.BASE_HASS.callWS = msg => {
+      if (msg.type === 'history/history_during_period') {
+        const id = msg.entity_ids[0];
+        const now = Date.now() / 1000;
+        const step = (24 * 3600) / (pts.length - 1);
+        return Promise.resolve({ [id]: pts.map((v, i) => ({ s: String(v), lu: now - (pts.length - 1 - i) * step })) });
+      }
+      return Promise.resolve({});
+    };
+  }, RIPOSTIGLIO_HUMIDITY_POINTS);
+  await mount(page, RIPOSTIGLIO_CONFIG);
+}
+
+test('real dataset — ripostiglio_interno: mold badge absent (humidity 57.7% avg vs threshold 60)', async ({ page }) => {
+  await mountRipostiglio(page);
+  await expect(page.locator('#mount').locator('.alarm-mold')).not.toBeVisible();
+});
+
+test('real dataset — ripostiglio_interno: history_chart.threshold_low resolves from a number entity (55)', async ({ page }) => {
+  await mountRipostiglio(page);
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  const labels = page.locator('#mount').locator('.chart-threshold');
+  await expect(labels).toHaveCount(2); // y_min:45/y_max:70 keep both threshold_high (65) and the entity-resolved threshold_low (55) on-scale
+  await expect(labels).toContainText(['65.0%', '55.0%']);
+});
+
+test('real dataset — ripostiglio_interno: full card snapshot', async ({ page }) => {
+  await mountRipostiglio(page);
+  await expect(page.locator('#mount')).toHaveScreenshot('real-dataset-ripostiglio.png', SNAP);
+});

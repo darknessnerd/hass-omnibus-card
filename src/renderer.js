@@ -597,10 +597,36 @@ function renderCard(vm) {
 export function render(shadowRoot, host, vm) {
   const focusedClass = shadowRoot.activeElement?.className;
   shadowRoot.innerHTML = vm.error ? renderErrorCard(vm.error) : renderCard(vm);
-  if (!vm.error) bindEvents(shadowRoot, host, vm);
+  if (!vm.error) {
+    bindEvents(shadowRoot, host, vm);
+    hideOverlappingThresholdLabels(shadowRoot);
+  }
   // full innerHTML rewrite drops focus every render — restore it for keyboard users
   // toggling a section tab, otherwise a second Enter/Space press is lost
   if (focusedClass) shadowRoot.querySelector(`.${focusedClass.trim().split(/\s+/).join('.')}`)?.focus();
+}
+
+// .chart-threshold labels position via top:X% of the WHOLE card (the chart is
+// a full-height background layer, see sparkline.js) with no awareness of
+// where .card-content's actual rows land — on a short card (no camera, few
+// chips) a threshold near the data's mid-range can land right on top of a
+// chip/header row. Chip rows are semi-transparent, so the label's opaque
+// pill bleeds through and garbles the chip's text instead of just sitting
+// unread behind it. Only a real DOM measurement (post-paint) can know where
+// content rows actually fall, so this runs as a layout pass after innerHTML
+// is written — the dashed guide line (drawn in the SVG background layer, a
+// separate element) is untouched, only the floating text pill is hidden.
+function hideOverlappingThresholdLabels(shadowRoot) {
+  const labels = shadowRoot.querySelectorAll('.chart-threshold');
+  if (!labels.length) return;
+  const contentBlocks = [...shadowRoot.querySelectorAll('.card-content > *')]
+    .map(el => el.getBoundingClientRect())
+    .filter(r => r.width > 0 && r.height > 0);
+  const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  labels.forEach(label => {
+    const labelRect = label.getBoundingClientRect();
+    if (contentBlocks.some(block => overlaps(labelRect, block))) label.style.display = 'none';
+  });
 }
 
 function bindEvents(shadowRoot, host, { navPath, chipItems }) {

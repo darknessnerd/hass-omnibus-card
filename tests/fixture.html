@@ -100,10 +100,11 @@ window.BASE_HASS = {
     return Promise.resolve();
   },
   areas: {
-    living_room: { area_id: 'living_room', name: 'Living Room', icon: 'mdi:sofa' },
-    bedroom:     { area_id: 'bedroom',     name: 'Bedroom',     icon: 'mdi:bed' },
-    garage:      { area_id: 'garage',      name: 'Garage',      icon: 'mdi:garage' },
-    esterno:     { area_id: 'esterno',     name: 'Esterno',     icon: 'mdi:tree' },
+    living_room:        { area_id: 'living_room',        name: 'Living Room',        icon: 'mdi:sofa' },
+    bedroom:             { area_id: 'bedroom',             name: 'Bedroom',             icon: 'mdi:bed' },
+    garage:              { area_id: 'garage',              name: 'Garage',              icon: 'mdi:garage' },
+    esterno:             { area_id: 'esterno',             name: 'Esterno',             icon: 'mdi:tree' },
+    ripostiglio_interno: { area_id: 'ripostiglio_interno', name: 'Ripostiglio Interno', icon: 'mdi:archive' },
   },
   devices: {
     dev_lr:  { area_id: 'living_room' },
@@ -177,6 +178,25 @@ window.BASE_HASS = {
     'sensor.bresser_7in1_65351_outside_luminance': { area_id: 'esterno', device_id: null, hidden_by: null },
     'sensor.bresser_7in1_65351_noise':          { area_id: 'esterno', device_id: null, hidden_by: null },
     'sensor.bresser_7in1_65351_battery':        { area_id: 'esterno', device_id: null, hidden_by: null },
+
+    // real dehumidifier + THS climate sensor, no camera in this room — from
+    // an actual production debug log (entity_id/threshold-entity mold_threshold test)
+    'number.d017_dehumidifier_5v_humidity_tartget':          { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'number.ripostiglio_interno_ths_humidity_calibration':   { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'number.ripostiglio_interno_ths_temperature_calibration':{ area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'select.d017_dehumidifier_5v_fan':                       { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'select.d017_dehumidifier_5v_mode':                      { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'sensor.d017_dehumidifier_5v_error':                     { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'sensor.d017_dehumidifier_5v_humidity':                  { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'sensor.d017_dehumidifier_5v_temperature':                { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'sensor.ripostiglio_interno_ths_battery':                { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'sensor.ripostiglio_interno_ths_dew_point':               { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'sensor.ripostiglio_interno_ths_humidity':                { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'sensor.ripostiglio_interno_ths_temperature':              { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'sensor.ripostiglio_interno_ths_vpd':                      { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'switch.d017_dehumidifier_5v_child_lock':                { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'switch.d017_dehumidifier_5v_power':                     { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
+    'update.ripostiglio_interno_ths':                        { area_id: 'ripostiglio_interno', device_id: null, hidden_by: null },
   },
   states: {
     'light.ceiling':          { state: 'on',     attributes: { friendly_name: 'Ceiling', rgb_color: [255, 200, 100], brightness: 200 } },
@@ -243,6 +263,24 @@ window.BASE_HASS = {
     'sensor.bresser_7in1_65351_outside_luminance':{ state: '15741',attributes: { friendly_name: 'Bresser Outside Luminance', device_class: 'illuminance', unit_of_measurement: 'lx' } },
     'sensor.bresser_7in1_65351_noise':            { state: '-20.92',attributes: { friendly_name: 'Bresser Noise',      device_class: 'sound_pressure', unit_of_measurement: 'dB' } },
     'sensor.bresser_7in1_65351_battery':          { state: '100',  attributes: { friendly_name: 'Bresser Battery',     device_class: 'battery',        unit_of_measurement: '%' } },
+
+    // real dehumidifier + THS climate sensor — values from an actual production debug log
+    'number.d017_dehumidifier_5v_humidity_tartget':           { state: '55', attributes: { friendly_name: 'D017-Dehumidifier-5V humidity_tartget' } },
+    'number.ripostiglio_interno_ths_humidity_calibration':    { state: '0',  attributes: { friendly_name: 'ripostiglio_interno_ths Humidity calibration' } },
+    'number.ripostiglio_interno_ths_temperature_calibration': { state: '0',  attributes: { friendly_name: 'ripostiglio_interno_ths Temperature calibration' } },
+    'select.d017_dehumidifier_5v_fan':                        { state: '2',  attributes: { friendly_name: 'D017-Dehumidifier-5V fan' } },
+    'select.d017_dehumidifier_5v_mode':                       { state: 'dehumidifier,laundry,mute,wind', attributes: { friendly_name: 'D017-Dehumidifier-5V mode' } },
+    'sensor.d017_dehumidifier_5v_error':                      { state: '0',  attributes: { friendly_name: 'D017-Dehumidifier-5V error' } },
+    'sensor.d017_dehumidifier_5v_humidity':                   { state: '38', attributes: { friendly_name: 'D017-Dehumidifier-5V humidity', device_class: 'humidity', unit_of_measurement: '%' } },
+    'sensor.d017_dehumidifier_5v_temperature':                { state: '31', attributes: { friendly_name: 'D017-Dehumidifier-5V temperature', device_class: 'temperature', unit_of_measurement: '°C' } },
+    'sensor.ripostiglio_interno_ths_battery':                 { state: '100', attributes: { friendly_name: 'ripostiglio_interno_ths Batteria', device_class: 'battery', unit_of_measurement: '%' } },
+    'sensor.ripostiglio_interno_ths_dew_point':               { state: '20.1', attributes: { friendly_name: 'ripostiglio_interno_ths Dew point', device_class: 'temperature', unit_of_measurement: '°C' } },
+    'sensor.ripostiglio_interno_ths_humidity':                { state: '57.7', attributes: { friendly_name: 'ripostiglio_interno_ths Umidità', device_class: 'humidity', unit_of_measurement: '%' } },
+    'sensor.ripostiglio_interno_ths_temperature':              { state: '29.3', attributes: { friendly_name: 'ripostiglio_interno_ths Temperatura', device_class: 'temperature', unit_of_measurement: '°C' } },
+    'sensor.ripostiglio_interno_ths_vpd':                      { state: '1.72', attributes: { friendly_name: 'ripostiglio_interno_ths Vpd' } },
+    'switch.d017_dehumidifier_5v_child_lock':                 { state: 'on',  attributes: { friendly_name: 'D017-Dehumidifier-5V child-lock' } },
+    'switch.d017_dehumidifier_5v_power':                      { state: 'on',  attributes: { friendly_name: 'D017-Dehumidifier-5V power' } },
+    'update.ripostiglio_interno_ths':                         { state: 'off', attributes: { friendly_name: 'ripostiglio_interno_ths' } },
   },
 };
 
