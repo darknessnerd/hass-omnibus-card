@@ -12,10 +12,22 @@ import { CLIMATE_MAP, ACTIVE_STATES, PTZ_ICON } from './constants.js';
 import { CARD_STYLES }                from './styles.js';
 import { getAreaEntities, classify, filterEntities } from './discovery.js';
 import { average, anyOn, activeLights, rgbColor, lowestBattery } from './aggregators.js';
-import { friendlyLabel, entityIcon, batteryIcon, uniqueLabels } from './utils.js';
+import { friendlyLabel, entityIcon, batteryIcon, uniqueLabels, resolveThreshold } from './utils.js';
 import { fireMoreInfo, navigate }     from './events.js';
 import { sparklineSvg, computeScale, CORNER_CLEARANCE_PCT } from './sparkline.js';
 
+
+// history_chart.threshold_high/threshold_low may be a plain number or an
+// entity_id (number/input_number/sensor) — see resolveThreshold. Returns the
+// same `hc` reference untouched when both thresholds are already numbers (or
+// absent), so sparkline.js's per-points render cache still hits on unrelated
+// re-renders (see the note above sparklineSvg's _renderCache).
+function resolveHistoryChartThresholds(hass, hc) {
+  const high = resolveThreshold(hass, hc.threshold_high, null);
+  const low  = resolveThreshold(hass, hc.threshold_low, null);
+  if (high === hc.threshold_high && low === hc.threshold_low) return hc;
+  return { ...hc, threshold_high: high, threshold_low: low };
+}
 
 // ── View model ─────────────────────────────────────────────────────────────
 
@@ -39,11 +51,16 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
   const humVal      = average(c.humidities);
   const climate     = c.climate[0] ?? null;
   const [climIcon, climColor] = CLIMATE_MAP[climate?.state?.state] ?? [null, null];
-  const moldThreshold = config.mold_threshold ?? 70;
+  const moldThreshold = resolveThreshold(hass, config.mold_threshold, 70);
   const navPath     = config.navigate_to || config.tap_action?.navigation_path || null;
-  const hc          = config.history_chart ?? null;
+  // history_chart's own threshold_high/low may likewise be an entity_id
+  // (see resolveThreshold) — resolved into a fresh object only when an
+  // entity ref is actually present, so the static-config case keeps the
+  // same object reference and sparkline.js's render cache still hits.
+  const hcConfig    = config.history_chart ?? null;
+  const hc          = hcConfig ? resolveHistoryChartThresholds(hass, hcConfig) : null;
 
-  const batteryLowThreshold = config.battery_low_threshold ?? 20;
+  const batteryLowThreshold = resolveThreshold(hass, config.battery_low_threshold, 20);
   const lowBattery = lowestBattery(c.batteries);
 
   // Only the first camera gets the dedicated preview banner; any additional

@@ -68,6 +68,24 @@ export function entityIcon(entityId, state) {
 }
 
 /**
+ * Resolves a threshold config value that may be a plain number, or an
+ * entity_id string (e.g. a number/input_number helper) whose current state
+ * supplies the value. Falls back when the value is absent or the entity's
+ * state isn't a finite number (unavailable/unknown/non-numeric domain).
+ *
+ * Example:
+ *   resolveThreshold(hass, 70, 20)              → 70
+ *   resolveThreshold(hass, 'number.mold_max', 20) → parseFloat(hass.states['number.mold_max'].state)
+ *   resolveThreshold(hass, null, 20)            → 20
+ */
+export function resolveThreshold(hass, value, fallback) {
+  if (value == null) return fallback;
+  if (typeof value === 'number') return value;
+  const num = parseFloat(hass.states?.[value]?.state);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+/**
  * Resolves an mdi battery glyph for a charge percentage, mirroring HA's own
  * `battery_icon` helper. Icon names come from the mdi set (see DEVELOPMENT.md
  * → Icon conventions): battery-unknown, battery-alert-variant-outline,

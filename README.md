@@ -176,7 +176,14 @@ show_camera: true              # Show the camera snapshot preview banner (defaul
 camera_refresh_interval: 5     # Auto-refresh the snapshot every N minutes (default: off — manual refresh button only)
 
 # ── Environmental thresholds ──────────────────────────────────────────
+# Any threshold below (mold_threshold, battery_low_threshold, history_chart's
+# threshold_high/threshold_low) accepts either a plain number OR an entity_id
+# string (number/input_number/sensor) whose current state supplies the value —
+# so the threshold can track a helper the user adjusts from the UI instead of
+# being fixed in YAML. Falls back to the default if the entity is missing,
+# unavailable, or its state isn't numeric.
 mold_threshold: 70            # Humidity % above which mold risk badge appears (default: 70)
+# mold_threshold: number.mold_threshold   # equivalent, entity-backed
 battery_low_threshold: 20     # Charge % at/below which the battery badge appears (default: 20)
 
 # ── History chart ─────────────────────────────────────────────────────
@@ -184,9 +191,9 @@ history_chart:
   entity_id: sensor.temperature   # required — entity to plot
   hours: 24                       # lookback window in hours (default: 24)
   color: 'rgba(255,200,100,0.15)' # baseline fill color (default: semi-transparent primary-color)
-  threshold_high: 25              # above this → color_high (optional)
+  threshold_high: 25              # above this → color_high (optional; number or entity_id)
   color_high: 'rgba(244,67,54,0.18)'   # default: red tint
-  threshold_low: 18               # below this → color_low (optional)
+  threshold_low: 18               # below this → color_low (optional; number or entity_id)
   color_low: 'rgba(33,150,243,0.18)'   # default: blue tint
   y_min: 0                        # pin Y axis floor — prevents baseline from floating up to data min (optional)
   y_max: 40                       # pin Y axis ceiling (optional)

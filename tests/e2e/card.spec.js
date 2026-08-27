@@ -116,6 +116,23 @@ test('mold risk — custom threshold respected', async ({ page }) => {
   await expect(page.locator('#mount')).toHaveScreenshot('mold-custom-threshold.png', SNAP);
 });
 
+test('mold risk — entity-backed threshold (number entity) respected', async ({ page }) => {
+  await mount(page, { area: 'living_room', mold_threshold: 'number.mold_threshold' }, {
+    'number.mold_threshold': { state: '50', attributes: {} },
+    'sensor.humidity': { state: '55', attributes: { friendly_name: 'Humidity', device_class: 'humidity', unit_of_measurement: '%' } },
+  });
+  await expect(page.locator('#mount').locator('.alarm-mold')).toBeVisible();
+});
+
+test('mold risk — entity-backed threshold falls back to default when entity unavailable', async ({ page }) => {
+  await mount(page, { area: 'living_room', mold_threshold: 'number.mold_threshold' }, {
+    'number.mold_threshold': { state: 'unavailable', attributes: {} },
+    'sensor.humidity': { state: '55', attributes: { friendly_name: 'Humidity', device_class: 'humidity', unit_of_measurement: '%' } },
+  });
+  // default is 70 — 55% stays below it, so no mold badge
+  await expect(page.locator('#mount').locator('.alarm-mold')).not.toBeVisible();
+});
+
 // ── Problems ──────────────────────────────────────────────────────────────────
 
 test('problem badge — problem binary_sensor on', async ({ page }) => {
@@ -503,6 +520,19 @@ test('history chart overlay — threshold_high label visible and shows value', a
   await expect(label).toContainText('22.0°C');
 });
 
+test('history chart overlay — entity-backed threshold_high (number entity) resolves to its state value', async ({ page }) => {
+  await mount(page, {
+    area: 'living_room',
+    history_chart: { entity_id: 'sensor.temperature', threshold_high: 'number.chart_threshold' },
+  }, {
+    'number.chart_threshold': { state: '22', attributes: {} },
+  });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  const label = page.locator('#mount').locator('.chart-threshold');
+  await expect(label).toHaveCount(1);
+  await expect(label).toContainText('22.0°C');
+});
+
 test('history chart overlay — both threshold labels rendered when high and low set', async ({ page }) => {
   await mount(page, {
     area: 'living_room',
@@ -566,6 +596,14 @@ test('battery — low badge appears at/below default threshold (20%), chip still
 
 test('battery — custom battery_low_threshold respected', async ({ page }) => {
   await mount(page, { area: 'living_room', entities: ['sensor.battery_test'], battery_low_threshold: 50 }, {
+    'sensor.battery_test': { state: '45', attributes: { friendly_name: 'Battery Test', device_class: 'battery', unit_of_measurement: '%' } },
+  });
+  await expect(page.locator('#mount').locator('.status-seg-battery')).toBeVisible();
+});
+
+test('battery — entity-backed battery_low_threshold (number entity) respected', async ({ page }) => {
+  await mount(page, { area: 'living_room', entities: ['sensor.battery_test'], battery_low_threshold: 'number.battery_threshold' }, {
+    'number.battery_threshold': { state: '50', attributes: {} },
     'sensor.battery_test': { state: '45', attributes: { friendly_name: 'Battery Test', device_class: 'battery', unit_of_measurement: '%' } },
   });
   await expect(page.locator('#mount').locator('.status-seg-battery')).toBeVisible();
