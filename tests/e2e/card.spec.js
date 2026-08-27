@@ -1080,6 +1080,35 @@ test('real dataset — full card snapshot', async ({ page }) => {
   await expect(page.locator('#mount')).toHaveScreenshot('real-dataset-esterno.png', SNAP);
 });
 
+// Regression — a camera+controls area (tall card: preview + weather chip +
+// controls/settings/diagnostics rows) pushes .bg-chart against its 22rem
+// max-height cap (see styles.js), so the chart's rendered box ends up far
+// closer to square than the sparkline's native 300×60 viewBox. Combined with
+// preserveAspectRatio="none" (deliberately non-uniform stretch, see
+// sparkline.js), the X/Y scale factors diverge hugely — a gentle temperature
+// wave that reads fine on a short card (see the living_room history tests
+// above) renders as a sharp, unreadable V-spike here, bleeding straight
+// through the camera preview. Reproduced from dev.html's own "Rooms" gallery
+// (the esterno room card there uses this exact history_chart shape). This
+// snapshot pins today's (broken) appearance so any further drift is caught;
+// once the distortion is fixed (e.g. capping the Y/X stretch ratio, or
+// sizing max-height relative to the card's actual width), re-record it.
+test('real dataset — esterno: history_chart on a tall camera card distorts into a spike (regression)', async ({ page }) => {
+  await mount(page, {
+    ...ESTERNO_REAL,
+    collapsible_controls: false,
+    history_chart: {
+      entity_id: 'sensor.bresser_7in1_65351_temperature', hours: 24,
+      color: 'rgba(255,200,100,0.15)',
+      threshold_high: 30, color_high: 'rgba(244,67,54,0.18)',
+      threshold_low: 26, color_low: 'rgba(33,150,243,0.18)',
+      y_min: 24,
+    },
+  });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('#mount')).toHaveScreenshot('history-esterno-tall-card-distortion.png', SNAP);
+});
+
 // ── Real dataset — cucina IR blaster + LED (no camera at all, 2 device tabs) ──
 // From an actual production debug log: an IR blaster device with 2 switches +
 // a select + a number, plus a battery + learned-code sensor, and a *separate*
