@@ -374,6 +374,19 @@ test('SNZB-04P contact sensor: tamper (dc=tamper) lands in its own tampers bucke
   assert.equal(active.problems.length, 0);
 });
 
+test('SNZB-04P contact sensor: an unavailable contact/tamper sensor still surfaces as a problem, not silently "closed"/"normal"', () => {
+  const offline = DOOR_SENSOR_ENTITIES.map(e =>
+    (e.entityId.endsWith('_contact') || e.entityId.endsWith('_tamper'))
+      ? { ...e, state: { ...e.state, state: 'unavailable' } }
+      : e);
+  const { openings, tampers, problems } = classify(offline);
+  assert.ok(!openings.some(o => o.entityId.includes('_contact')));
+  assert.ok(!tampers.some(t => t.entityId.includes('_tamper')));
+  const problemIds = problems.map(p => p.entityId);
+  assert.ok(problemIds.includes('binary_sensor.door_ground_floor_contact'));
+  assert.ok(problemIds.includes('binary_sensor.door_ground_floor_tamper'));
+});
+
 test('SNZB-04P contact sensor: battery/voltage/linkquality still group as diagnostics (openings bucket does not swallow them)', () => {
   const { diagnostics } = classify(DOOR_SENSOR_ENTITIES);
   const diagIds = diagnostics.map(d => d.entityId);

@@ -83,6 +83,12 @@ const PTZ_RE = new RegExp(`ptz.*_(${Object.keys(PTZ_DIRECTION).join('|')})$`, 'i
 // device sweep below and get buried behind a Diagnostics tab.
 const OPENING_DC = new Set(['door', 'window', 'opening', 'garage_door']);
 
+// HA has no dedicated device_class for dew point — integrations expose it as
+// device_class: temperature (same unit, °C), so it slips into the ambient
+// temperature bucket and skews average() unless matched out by entity_id slug
+// first (stable/unlocalized, like PTZ_RE above — unlike friendly_name/icon).
+const DEW_POINT_RE = /_dew_point$/i;
+
 /**
  * Buckets a flat entity list into semantic groups by domain / device_class.
  * Each bucket is an array of { entityId, state } items (ptz items also carry `direction`).
@@ -109,17 +115,22 @@ export function classify(areaEntities) {
     else if (domain === 'climate')                                                          out.climate.push(item);
     else if (domain === 'camera')                                                           out.cameras.push(item);
     else if (domain === 'update'         && val !== 'unavailable')                          out.updates.push(item);
+    else if (domain === 'sensor'        && dc === 'temperature' && DEW_POINT_RE.test(entityId)) out.weathers.push(item);
     else if (domain === 'sensor'        && dc === 'temperature')                            out.temperatures.push(item);
     else if (domain === 'sensor'        && dc === 'humidity')                               out.humidities.push(item);
     else if (domain === 'sensor'        && WEATHER_DC.has(dc))                              out.weathers.push(item);
     else if (domain === 'binary_sensor' && dc === 'motion')                                 out.motions.push(item);
     else if (domain === 'binary_sensor' && dc === 'occupancy')                              out.occupancy.push(item);
-    else if (domain === 'binary_sensor' && OPENING_DC.has(dc))                              out.openings.push(item);
+    // `val !== 'unavailable'` guards on both branches below: an offline
+    // contact/tamper sensor must still fall through to the generic
+    // `val === 'unavailable'` problems catch further down, not get silently
+    // swallowed into a bucket that only ever renders "closed"/"normal".
+    else if (domain === 'binary_sensor' && OPENING_DC.has(dc) && val !== 'unavailable')     out.openings.push(item);
     // Own bucket, same reasoning as openings: a tamper sensor shares its
     // device with the contact sensor + battery, so it needs to stay out of
     // `others` too — and it reads clearer as its own shield badge next to
     // the door/window state than folded into the generic problems alert.
-    else if (domain === 'binary_sensor' && dc === 'tamper')                                 out.tampers.push(item);
+    else if (domain === 'binary_sensor' && dc === 'tamper' && val !== 'unavailable')        out.tampers.push(item);
     else if (domain === 'binary_sensor' && dc === 'smoke')                                  out.smokes.push(item);
     else if (domain === 'binary_sensor' && dc === 'gas')                                    out.gases.push(item);
     else if (domain === 'binary_sensor' && dc === 'moisture')                               out.moistures.push(item);

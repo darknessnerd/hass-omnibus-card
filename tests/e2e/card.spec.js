@@ -74,7 +74,7 @@ test('not occupied — grey dot', async ({ page }) => {
 // other test) so this section's overrides can't perturb an unrelated baseline.
 const BEDROOM = { area: 'bedroom' };
 
-test('door closed — openings chip visible, neutral', async ({ page }) => {
+test('door closed — openings chip visible, green', async ({ page }) => {
   await mount(page, BEDROOM);
   await expect(page.locator('#mount').locator('.openings-chip')).toBeVisible();
   await expect(page.locator('#mount').locator('.opening-seg.on')).not.toBeVisible();

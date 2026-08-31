@@ -40,6 +40,20 @@ function mapEntityItem(entityId, state, deviceId, config) {
   };
 }
 
+// Shared shape for openingItems/tamperItems — a plain on/off badge with a
+// custom active/inactive label (unlike mapEntityItem's raw state string).
+// `activeKey` names the boolean field per caller (isOpen / isTampered) so
+// each template can destructure the name that reads clearly at the call site.
+function mapBinaryStatusItem(entityId, state, activeKey, activeLabel, inactiveLabel) {
+  const isActive = ACTIVE_STATES.has(state.state);
+  return {
+    entityId,
+    icon:  entityIcon(entityId, state),
+    [activeKey]: isActive,
+    title: `${state.attributes?.friendly_name ?? entityId} — ${isActive ? activeLabel : inactiveLabel}`,
+  };
+}
+
 /**
  * Derives all display-relevant data from hass + config.
  * Returns { error } when the area is not found and no name override is set.
@@ -192,29 +206,13 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
     // separate from chipItems so a device sweep (see discovery.js classify())
     // never buries an open door behind a Diagnostics tab click.
     openingItems: config.show_entities !== false
-      ? c.openings.map(({ entityId, state }) => {
-          const isOpen = ACTIVE_STATES.has(state.state);
-          return {
-            entityId,
-            icon:  entityIcon(entityId, state),
-            isOpen,
-            title: `${state.attributes?.friendly_name ?? entityId} — ${isOpen ? 'Open' : 'Closed'}`,
-          };
-        })
+      ? c.openings.map(({ entityId, state }) => mapBinaryStatusItem(entityId, state, 'isOpen', 'Open', 'Closed'))
       : [],
 
     // Tamper sensors — own shield badge next to openings (see discovery.js),
     // distinct from the door/window open/closed state it shares a device with.
     tamperItems: config.show_entities !== false
-      ? c.tampers.map(({ entityId, state }) => {
-          const isTampered = ACTIVE_STATES.has(state.state);
-          return {
-            entityId,
-            icon:       entityIcon(entityId, state),
-            isTampered,
-            title: `${state.attributes?.friendly_name ?? entityId} — ${isTampered ? 'Tamper detected' : 'Normal'}`,
-          };
-        })
+      ? c.tampers.map(({ entityId, state }) => mapBinaryStatusItem(entityId, state, 'isTampered', 'Tamper detected', 'Normal'))
       : [],
 
     weatherItems: config.show_entities !== false

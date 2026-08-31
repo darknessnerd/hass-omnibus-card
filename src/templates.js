@@ -119,7 +119,7 @@ function renderWeatherChip({ weatherItems }) {
 // Tamper sensors — own shield badge next to the openings badge: shares a
 // device with the door/window contact sensor (see discovery.js) but is a
 // distinct security signal, not the same on/off state, so it gets its own
-// red-vs-neutral swatch rather than being folded into either.
+// red-vs-green swatch rather than being folded into either.
 function renderTamperChip({ tamperItems }) {
   if (!tamperItems.length) return '';
   return `

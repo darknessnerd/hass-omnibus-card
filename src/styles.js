@@ -486,25 +486,21 @@ export const CARD_STYLES = `
   .weather-seg[data-dc="illuminance"] ha-icon    { color: #f9a825; }
   .weather-seg[data-dc="sound_pressure"] ha-icon { color: #8e24aa; }
 
-  /* Open vs closed needs to read at a glance, not just via icon tint (too
-     subtle at 13px) — same background+color pairing as .badge-lights/.off,
-     so an open door is an unmissable amber swatch, not a slightly-less-grey
-     icon next to an already-grey icon. */
-  .opening-seg {
-    background: var(--secondary-background-color, rgba(128, 128, 128, 0.12));
-    color: var(--disabled-text-color, #5e5e5e);
+  /* Shared "all clear" swatch for opening/tamper segments — green, not grey,
+     so closed/normal reads as a positive state at a glance (not just an
+     absence of alert color) instead of icon tint alone (too subtle at
+     13px). Each .on variant below overrides bg+color only. */
+  .opening-seg, .tamper-seg {
+    background: rgba(76, 175, 80, 0.15);
+    color: var(--success-color, #4caf50);
   }
+  /* Open door/window — amber, same on/off language as .badge-lights. */
   .opening-seg.on {
     background: rgba(255, 152, 0, 0.28);
     color: var(--warning-color, #ff9800);
   }
-
-  /* Tamper — red, not amber, so it never reads as "just a door open"
-     next to the openings badge it sits beside. */
-  .tamper-seg {
-    background: var(--secondary-background-color, rgba(128, 128, 128, 0.12));
-    color: var(--disabled-text-color, #5e5e5e);
-  }
+  /* Tamper — red, not amber, so it never reads as "just a door open" next
+     to the openings badge it sits beside. */
   .tamper-seg.on {
     background: rgba(244, 67, 54, 0.28);
     color: var(--error-color, #f44336);
