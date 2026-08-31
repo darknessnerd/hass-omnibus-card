@@ -146,6 +146,11 @@ window.BASE_HASS = {
     'switch.outlet':          { area_id: 'living_room', device_id: null,     hidden_by: null },
     'light.bed_light':        { area_id: 'bedroom',     device_id: null,     hidden_by: null },
     'sensor.bed_humidity':    { area_id: 'bedroom',     device_id: null,     hidden_by: null },
+    // SONOFF SNZB-04P contact sensor — dedicated to `bedroom` (not otherwise
+    // mounted as its own card by any test) so adding it never perturbs an
+    // existing screenshot baseline.
+    'binary_sensor.bedroom_door':        { area_id: 'bedroom', device_id: null, hidden_by: null },
+    'binary_sensor.bedroom_door_tamper': { area_id: 'bedroom', device_id: null, hidden_by: null },
     'camera.garage_cam':          { area_id: null,     device_id: 'dev_cam', hidden_by: null },
     'camera.garage_cam_2':        { area_id: 'garage', device_id: null,      hidden_by: null },
     'button.garage_cam_ptz_up':   { area_id: null, device_id: 'dev_cam',     hidden_by: null },
@@ -247,6 +252,8 @@ window.BASE_HASS = {
     'switch.outlet':          { state: 'off',    attributes: { friendly_name: 'Outlet' } },
     'light.bed_light':        { state: 'off',    attributes: { friendly_name: 'Bed Light' } },
     'sensor.bed_humidity':    { state: '72',     attributes: { friendly_name: 'Humidity', device_class: 'humidity', unit_of_measurement: '%' } },
+    'binary_sensor.bedroom_door':        { state: 'off', attributes: { friendly_name: 'Bedroom Door',        device_class: 'opening' } },
+    'binary_sensor.bedroom_door_tamper': { state: 'off', attributes: { friendly_name: 'Bedroom Door Tamper', device_class: 'tamper' } },
     'sensor.battery_test':    { state: '82',     attributes: { friendly_name: 'Battery Test', device_class: 'battery', unit_of_measurement: '%' } },
     'camera.garage_cam':          { state: 'recording', attributes: { friendly_name: 'Garage Cam', entity_picture: '/api/camera_proxy/camera.garage_cam?token=abc' } },
     'camera.garage_cam_2':        { state: 'idle',      attributes: { friendly_name: 'Garage Cam 2', entity_picture: '/api/camera_proxy/camera.garage_cam_2?token=abc' } },

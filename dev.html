@@ -223,6 +223,12 @@ const MOCK_HASS = {
     // sensor device, no camera at all
     dev_d017_dehumidifier: { area_id: 'ripostiglio_interno', name: 'D017-Dehumidifier-5V' },
     dev_ths_ripostiglio:   { area_id: 'ripostiglio_interno', name: 'ripostiglio_interno_ths' },
+    // SONOFF SNZB-04P contact sensor (Zigbee2MQTT, topic zigbee2mqtt/door_ground_floor) —
+    // real device shape: contact + tamper binary_sensors, battery/voltage/linkquality
+    // diagnostics. Contact/tamper each get their own always-visible header badge
+    // (Openings, Tamper); battery+voltage+linkquality (3 read-only sensors on one
+    // device) sweep into the Diagnostics tab.
+    dev_door_ground_floor: { area_id: 'living_room', name: 'Door Ground Floor' },
   },
 
   entities: {
@@ -237,6 +243,11 @@ const MOCK_HASS = {
     'sensor.remote_battery':   { area_id: 'living_room', device_id: null,   hidden_by: null },
     'media_player.tv':         { area_id: 'living_room', device_id: null,   hidden_by: null },
     'climate.hvac':            { area_id: 'living_room', device_id: null,   hidden_by: null },
+    'binary_sensor.door_ground_floor_contact': { area_id: null, device_id: 'dev_door_ground_floor', hidden_by: null },
+    'binary_sensor.door_ground_floor_tamper':  { area_id: null, device_id: 'dev_door_ground_floor', hidden_by: null },
+    'sensor.door_ground_floor_battery':        { area_id: null, device_id: 'dev_door_ground_floor', hidden_by: null },
+    'sensor.door_ground_floor_voltage':        { area_id: null, device_id: 'dev_door_ground_floor', hidden_by: null },
+    'sensor.door_ground_floor_linkquality':    { area_id: null, device_id: 'dev_door_ground_floor', hidden_by: null },
     // bedroom — direct area
     'light.bedside':           { area_id: 'bedroom', device_id: null,        hidden_by: null },
     'sensor.bed_temperature':  { area_id: 'bedroom', device_id: null,        hidden_by: null },
@@ -415,6 +426,27 @@ const MOCK_HASS = {
     'climate.hvac': {
       state: 'heat',
       attributes: { friendly_name: 'HVAC', current_temperature: 20.5 },
+    },
+    // SONOFF SNZB-04P contact sensor — real values from a debug log
+    'binary_sensor.door_ground_floor_contact': {
+      state: 'off',
+      attributes: { friendly_name: 'Door Ground Floor', device_class: 'opening' },
+    },
+    'binary_sensor.door_ground_floor_tamper': {
+      state: 'off',
+      attributes: { friendly_name: 'Door Ground Floor Tamper', device_class: 'tamper' },
+    },
+    'sensor.door_ground_floor_battery': {
+      state: '100',
+      attributes: { friendly_name: 'Door Ground Floor Battery', device_class: 'battery', unit_of_measurement: '%' },
+    },
+    'sensor.door_ground_floor_voltage': {
+      state: '3100',
+      attributes: { friendly_name: 'Door Ground Floor Voltage', device_class: 'voltage', unit_of_measurement: 'mV' },
+    },
+    'sensor.door_ground_floor_linkquality': {
+      state: '132',
+      attributes: { friendly_name: 'Door Ground Floor Linkquality', unit_of_measurement: 'lqi' },
     },
     // bedroom
     'light.bedside': {
@@ -621,9 +653,17 @@ const SCENARIOS = {
     MOCK_HASS.states['light.ceiling'].state = 'on';
     MOCK_HASS.states['sensor.window_battery'].state = '78';
     MOCK_HASS.states['sensor.remote_battery'].state = '42';
+    MOCK_HASS.states['binary_sensor.door_ground_floor_contact'].state = 'off';
+    MOCK_HASS.states['binary_sensor.door_ground_floor_tamper'].state = 'off';
   },
   alarm: () => {
     MOCK_HASS.states['binary_sensor.smoke_det'].state = 'on';
+  },
+  door_open: () => {
+    MOCK_HASS.states['binary_sensor.door_ground_floor_contact'].state = 'on';
+  },
+  door_tamper: () => {
+    MOCK_HASS.states['binary_sensor.door_ground_floor_tamper'].state = 'on';
   },
   gas: () => {
     MOCK_HASS.states['binary_sensor.gas_det'].state = 'on';
@@ -654,6 +694,8 @@ const SCENARIO_META = {
   lights_off:    { color: '#7b828f', label: 'lights off',   pulse: false },
   light_offline: { color: '#ff9800', label: 'light offline',pulse: false },
   battery_low:   { color: '#f44336', label: 'battery low',  pulse: true  },
+  door_open:     { color: '#ff9800', label: 'door open',    pulse: false },
+  door_tamper:   { color: '#f44336', label: 'door tamper',  pulse: true  },
 };
 
 function setStatusLed(name) {
@@ -721,6 +763,8 @@ function mountStatic(container, config, stateOverrides, callWSOverride) {
   <button class="scenario-btn" style="--dot-color:#7b828f" onclick="applyScenario('lights_off')">Lights off</button>
   <button class="scenario-btn" style="--dot-color:#ff9800" onclick="applyScenario('light_offline')">Light offline</button>
   <button class="scenario-btn" style="--dot-color:#f44336" onclick="applyScenario('battery_low')">Battery low</button>
+  <button class="scenario-btn" style="--dot-color:#ff9800" onclick="applyScenario('door_open')">Door open</button>
+  <button class="scenario-btn" style="--dot-color:#f44336" onclick="applyScenario('door_tamper')">Door tamper</button>
 </div>
 
 <div class="section">
@@ -1202,6 +1246,17 @@ window.addEventListener('load', () => {
     // Occupancy idle — grey dot
     mountStatic(gallery, { area: 'living_room', name: 'Not occupied (grey dot)' }, {
       'binary_sensor.motion': { state: 'off', attributes: { friendly_name: 'Motion', device_class: 'motion' } },
+    });
+
+    // Door open — Openings chip segment highlighted amber (SNZB-04P contact sensor)
+    mountStatic(gallery, { area: 'living_room', name: 'Door open (openings chip)' }, {
+      'binary_sensor.door_ground_floor_contact': { state: 'on', attributes: { friendly_name: 'Door Ground Floor', device_class: 'opening' } },
+    });
+
+    // Door tamper — own red shield badge next to Openings, distinct from both
+    // the door open/closed state and the generic problem badge
+    mountStatic(gallery, { area: 'living_room', name: 'Door tamper (tamper badge)' }, {
+      'binary_sensor.door_ground_floor_tamper': { state: 'on', attributes: { friendly_name: 'Door Ground Floor Tamper', device_class: 'tamper' } },
     });
 
     // Debug mode — check browser console for [hass-omnibus-card] update logs

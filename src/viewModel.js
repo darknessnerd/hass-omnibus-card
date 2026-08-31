@@ -188,6 +188,35 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
     collapsibleControls,
     activeSection,
 
+    // Contact sensors (door/window/garage) — own always-visible pill, kept
+    // separate from chipItems so a device sweep (see discovery.js classify())
+    // never buries an open door behind a Diagnostics tab click.
+    openingItems: config.show_entities !== false
+      ? c.openings.map(({ entityId, state }) => {
+          const isOpen = ACTIVE_STATES.has(state.state);
+          return {
+            entityId,
+            icon:  entityIcon(entityId, state),
+            isOpen,
+            title: `${state.attributes?.friendly_name ?? entityId} — ${isOpen ? 'Open' : 'Closed'}`,
+          };
+        })
+      : [],
+
+    // Tamper sensors — own shield badge next to openings (see discovery.js),
+    // distinct from the door/window open/closed state it shares a device with.
+    tamperItems: config.show_entities !== false
+      ? c.tampers.map(({ entityId, state }) => {
+          const isTampered = ACTIVE_STATES.has(state.state);
+          return {
+            entityId,
+            icon:       entityIcon(entityId, state),
+            isTampered,
+            title: `${state.attributes?.friendly_name ?? entityId} — ${isTampered ? 'Tamper detected' : 'Normal'}`,
+          };
+        })
+      : [],
+
     weatherItems: config.show_entities !== false
       ? c.weathers.map(({ entityId, state }) => {
           const num  = parseFloat(state.state);

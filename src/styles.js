@@ -486,6 +486,30 @@ export const CARD_STYLES = `
   .weather-seg[data-dc="illuminance"] ha-icon    { color: #f9a825; }
   .weather-seg[data-dc="sound_pressure"] ha-icon { color: #8e24aa; }
 
+  /* Open vs closed needs to read at a glance, not just via icon tint (too
+     subtle at 13px) — same background+color pairing as .badge-lights/.off,
+     so an open door is an unmissable amber swatch, not a slightly-less-grey
+     icon next to an already-grey icon. */
+  .opening-seg {
+    background: var(--secondary-background-color, rgba(128, 128, 128, 0.12));
+    color: var(--disabled-text-color, #5e5e5e);
+  }
+  .opening-seg.on {
+    background: rgba(255, 152, 0, 0.28);
+    color: var(--warning-color, #ff9800);
+  }
+
+  /* Tamper — red, not amber, so it never reads as "just a door open"
+     next to the openings badge it sits beside. */
+  .tamper-seg {
+    background: var(--secondary-background-color, rgba(128, 128, 128, 0.12));
+    color: var(--disabled-text-color, #5e5e5e);
+  }
+  .tamper-seg.on {
+    background: rgba(244, 67, 54, 0.28);
+    color: var(--error-color, #f44336);
+  }
+
   .group-seg:hover ha-icon { color: white; }
 
   /* ── Status cluster (battery / problem / update alerts, grouped) ──

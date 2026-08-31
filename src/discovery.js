@@ -76,6 +76,13 @@ const WEATHER_DC = new Set(['wind_speed', 'precipitation', 'illuminance', 'sound
 const PTZ_DIRECTION = { up: 'up', down: 'down', left: 'left', right: 'right', su: 'up', giu: 'down', sinistra: 'left', destra: 'right' };
 const PTZ_RE = new RegExp(`ptz.*_(${Object.keys(PTZ_DIRECTION).join('|')})$`, 'i');
 
+// Contact sensors (door/window/garage) — a device_class family, like WEATHER_DC,
+// grouped into their own always-visible bucket instead of the generic chip
+// strip. Kept out of `others` specifically so a contact sensor + its own
+// battery entity (2 entities on one device) doesn't trip classify()'s
+// device sweep below and get buried behind a Diagnostics tab.
+const OPENING_DC = new Set(['door', 'window', 'opening', 'garage_door']);
+
 /**
  * Buckets a flat entity list into semantic groups by domain / device_class.
  * Each bucket is an array of { entityId, state } items (ptz items also carry `direction`).
@@ -85,7 +92,7 @@ export function classify(areaEntities) {
   const out = {
     lights: [], climate: [],
     temperatures: [], humidities: [], weathers: [],
-    motions: [], occupancy: [],
+    motions: [], occupancy: [], openings: [], tampers: [],
     smokes: [], gases: [], moistures: [],
     batteries: [], problems: [],
     cameras: [], controls: [], settings: [], ptz: [], updates: [],
@@ -107,11 +114,17 @@ export function classify(areaEntities) {
     else if (domain === 'sensor'        && WEATHER_DC.has(dc))                              out.weathers.push(item);
     else if (domain === 'binary_sensor' && dc === 'motion')                                 out.motions.push(item);
     else if (domain === 'binary_sensor' && dc === 'occupancy')                              out.occupancy.push(item);
+    else if (domain === 'binary_sensor' && OPENING_DC.has(dc))                              out.openings.push(item);
+    // Own bucket, same reasoning as openings: a tamper sensor shares its
+    // device with the contact sensor + battery, so it needs to stay out of
+    // `others` too — and it reads clearer as its own shield badge next to
+    // the door/window state than folded into the generic problems alert.
+    else if (domain === 'binary_sensor' && dc === 'tamper')                                 out.tampers.push(item);
     else if (domain === 'binary_sensor' && dc === 'smoke')                                  out.smokes.push(item);
     else if (domain === 'binary_sensor' && dc === 'gas')                                    out.gases.push(item);
     else if (domain === 'binary_sensor' && dc === 'moisture')                               out.moistures.push(item);
     else if (domain === 'sensor'        && dc === 'battery' && val !== 'unavailable') { out.batteries.push(item); out.others.push(item); }
-    else if (val === 'unavailable' || (domain === 'binary_sensor' && ['problem', 'tamper', 'safety'].includes(dc) && val === 'on'))
+    else if (val === 'unavailable' || (domain === 'binary_sensor' && ['problem', 'safety'].includes(dc) && val === 'on'))
                                                                                             out.problems.push(item);
     else if (domain === 'siren')                                                            out.controls.push(item);
     else if (domain === 'button') {

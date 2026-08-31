@@ -338,3 +338,56 @@ test('groupTabsByDevice: D017 dehumidifier and THS sensor get independent tabs, 
   assert.equal(byKey[THS_DEVICE].settings.length, 2);
   assert.equal(byKey[THS_DEVICE].diagnostics.length, 2);
 });
+
+// SONOFF SNZB-04P contact sensor (door_ground_floor) — exposes a device_class
+// "opening" binary_sensor plus its own battery %, voltage and tamper readings
+// on one device. Real risk this guards against: 3 entities pushed into
+// `others` (battery + voltage + linkquality, all not otherwise bucketed)
+// trips classify()'s device sweep and buries the open/closed state behind a
+// Diagnostics tab — the whole point of giving contact sensors their own
+// `openings` bucket.
+const DOOR_DEVICE = 'dev_door_ground_floor';
+const DOOR_SENSOR_ENTITIES = [
+  item('binary_sensor.door_ground_floor_contact', { state: 'off', attributes: { device_class: 'opening' } }, DOOR_DEVICE),
+  item('binary_sensor.door_ground_floor_tamper', { state: 'off', attributes: { device_class: 'tamper' } }, DOOR_DEVICE),
+  item('sensor.door_ground_floor_battery', { state: '100', attributes: { device_class: 'battery' } }, DOOR_DEVICE),
+  item('sensor.door_ground_floor_voltage', { state: '3100', attributes: { device_class: 'voltage' } }, DOOR_DEVICE),
+  item('sensor.door_ground_floor_linkquality', { state: '132' }, DOOR_DEVICE),
+];
+
+test('SNZB-04P contact sensor: device_class "opening" lands in openings, not others/diagnostics', () => {
+  const { openings, others, diagnostics } = classify(DOOR_SENSOR_ENTITIES);
+  assert.deepEqual(openings.map(o => o.entityId), ['binary_sensor.door_ground_floor_contact']);
+  assert.ok(!others.some(o => o.entityId.includes('_contact')));
+  assert.ok(!diagnostics.some(d => d.entityId.includes('_contact')));
+});
+
+test('SNZB-04P contact sensor: tamper (dc=tamper) lands in its own tampers bucket, on or off, never in problems', () => {
+  const idle = classify(DOOR_SENSOR_ENTITIES);
+  assert.deepEqual(idle.tampers.map(t => t.entityId), ['binary_sensor.door_ground_floor_tamper']);
+  assert.equal(idle.problems.length, 0);
+
+  const tampered = DOOR_SENSOR_ENTITIES.map(e =>
+    e.entityId.endsWith('_tamper') ? { ...e, state: { ...e.state, state: 'on' } } : e);
+  const active = classify(tampered);
+  assert.deepEqual(active.tampers.map(t => t.entityId), ['binary_sensor.door_ground_floor_tamper']);
+  assert.equal(active.problems.length, 0);
+});
+
+test('SNZB-04P contact sensor: battery/voltage/linkquality still group as diagnostics (openings bucket does not swallow them)', () => {
+  const { diagnostics } = classify(DOOR_SENSOR_ENTITIES);
+  const diagIds = diagnostics.map(d => d.entityId);
+  assert.ok(diagIds.includes('sensor.door_ground_floor_battery'));
+  assert.ok(diagIds.includes('sensor.door_ground_floor_voltage'));
+  assert.ok(diagIds.includes('sensor.door_ground_floor_linkquality'));
+});
+
+test('classify: "door"/"window"/"garage_door" device_classes also land in openings (dc family, not just "opening")', () => {
+  const mixed = [
+    item('binary_sensor.front_door', { state: 'on', attributes: { device_class: 'door' } }, 'devA'),
+    item('binary_sensor.kitchen_window', { state: 'off', attributes: { device_class: 'window' } }, 'devB'),
+    item('binary_sensor.garage', { state: 'off', attributes: { device_class: 'garage_door' } }, 'devC'),
+  ];
+  const { openings } = classify(mixed);
+  assert.equal(openings.length, 3);
+});

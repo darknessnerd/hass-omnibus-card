@@ -68,6 +68,37 @@ test('not occupied — grey dot', async ({ page }) => {
   await expect(page.locator('#mount')).toHaveScreenshot('not-occupied.png', SNAP);
 });
 
+// ── Openings (door/window contact sensors) ─────────────────────────────────────
+// binary_sensor.bedroom_door / _tamper (device_class opening/tamper) — see
+// tests/fixture.html. Kept on `bedroom` (never mounted as its own card by any
+// other test) so this section's overrides can't perturb an unrelated baseline.
+const BEDROOM = { area: 'bedroom' };
+
+test('door closed — openings chip visible, neutral', async ({ page }) => {
+  await mount(page, BEDROOM);
+  await expect(page.locator('#mount').locator('.openings-chip')).toBeVisible();
+  await expect(page.locator('#mount').locator('.opening-seg.on')).not.toBeVisible();
+  await expect(page.locator('#mount')).toHaveScreenshot('door-closed.png', SNAP);
+});
+
+test('door open — opening segment highlighted', async ({ page }) => {
+  await mount(page, BEDROOM, {
+    'binary_sensor.bedroom_door': { state: 'on', attributes: { friendly_name: 'Bedroom Door', device_class: 'opening' } },
+  });
+  await expect(page.locator('#mount').locator('.opening-seg.on')).toBeVisible();
+  await expect(page.locator('#mount')).toHaveScreenshot('door-open.png', SNAP);
+});
+
+test('door tamper — own red tamper badge, not the openings chip or the problem badge', async ({ page }) => {
+  await mount(page, BEDROOM, {
+    'binary_sensor.bedroom_door_tamper': { state: 'on', attributes: { friendly_name: 'Bedroom Door Tamper', device_class: 'tamper' } },
+  });
+  await expect(page.locator('#mount').locator('.tamper-seg.on')).toBeVisible();
+  await expect(page.locator('#mount').locator('.opening-seg.on')).not.toBeVisible();
+  await expect(page.locator('#mount').locator('.status-seg-problem')).not.toBeVisible();
+  await expect(page.locator('#mount')).toHaveScreenshot('door-tamper.png', SNAP);
+});
+
 // ── Alarms ────────────────────────────────────────────────────────────────────
 
 test('smoke alarm — alarm bar with smoke badge', async ({ page }) => {

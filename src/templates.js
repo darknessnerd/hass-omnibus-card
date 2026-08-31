@@ -11,7 +11,7 @@ import { sparklineSvg, computeScale, CORNER_CLEARANCE_PCT } from './sparkline.js
 
 function renderHeader({ areaName, cardIcon, hasLights, lightCount, offlineLights, occupied, hasOccupancySensors, problemCount,
                          showBatteryBadge, batteryValue, batteryIcon: batteryIconName, batteryEntity, batteryTitle,
-                         updateCount, updateEntity, updateTitle }) {
+                         updateCount, updateEntity, updateTitle, openingItems, tamperItems }) {
   const lightsOff     = lightCount === 0;
   const lightTitle    = lightsOff
     ? (offlineLights > 0 ? `${offlineLights} light${offlineLights !== 1 ? 's' : ''} offline` : 'Lights off')
@@ -30,6 +30,8 @@ function renderHeader({ areaName, cardIcon, hasLights, lightCount, offlineLights
             <ha-icon icon="mdi:lightbulb${lightsOff ? '-off' : ''}"></ha-icon>
             ${lightCount > 1 ? `<span>${lightCount}</span>` : ''}
           </div>` : ''}
+        ${renderOpeningsChip({ openingItems })}
+        ${renderTamperChip({ tamperItems })}
         ${hasOccupancySensors ? `<div class="occupancy-dot ${occupied ? '' : 'idle'}" title="${occupied ? 'Occupied' : 'Not occupied'}"></div>` : ''}
         ${renderStatusCluster({ showBatteryBadge, batteryValue, batteryIcon: batteryIconName, batteryEntity, batteryTitle,
                                  problemCount, updateCount, updateEntity, updateTitle })}
@@ -110,6 +112,37 @@ function renderWeatherChip({ weatherItems }) {
         <span class="group-seg weather-seg" data-entity="${entityId}" data-dc="${dc}" role="button" tabindex="0" aria-label="${title}" title="${title}">
           <ha-icon icon="${icon}"></ha-icon>
           <span class="group-seg-value">${value}${unit ? ' ' + unit : ''}</span>
+        </span>`).join('')}
+    </div>`;
+}
+
+// Tamper sensors — own shield badge next to the openings badge: shares a
+// device with the door/window contact sensor (see discovery.js) but is a
+// distinct security signal, not the same on/off state, so it gets its own
+// red-vs-neutral swatch rather than being folded into either.
+function renderTamperChip({ tamperItems }) {
+  if (!tamperItems.length) return '';
+  return `
+    <div class="chip group-chip tamper-chip">
+      ${tamperItems.map(({ entityId, icon, isTampered, title }) => `
+        <span class="group-seg tamper-seg${isTampered ? ' on' : ''}" data-entity="${entityId}" role="button" tabindex="0" aria-label="${title}" title="${title}">
+          <ha-icon icon="${icon}"></ha-icon>
+        </span>`).join('')}
+    </div>`;
+}
+
+// Door/window/garage contact sensors — rendered in the header next to the
+// lights badge (see renderHeader) rather than the lower chip strip, so an
+// open door reads at a glance next to the room's other always-visible status
+// (lights/occupancy) instead of needing a scroll or a Diagnostics-tab click
+// (see discovery.js's OPENING_DC bucket).
+function renderOpeningsChip({ openingItems }) {
+  if (!openingItems.length) return '';
+  return `
+    <div class="chip group-chip openings-chip">
+      ${openingItems.map(({ entityId, icon, isOpen, title }) => `
+        <span class="group-seg opening-seg${isOpen ? ' on' : ''}" data-entity="${entityId}" role="button" tabindex="0" aria-label="${title}" title="${title}">
+          <ha-icon icon="${icon}"></ha-icon>
         </span>`).join('')}
     </div>`;
 }

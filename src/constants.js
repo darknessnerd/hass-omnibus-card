@@ -19,8 +19,13 @@ export const CLIMATE_MAP = {
 export const ICON_BY_DC = {
   motion:       'mdi:motion-sensor',
   door:         { on: 'mdi:door-open',    off: 'mdi:door-closed' },
+  // Zigbee contact sensors (e.g. SONOFF SNZB-04P) commonly report device_class
+  // "opening" rather than "door" — same on/off semantics, same icon.
+  opening:      { on: 'mdi:door-open',    off: 'mdi:door-closed' },
   window:       { on: 'mdi:window-open',  off: 'mdi:window-closed' },
+  garage_door:  { on: 'mdi:garage-open',  off: 'mdi:garage' },
   lock:         { on: 'mdi:lock-open',    off: 'mdi:lock' },
+  tamper:       { on: 'mdi:shield-alert', off: 'mdi:shield-check-outline' },
   vibration:    'mdi:vibrate',
   plug:         'mdi:power-plug',
   presence:     'mdi:home-account',
@@ -32,6 +37,7 @@ export const ICON_BY_DC = {
   precipitation: 'mdi:weather-rainy',
   illuminance:   'mdi:brightness-6',
   sound_pressure:'mdi:volume-high',
+  voltage:       'mdi:flash-triangle-outline',
 };
 
 // wind_speed covers both the running average and gust/max readings — same device_class,

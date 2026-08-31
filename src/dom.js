@@ -106,6 +106,14 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
     el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
   });
 
+  shadowRoot.querySelectorAll('.opening-seg[data-entity]').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
+  });
+
+  shadowRoot.querySelectorAll('.tamper-seg[data-entity]').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
+  });
+
   shadowRoot.querySelectorAll('.diagnostics-seg[data-entity]').forEach(el => {
     el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
   });

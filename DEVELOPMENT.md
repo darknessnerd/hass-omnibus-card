@@ -650,7 +650,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 - **Animations and transitions are disabled** in `tests/fixture.html` for deterministic screenshots.
 - **Icons use a box stub** (not Iconify CDN) — a solid-color rectangle per icon. Snapshots show layout and color, not specific icon glyphs. No CDN dependency, no flaky rendering.
 
-### What is covered (74 tests)
+### What is covered (112 tests)
 
 | Category | Tests |
 |---|---|
@@ -658,6 +658,8 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 | Lights | Off (grey badge + `.off` class), single on (badge without count), multiple on (count badge) |
 | Light offline | `.has-offline` dot on badge when any light `unavailable` |
 | Occupancy | Occupied (green dot), not occupied (grey `.idle` dot — dot always visible) |
+| Openings | Door/window/garage_door/opening device_classes group into an always-visible header badge next to the lights badge (`discovery.js`'s `OPENING_DC`), kept out of the generic chip strip so a contact sensor + its own battery entity doesn't trip the Diagnostics-tab sweep; open (amber) vs closed (neutral) uses a background swatch, not just icon tint, for at-a-glance contrast |
+| Tamper | `tamper` device_class gets its own header badge next to Openings (own `tampers` bucket in `discovery.js`, not the generic `problems` bucket) — red swatch when triggered, so it never reads as "just an open door" despite sharing a device with the contact sensor |
 | Alarms | Smoke, gas, water, all three simultaneously |
 | Mold risk | Default threshold (70%), custom threshold |
 | Problems | `problem` binary sensor active, unavailable entity |
