@@ -395,6 +395,25 @@ test('SNZB-04P contact sensor: battery/voltage/linkquality still group as diagno
   assert.ok(diagIds.includes('sensor.door_ground_floor_linkquality'));
 });
 
+// EZVIZ-style camera device with an Italian "riservatezza" (privacy) switch —
+// real-world shape: switch.cam_soggiorno_riservatezza on the same device as
+// the camera entity. viewModel.js joins cameraPrivacy back to the camera by
+// deviceId, so classify() must surface it in its own bucket while still
+// letting it participate in the normal others/settings sweep like any other
+// switch on the device.
+const PRIVACY_CAM_DEVICE = 'dev_cam_privacy_test';
+const PRIVACY_CAM_ENTITIES = [
+  item('camera.cam_privacy_test', { state: 'idle' }, PRIVACY_CAM_DEVICE),
+  item('switch.cam_privacy_test_riservatezza', { state: 'on' }, PRIVACY_CAM_DEVICE),
+  item('switch.cam_privacy_test_audio', { state: 'on' }, PRIVACY_CAM_DEVICE),
+];
+
+test('classify: a privacy/riservatezza switch lands in cameraPrivacy, and still sweeps into settings like any other switch', () => {
+  const { cameraPrivacy, settings } = classify(PRIVACY_CAM_ENTITIES);
+  assert.deepEqual(cameraPrivacy.map(p => p.entityId), ['switch.cam_privacy_test_riservatezza']);
+  assert.ok(settings.some(s => s.entityId === 'switch.cam_privacy_test_riservatezza'));
+});
+
 test('classify: "door"/"window"/"garage_door" device_classes also land in openings (dc family, not just "opening")', () => {
   const mixed = [
     item('binary_sensor.front_door', { state: 'on', attributes: { device_class: 'door' } }, 'devA'),

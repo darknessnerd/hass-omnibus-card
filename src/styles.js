@@ -542,6 +542,10 @@ export const CARD_STYLES = `
     opacity: 0.55;
   }
 
+  .camera-preview.privacy {
+    opacity: 0.75;
+  }
+
   .camera-preview img {
     width: 100%;
     height: 100%;

@@ -90,6 +90,7 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
   // cameras in the area still need to be reachable, so they fall back to chips.
   const camera       = c.cameras[0] ?? null;
   const extraCameras = c.cameras.slice(1);
+  const cameraPrivacySwitch = camera ? c.cameraPrivacy.find(p => p.deviceId === camera.deviceId) ?? null : null;
 
   const pendingUpdates = c.updates.filter(u => u.state.state === 'on');
 
@@ -197,6 +198,7 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
     cameraTitle:  camera?.state.attributes?.friendly_name ?? camera?.entityId ?? '',
     cameraState:  camera?.state.state ?? '',
     cameraOffline: camera?.state.state === 'unavailable',
+    cameraPrivacy: cameraPrivacySwitch?.state.state === 'on',
 
     deviceGroups,
     collapsibleControls,

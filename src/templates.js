@@ -180,17 +180,18 @@ function renderChips({ chipItems, weatherItems }) {
     `;
 }
 
-function renderCameraPreview({ hasCamera, cameraImage, cameraIcon, cameraEntity, cameraTitle, cameraState, cameraOffline }) {
+function renderCameraPreview({ hasCamera, cameraImage, cameraIcon, cameraEntity, cameraTitle, cameraState, cameraOffline, cameraPrivacy }) {
   if (!hasCamera) return '';
-  const title = cameraOffline ? `${cameraTitle} (offline)` : cameraTitle;
+  const title = cameraPrivacy ? `${cameraTitle} (privacy mode)` : cameraOffline ? `${cameraTitle} (offline)` : cameraTitle;
+  const showImage = cameraImage && !cameraPrivacy;
   return `
-    <div class="camera-preview${cameraOffline ? ' offline' : ''}" data-entity="${cameraEntity}"
+    <div class="camera-preview${cameraOffline ? ' offline' : ''}${cameraPrivacy ? ' privacy' : ''}" data-entity="${cameraEntity}"
          role="button" tabindex="0" aria-label="${title}" title="${title}">
-      ${cameraImage
+      ${showImage
         ? `<img src="${cameraImage}" alt="${title}" loading="lazy" />`
-        : `<div class="camera-placeholder"><ha-icon icon="${cameraIcon}"></ha-icon></div>`}
-      ${cameraState === 'recording' ? `<span class="camera-rec-dot" title="Recording"></span>` : ''}
-      ${cameraImage ? `
+        : `<div class="camera-placeholder"><ha-icon icon="${cameraPrivacy ? 'mdi:eye-off' : cameraIcon}"></ha-icon></div>`}
+      ${cameraState === 'recording' && !cameraPrivacy ? `<span class="camera-rec-dot" title="Recording"></span>` : ''}
+      ${showImage ? `
         <span class="camera-refresh-btn" role="button" tabindex="0" aria-label="Refresh snapshot" title="Refresh snapshot">
           <ha-icon icon="mdi:refresh"></ha-icon>
         </span>` : ''}

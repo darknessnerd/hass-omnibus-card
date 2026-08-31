@@ -89,6 +89,11 @@ const OPENING_DC = new Set(['door', 'window', 'opening', 'garage_door']);
 // first (stable/unlocalized, like PTZ_RE above — unlike friendly_name/icon).
 const DEW_POINT_RE = /_dew_point$/i;
 
+// Camera privacy/suspend switches (English + Italian, same PTZ_RE reasoning) —
+// when on, the camera integration stops updating entity_picture/stream, so the
+// area card must hide the stale preview instead of showing a frozen image.
+const PRIVACY_RE = /_(privacy|riservatezza|suspend|sospensione)$/i;
+
 /**
  * Buckets a flat entity list into semantic groups by domain / device_class.
  * Each bucket is an array of { entityId, state } items (ptz items also carry `direction`).
@@ -101,7 +106,7 @@ export function classify(areaEntities) {
     motions: [], occupancy: [], openings: [], tampers: [],
     smokes: [], gases: [], moistures: [],
     batteries: [], problems: [],
-    cameras: [], controls: [], settings: [], ptz: [], updates: [],
+    cameras: [], cameraPrivacy: [], controls: [], settings: [], ptz: [], updates: [],
     others: [], diagnostics: [],
   };
 
@@ -135,6 +140,7 @@ export function classify(areaEntities) {
     else if (domain === 'binary_sensor' && dc === 'gas')                                    out.gases.push(item);
     else if (domain === 'binary_sensor' && dc === 'moisture')                               out.moistures.push(item);
     else if (domain === 'sensor'        && dc === 'battery' && val !== 'unavailable') { out.batteries.push(item); out.others.push(item); }
+    else if (domain === 'switch'        && PRIVACY_RE.test(entityId))               { out.cameraPrivacy.push(item); out.others.push(item); }
     else if (val === 'unavailable' || (domain === 'binary_sensor' && ['problem', 'safety'].includes(dc) && val === 'on'))
                                                                                             out.problems.push(item);
     else if (domain === 'siren')                                                            out.controls.push(item);
