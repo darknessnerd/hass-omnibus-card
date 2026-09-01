@@ -22,7 +22,7 @@ export function getAreaEntities(hass, areaId) {
     const direct    = entry.area_id === areaId;
     const viaDevice = entry.device_id && devices[entry.device_id]?.area_id === areaId;
 
-    if (direct || viaDevice) acc.push({ entityId, state: states[entityId], deviceId: entry.device_id ?? null });
+    if (direct || viaDevice) acc.push({ entityId, state: states[entityId], deviceId: entry.device_id ?? null, entityCategory: entry.entity_category ?? null });
     return acc;
   }, []);
 }
@@ -42,7 +42,8 @@ export function filterEntities(areaEntities, config, hass) {
     return config.entities
       .map(entityId => {
         const state = hass.states?.[entityId];
-        return state ? { entityId, state, deviceId: hass.entities?.[entityId]?.device_id ?? null } : null;
+        const entry = hass.entities?.[entityId];
+        return state ? { entityId, state, deviceId: entry?.device_id ?? null, entityCategory: entry?.entity_category ?? null } : null;
       })
       .filter(Boolean);
   }
@@ -55,7 +56,8 @@ export function filterEntities(areaEntities, config, hass) {
   for (const entityId of add) {
     if (filtered.some(e => e.entityId === entityId)) continue;
     const state = hass.states?.[entityId];
-    if (state) filtered.push({ entityId, state, deviceId: hass.entities?.[entityId]?.device_id ?? null });
+    const entry = hass.entities?.[entityId];
+    if (state) filtered.push({ entityId, state, deviceId: entry?.device_id ?? null, entityCategory: entry?.entity_category ?? null });
   }
 
   return filtered;
@@ -116,14 +118,22 @@ export function classify(areaEntities) {
     const dc     = state.attributes?.device_class ?? '';
     const val    = state.state;
 
+    // entityCategory 'diagnostic'/'config' marks a sensor as a device's own
+    // technical readout (router CPU temp, camera board humidity, etc.), not
+    // a room-ambient reading — excluded from the temperature/humidity/weather
+    // buckets that feed the area's env-row average so one router doesn't
+    // drag "Casa"'s displayed temperature up to its CPU temp. Falls through
+    // to `others` instead, same as any other diagnostic sensor.
+    const isAmbient = !item.entityCategory;
+
     if      (domain === 'light')                                                            out.lights.push(item);
     else if (domain === 'climate')                                                          out.climate.push(item);
     else if (domain === 'camera')                                                           out.cameras.push(item);
     else if (domain === 'update'         && val !== 'unavailable')                          out.updates.push(item);
-    else if (domain === 'sensor'        && dc === 'temperature' && DEW_POINT_RE.test(entityId)) out.weathers.push(item);
-    else if (domain === 'sensor'        && dc === 'temperature')                            out.temperatures.push(item);
-    else if (domain === 'sensor'        && dc === 'humidity')                               out.humidities.push(item);
-    else if (domain === 'sensor'        && WEATHER_DC.has(dc))                              out.weathers.push(item);
+    else if (domain === 'sensor'        && dc === 'temperature' && isAmbient && DEW_POINT_RE.test(entityId)) out.weathers.push(item);
+    else if (domain === 'sensor'        && dc === 'temperature' && isAmbient)               out.temperatures.push(item);
+    else if (domain === 'sensor'        && dc === 'humidity'    && isAmbient)                out.humidities.push(item);
+    else if (domain === 'sensor'        && WEATHER_DC.has(dc)   && isAmbient)                out.weathers.push(item);
     else if (domain === 'binary_sensor' && dc === 'motion')                                 out.motions.push(item);
     else if (domain === 'binary_sensor' && dc === 'occupancy')                              out.occupancy.push(item);
     // `val !== 'unavailable'` guards on both branches below: an offline

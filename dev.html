@@ -201,6 +201,13 @@ const MOCK_HASS = {
     cucina:      { area_id: 'cucina',      name: 'Cucina',      icon: 'mdi:silverware-fork-knife' },
     esterno:     { area_id: 'esterno',     name: 'Esterno',     icon: 'mdi:tree' },
     ripostiglio_interno: { area_id: 'ripostiglio_interno', name: 'Ripostiglio Interno', icon: 'mdi:archive' },
+    // casa — real HA setup, network/infra devices with no room sensors at all:
+    // FRITZ!Repeater (its own CPU-temperature diagnostic sensor), an Ookla
+    // Speedtest integration, a Zigbee2MQTT bridge, and a weather forecast
+    // entity. Demonstrates the entity_category fix (see classify() in
+    // discovery.js) — the repeater's CPU temp is entity_category: diagnostic,
+    // so it must NOT feed the area's env-row temperature average.
+    casa: { area_id: 'casa', name: 'Casa', icon: 'mdi:tree' },
   },
 
   devices: {
@@ -229,6 +236,10 @@ const MOCK_HASS = {
     // (Openings, Tamper); battery+voltage+linkquality (3 read-only sensors on one
     // device) sweep into the Diagnostics tab.
     dev_door_ground_floor: { area_id: 'living_room', name: 'Door Ground Floor' },
+    // casa — network/infra devices, no camera or room sensors
+    dev_fritz_repeater:     { area_id: 'casa', name: 'FRITZ!Repeater 6000' },
+    dev_ookla_speedtest:    { area_id: 'casa', name: 'Ookla Speedtest' },
+    dev_zigbee2mqtt_bridge: { area_id: 'casa', name: 'Zigbee2MQTT Bridge' },
   },
 
   entities: {
@@ -383,6 +394,32 @@ const MOCK_HASS = {
     'sensor.bresser_7in1_65351_outside_luminance':{ area_id: 'esterno', device_id: null, hidden_by: null },
     'sensor.bresser_7in1_65351_noise':            { area_id: 'esterno', device_id: null, hidden_by: null },
     'sensor.bresser_7in1_65351_uv_index':         { area_id: 'esterno', device_id: null, hidden_by: null },
+    // casa — real values from a production debug log
+    'binary_sensor.zigbee2mqtt_bridge_connection_state_2': { area_id: null, device_id: 'dev_zigbee2mqtt_bridge', hidden_by: null },
+    'button.zigbee2mqtt_bridge_restart_2':                 { area_id: null, device_id: 'dev_zigbee2mqtt_bridge', hidden_by: null },
+    'select.zigbee2mqtt_bridge_log_level_2':               { area_id: null, device_id: 'dev_zigbee2mqtt_bridge', hidden_by: null },
+    'sensor.zigbee2mqtt_bridge_version_2':                 { area_id: null, device_id: 'dev_zigbee2mqtt_bridge', hidden_by: null },
+    'switch.zigbee2mqtt_bridge_permit_join_2':             { area_id: null, device_id: 'dev_zigbee2mqtt_bridge', hidden_by: null },
+    'button.fritz_repeater_6000_riavvia':      { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null },
+    'button.fritz_repeater_6000_riconnetti':   { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null },
+    'image.fritz_repeater_6000_trollnethome':  { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null },
+    'update.fritz_repeater_6000_fritz_os':     { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null },
+    // entity_category: 'diagnostic' — a router's own CPU temp/uptime, not a
+    // room-ambient reading. Must be excluded from the area's env-row average
+    // (see isAmbient in discovery.js classify()) and land in this device's
+    // own Diagnostics tab instead.
+    'sensor.fritz_repeater_6000_temperatura_cpu':   { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null, entity_category: 'diagnostic' },
+    'sensor.fritz_repeater_6000_tempo_di_attivita': { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null, entity_category: 'diagnostic' },
+    'sensor.ookla_speedtest_ping':               { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
+    'sensor.ookla_speedtest_download':           { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
+    'sensor.ookla_speedtest_upload':             { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
+    'sensor.ookla_speedtest_bufferbloat_grade':  { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
+    'sensor.ookla_speedtest_jitter':             { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
+    'sensor.ookla_speedtest_server':             { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
+    'sensor.ookla_speedtest_isp':                { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
+    'sensor.ookla_speedtest_result_url':         { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
+    'sensor.ookla_speedtest_last_test':          { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
+    'weather.forecast_casa': { area_id: 'casa', device_id: null, hidden_by: null },
   },
 
   states: {
@@ -617,6 +654,31 @@ const MOCK_HASS = {
     'sensor.bresser_7in1_65351_outside_luminance':{ state: '15741',attributes: { friendly_name: 'Bresser Outside Luminance', device_class: 'illuminance', unit_of_measurement: 'lx' } },
     'sensor.bresser_7in1_65351_noise':            { state: '-20.92', attributes: { friendly_name: 'Bresser Noise', device_class: 'sound_pressure', unit_of_measurement: 'dB' } },
     'sensor.bresser_7in1_65351_uv_index':         { state: '1.3',  attributes: { friendly_name: 'Bresser Uv Index' } },
+    // casa — real values from a production debug log: FRITZ!Repeater 6000 +
+    // Ookla Speedtest + Zigbee2MQTT bridge, no room sensors at all. The
+    // repeater's CPU temp (76°C, entity_category: diagnostic — see entities
+    // registry above) must NOT surface as the area's ambient temperature.
+    'binary_sensor.zigbee2mqtt_bridge_connection_state_2': { state: 'on', attributes: { friendly_name: 'Zigbee2MQTT Bridge Connection state', icon: 'mdi:wifi' } },
+    'button.zigbee2mqtt_bridge_restart_2': { state: 'unknown', attributes: { friendly_name: 'Zigbee2MQTT Bridge Restart' } },
+    'select.zigbee2mqtt_bridge_log_level_2': { state: 'info', attributes: { friendly_name: 'Zigbee2MQTT Bridge Log level' } },
+    'sensor.zigbee2mqtt_bridge_version_2': { state: '2.13.0', attributes: { friendly_name: 'Zigbee2MQTT Bridge Version', icon: 'mdi:zigbee' } },
+    'switch.zigbee2mqtt_bridge_permit_join_2': { state: 'off', attributes: { friendly_name: 'Zigbee2MQTT Bridge Permit join', icon: 'mdi:human-greeting-proximity' } },
+    'button.fritz_repeater_6000_riavvia':    { state: 'unknown', attributes: { friendly_name: 'FRITZ!Repeater 6000 Riavvia' } },
+    'button.fritz_repeater_6000_riconnetti': { state: 'unknown', attributes: { friendly_name: 'FRITZ!Repeater 6000 Riconnetti' } },
+    'image.fritz_repeater_6000_trollnethome': { state: '2026-08-31T07:43:22.015022+00:00', attributes: { friendly_name: 'FRITZ!Repeater 6000 trollnethome' } },
+    'update.fritz_repeater_6000_fritz_os':   { state: 'off', attributes: { friendly_name: 'FRITZ!Repeater 6000 FRITZ!OS' } },
+    'sensor.fritz_repeater_6000_temperatura_cpu':   { state: '76', attributes: { friendly_name: 'FRITZ!Repeater 6000 Temperatura CPU', device_class: 'temperature', unit_of_measurement: '°C' } },
+    'sensor.fritz_repeater_6000_tempo_di_attivita': { state: '2026-08-08T13:38:30+00:00', attributes: { friendly_name: 'FRITZ!Repeater 6000 Tempo di attività', device_class: 'timestamp' } },
+    'sensor.ookla_speedtest_ping':              { state: '2.69',   attributes: { friendly_name: 'Ookla Speedtest Ping', unit_of_measurement: 'ms', icon: 'mdi:speedometer' } },
+    'sensor.ookla_speedtest_download':          { state: '939.26', attributes: { friendly_name: 'Ookla Speedtest Download', unit_of_measurement: 'Mbit/s', icon: 'mdi:download' } },
+    'sensor.ookla_speedtest_upload':            { state: '932.7',  attributes: { friendly_name: 'Ookla Speedtest Upload', unit_of_measurement: 'Mbit/s', icon: 'mdi:upload' } },
+    'sensor.ookla_speedtest_bufferbloat_grade': { state: 'A+',     attributes: { friendly_name: 'Ookla Speedtest Bufferbloat Grade', icon: 'mdi:check-network' } },
+    'sensor.ookla_speedtest_jitter':            { state: '0.09',   attributes: { friendly_name: 'Ookla Speedtest Jitter', unit_of_measurement: 'ms', icon: 'mdi:pulse' } },
+    'sensor.ookla_speedtest_server':            { state: 'Openfiber S.p.A. (Rome, Italy)', attributes: { friendly_name: 'Ookla Speedtest Server', icon: 'mdi:server' } },
+    'sensor.ookla_speedtest_isp':               { state: 'Open Fiber', attributes: { friendly_name: 'Ookla Speedtest ISP', icon: 'mdi:web' } },
+    'sensor.ookla_speedtest_result_url':        { state: 'https://www.speedtest.net/result/c/04a557ef-e200-464e-863f-d9187e968950', attributes: { friendly_name: 'Ookla Speedtest Result URL', icon: 'mdi:link' } },
+    'sensor.ookla_speedtest_last_test':         { state: '2026-09-01T07:45:38+00:00', attributes: { friendly_name: 'Ookla Speedtest Last Test', device_class: 'timestamp', icon: 'mdi:clock' } },
+    'weather.forecast_casa': { state: 'sunny', attributes: { friendly_name: 'Forecast Casa' } },
   },
 
   // stub methods the card might call
@@ -943,6 +1005,11 @@ const ROOM_CARDS = [
     debug: true,
     max_entities: 20,
   },
+  // casa — network/infra devices, no room sensors at all: demonstrates the
+  // entity_category fix (isAmbient in discovery.js classify()). The FRITZ!
+  // Repeater's CPU temp is entity_category: diagnostic, so the env-row must
+  // show no temperature at all here rather than the router's 76°C.
+  { area: 'casa' },
   { area: 'nonexistent_area' },  // error state
 ];
 

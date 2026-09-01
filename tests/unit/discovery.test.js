@@ -11,8 +11,8 @@ import { classify, groupTabsByDevice } from '../../src/discovery.js';
 // into a single Controls pill.
 const CAM_DEVICE = 'dev_esterno_cam';
 
-function item(entityId, state, deviceId = null) {
-  return { entityId, state, deviceId };
+function item(entityId, state, deviceId = null, entityCategory = null) {
+  return { entityId, state, deviceId, entityCategory };
 }
 
 const REAL_AREA_ENTITIES = [
@@ -92,6 +92,50 @@ test('real Bresser weather station: recognized device_classes group as weather; 
   assert.equal(temperatures.length, 1);
   assert.equal(humidities.length, 1);
   assert.ok(others.some(o => o.entityId === 'sensor.bresser_7in1_65351_wind_direction'));
+});
+
+// A router's own CPU-temp/humidity sensor is entity_category: 'diagnostic' in
+// the real HA entity registry — a technical readout, not a room-ambient
+// reading. Must not feed the area's env-row temperature/humidity average
+// (see isAmbient in discovery.js classify()); real-world case: a FRITZ!Box
+// repeater's CPU temp (76°C) was dragging an area's displayed temperature
+// up to the router's own heat instead of the room's.
+test('a diagnostic-category temperature sensor is excluded from the ambient temperatures bucket', () => {
+  const entities = [
+    item('sensor.router_cpu_temp', { state: '76', attributes: { device_class: 'temperature' } }, 'dev_router', 'diagnostic'),
+  ];
+  const { temperatures, others } = classify(entities);
+  assert.equal(temperatures.length, 0);
+  assert.ok(others.some(o => o.entityId === 'sensor.router_cpu_temp'));
+});
+
+test('the same device_class temperature sensor with no entity_category (a real room sensor) still lands in the ambient temperatures bucket', () => {
+  const entities = [
+    item('sensor.room_temp', { state: '21.5', attributes: { device_class: 'temperature' } }),
+  ];
+  const { temperatures } = classify(entities);
+  assert.equal(temperatures.length, 1);
+});
+
+test('a diagnostic-category humidity sensor is excluded from the ambient humidities bucket', () => {
+  const entities = [
+    item('sensor.router_humidity', { state: '40', attributes: { device_class: 'humidity' } }, 'dev_router', 'diagnostic'),
+  ];
+  const { humidities, others } = classify(entities);
+  assert.equal(humidities.length, 0);
+  assert.ok(others.some(o => o.entityId === 'sensor.router_humidity'));
+});
+
+test('a router pushing two diagnostic sensors (CPU temp + uptime) sweeps into that device\'s Diagnostics tab, not the area env-row', () => {
+  const entities = [
+    item('sensor.router_cpu_temp', { state: '76', attributes: { device_class: 'temperature' } }, 'dev_router', 'diagnostic'),
+    item('sensor.router_uptime', { state: '2026-08-08T13:38:30+00:00' }, 'dev_router', 'diagnostic'),
+  ];
+  const { temperatures, diagnostics } = classify(entities);
+  assert.equal(temperatures.length, 0);
+  const diagIds = diagnostics.map(d => d.entityId);
+  assert.ok(diagIds.includes('sensor.router_cpu_temp'));
+  assert.ok(diagIds.includes('sensor.router_uptime'));
 });
 
 // IR blaster device with no camera at all, pushing a pile of switches/selects/
