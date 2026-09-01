@@ -74,6 +74,23 @@ export function deviceLabel(hass, deviceId, items) {
 }
 
 /**
+ * Resolves a device tab's own badge icon (see discovery.js groupTabsByDevice)
+ * from the entity-level icons its role pools already carry (each item's
+ * `.icon` comes from entityIcon/PTZ_ICON in viewModel.js — no separate icon
+ * lookup needed here, just picking one representative icon).
+ * Priority settings → controls → diagnostics → ptz: settings/controls entities
+ * (switches, selects, numbers) say more about what the device *is* than a
+ * directional PTZ arrow or a read-only diagnostic sensor would.
+ */
+export function deviceIcon({ ptz = [], controls = [], settings = [], diagnostics = [] }) {
+  for (const pool of [settings, controls, diagnostics, ptz]) {
+    const found = pool.find(item => item.icon);
+    if (found) return found.icon;
+  }
+  return 'mdi:help-circle-outline';
+}
+
+/**
  * Resolves the best icon for an entity.
  * Priority: entity-defined icon → device_class map → domain map → fallback.
  */

@@ -285,14 +285,14 @@ function renderRoleSections(roleSections) {
 
 function renderSectionGroup({ deviceGroups, collapsibleControls, activeSection }) {
   const sections = deviceGroups
-    .map(({ key, label, ptz, controls, settings, diagnostics }) => ({ key, label, roleSections: renderDeviceRoleSections({ ptz, controls, settings, diagnostics }) }))
+    .map(({ key, label, icon, ptz, controls, settings, diagnostics }) => ({ key, label, icon, roleSections: renderDeviceRoleSections({ ptz, controls, settings, diagnostics }) }))
     .filter(s => s.roleSections.length);
   if (!sections.length) return '';
 
   if (!collapsibleControls) {
-    return sections.map(({ label, roleSections }) => `
+    return sections.map(({ label, icon, roleSections }) => `
       <div class="group-section">
-        <span class="group-label">${label}</span>
+        <span class="group-label"><ha-icon icon="${icon}"></ha-icon>${label}</span>
         ${renderRoleSections(roleSections)}
       </div>`).join('');
   }
@@ -300,9 +300,11 @@ function renderSectionGroup({ deviceGroups, collapsibleControls, activeSection }
   return `
     <div class="section-tabs">
       <div class="section-tabs-bar" role="tablist">
-        ${sections.map(({ key, label }) => `
+        ${sections.map(({ key, label, icon }) => `
           <span class="section-tab${activeSection === key ? ' active' : ''}" data-section="${key}"
-            role="tab" tabindex="0" aria-selected="${activeSection === key}" title="${label}">${label}</span>`).join('')}
+            role="tab" tabindex="0" aria-selected="${activeSection === key}" title="${label}">
+            <ha-icon icon="${icon}"></ha-icon><span class="section-tab-label">${label}</span>
+          </span>`).join('')}
       </div>
       ${sections.map(({ key, roleSections }) => `
         <div class="section-tab-panel${activeSection === key ? ' active' : ''}">${renderRoleSections(roleSections)}</div>`).join('')}

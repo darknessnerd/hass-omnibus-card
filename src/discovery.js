@@ -4,7 +4,7 @@
  * Open for extension: add new buckets to classify() without touching the card.
  */
 
-import { deviceLabel, uniqueLabels } from './utils.js';
+import { deviceLabel, deviceIcon, uniqueLabels } from './utils.js';
 
 /**
  * Returns all entities that belong to the given area.
@@ -215,10 +215,13 @@ function dedupeBucketLabels(bucket) {
  * Tab order: the device owning the area's camera (if any) first, then by
  * descending item count, `__other__` always last.
  *
- * Returns [{ key, label, ptz, controls, settings, diagnostics }], where each
- * of ptz/controls/settings/diagnostics is the device's own subset of that
- * pool — feed straight into the existing renderPtzChip/renderControlsChip/
+ * Returns [{ key, label, icon, ptz, controls, settings, diagnostics }], where
+ * each of ptz/controls/settings/diagnostics is the device's own subset of
+ * that pool — feed straight into the existing renderPtzChip/renderControlsChip/
  * renderSettingsChip/renderDiagnosticsChip template functions unchanged.
+ * `icon` is the camera glyph for the device that owns the area's camera
+ * (cameraDeviceId — its own entity never lands in these pools, see classify()'s
+ * `cameras` bucket), otherwise deviceIcon()'s pick off the device's own items.
  */
 export function groupTabsByDevice(hass, { ptz, controls, settings, diagnostics }, cameraDeviceId = null) {
   const pools = { ptz, controls, settings, diagnostics };
@@ -242,7 +245,8 @@ export function groupTabsByDevice(hass, { ptz, controls, settings, diagnostics }
     } else {
       const deduped  = dedupeBucketLabels(bucket);
       const allItems = [...deduped.ptz, ...deduped.controls, ...deduped.settings, ...deduped.diagnostics];
-      groups.push({ key: deviceId, label: deviceLabel(hass, deviceId, allItems), ...deduped });
+      const icon     = deviceId === cameraDeviceId ? 'mdi:cctv' : deviceIcon(deduped);
+      groups.push({ key: deviceId, label: deviceLabel(hass, deviceId, allItems), icon, ...deduped });
     }
   }
   other = dedupeBucketLabels(other);
@@ -253,7 +257,7 @@ export function groupTabsByDevice(hass, { ptz, controls, settings, diagnostics }
     return countOf(b) - countOf(a);
   });
 
-  if (countOf(other) > 0) groups.push({ key: '__other__', label: 'Other', ...other });
+  if (countOf(other) > 0) groups.push({ key: '__other__', label: 'Other', icon: 'mdi:dots-horizontal', ...other });
 
   return groups;
 }

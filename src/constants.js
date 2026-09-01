@@ -38,6 +38,11 @@ export const ICON_BY_DC = {
   illuminance:   'mdi:brightness-6',
   sound_pressure:'mdi:volume-high',
   voltage:       'mdi:flash-triangle-outline',
+  // media_player device_class — distinguishes a TV from a plain speaker/receiver
+  // instead of every media_player sharing the one generic play/pause icon.
+  tv:            'mdi:television',
+  speaker:       'mdi:speaker',
+  receiver:      'mdi:audio-video',
 };
 
 // wind_speed covers both the running average and gust/max readings — same device_class,
@@ -69,6 +74,18 @@ export const ICON_BY_DOMAIN = {
   siren:          { on: 'mdi:bullhorn', off: 'mdi:bullhorn-outline' },
   button:         'mdi:gesture-tap-button',
   camera:         'mdi:cctv',
+  remote:         'mdi:remote',
+  lock:           { on: 'mdi:lock-open-variant', off: 'mdi:lock' },
+  vacuum:         'mdi:robot-vacuum',
+  humidifier:     { on: 'mdi:air-humidifier', off: 'mdi:air-humidifier-off' },
+  water_heater:   'mdi:water-boiler',
+  valve:          { on: 'mdi:valve-open', off: 'mdi:valve-closed' },
+  number:         'mdi:ray-vertex',
+  select:         'mdi:format-list-bulleted',
+  text:           'mdi:form-textbox',
+  scene:          'mdi:palette',
+  timer:          'mdi:timer-outline',
+  alarm_control_panel: 'mdi:shield-home-outline',
 };
 
 export const PTZ_ICON = {

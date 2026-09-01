@@ -627,7 +627,9 @@ export const CARD_STYLES = `
      at 3 — wrap onto a second row (bar above) and ellipsis any single label
      that's still too long for one tab, rather than overflowing the card. */
   .section-tab {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     max-width: 6.5rem;
     padding: 3px 9px;
     border-radius: 12px;
@@ -640,6 +642,14 @@ export const CARD_STYLES = `
     cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .section-tab ha-icon {
+    --mdc-icon-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .section-tab-label {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
