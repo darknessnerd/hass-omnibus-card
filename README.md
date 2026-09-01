@@ -5,7 +5,7 @@ A compact, intelligent Home Assistant Lovelace card that summarizes an entire ro
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.5.0-green.svg)](src/constants.js)
+[![Version](https://img.shields.io/badge/version-2.6.0-green.svg)](src/constants.js)
 [![CI](https://github.com/darknessnerd/hass-omnibus-card/actions/workflows/ci.yml/badge.svg)](https://github.com/darknessnerd/hass-omnibus-card/actions/workflows/ci.yml)
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://darknessnerd.github.io/hass-omnibus-card/dev.html)
 
