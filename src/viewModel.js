@@ -54,6 +54,25 @@ function mapBinaryStatusItem(entityId, state, activeKey, activeLabel, inactiveLa
   };
 }
 
+// 'up'/'down' when the series' second half averages meaningfully above/below
+// its first half, 'flat' when there's enough data but the swing is under the
+// noise threshold, else null (too few points to call any direction at all) —
+// averaging both halves instead of comparing the two endpoints so one noisy
+// sample at the very start/end doesn't flip the arrow.
+// min/max passed in rather than recomputed — buildViewModel already derives
+// them as historyMin/historyMax from this same array for the overlay badges.
+function computeHistoryTrend(historyPoints, min, max) {
+  if (!Array.isArray(historyPoints) || historyPoints.length < 4) return null;
+  const mid = Math.floor(historyPoints.length / 2);
+  const firstHalf  = historyPoints.slice(0, mid);
+  const secondHalf = historyPoints.slice(mid);
+  const avg = pts => pts.reduce((sum, p) => sum + p.v, 0) / pts.length;
+  const delta = avg(secondHalf) - avg(firstHalf);
+  const range = max - min;
+  if (range === 0 || Math.abs(delta) < range * 0.05) return 'flat';
+  return delta > 0 ? 'up' : 'down';
+}
+
 /**
  * Derives all display-relevant data from hass + config.
  * Returns { error } when the area is not found and no name override is set.
@@ -149,6 +168,10 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
     : activeSectionInput === '__default__' ? (availableSections[0] ?? null)
     : availableSections.includes(activeSectionInput) ? activeSectionInput : null;
 
+  const hasNumericHistory = !!(hc?.entity_id && historyPoints?.length >= 2);
+  const historyMin = hasNumericHistory ? Math.min(...historyPoints.map(p => p.v)) : null;
+  const historyMax = hasNumericHistory ? Math.max(...historyPoints.map(p => p.v)) : null;
+
   return {
     areaName:     config.name || area?.name || areaId || '',
     cardIcon:     config.icon || area?.icon || 'mdi:home',
@@ -239,8 +262,9 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
     // noise rather than a signature
     historyColor:  hc?.color ?? 'rgba(3, 169, 244, 0.2)',
     historyChart:  hc,
-    historyMin:    (hc?.entity_id && historyPoints?.length >= 2) ? Math.min(...historyPoints.map(p => p.v)) : null,
-    historyMax:    (hc?.entity_id && historyPoints?.length >= 2) ? Math.max(...historyPoints.map(p => p.v)) : null,
+    historyMin:    historyMin,
+    historyMax:    historyMax,
+    historyTrend:  computeHistoryTrend(historyPoints, historyMin, historyMax),
     historyUnit:   hass.states?.[hc?.entity_id]?.attributes?.unit_of_measurement ?? '',
     historyHours:  hc?.hours ?? 24,
     // Fetch resolved (not still pending — Array.isArray excludes the null

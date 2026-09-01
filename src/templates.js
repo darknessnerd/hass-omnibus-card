@@ -334,7 +334,7 @@ export function renderErrorCard(areaId) {
     </ha-card>`;
 }
 
-function renderChartOverlay({ historyMin, historyMax, historyUnit: u, historyHours, historyChart: hc, historyEmpty }) {
+function renderChartOverlay({ historyMin, historyMax, historyUnit: u, historyHours, historyChart: hc, historyEmpty, historyTrend }) {
   if (historyMin === null) {
     // Fetch resolved with no usable numeric readings — say so instead of
     // leaving the whole chart area silently blank (e.g. entity_id pointed
@@ -364,8 +364,15 @@ function renderChartOverlay({ historyMin, historyMax, historyUnit: u, historyHou
     }
   }
 
+  const TREND_GLYPH = { up: '⬈', down: '⬊', flat: '➡' };
+  const TREND_LABEL = { up: 'up', down: 'down', flat: 'no change' };
+  const trendBadge = historyTrend
+    ? `<span class="chart-stat stat-trend trend-${historyTrend}" title="Trending ${TREND_LABEL[historyTrend]} over ${historyHours}h">${TREND_GLYPH[historyTrend]}</span>`
+    : '';
+
   return `
     <div class="chart-overlay">
+      ${trendBadge}
       <span class="chart-stat stat-max">↑ ${historyMax.toFixed(1)}${u}</span>
       <span class="chart-stat stat-period" title="Tracking ${hc.entity_id} — may differ from the averaged value shown above">${historyHours}h</span>
       <span class="chart-stat stat-min">↓ ${historyMin.toFixed(1)}${u}</span>

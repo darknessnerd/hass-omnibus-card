@@ -151,7 +151,7 @@ flowchart TD
 
   pr["pull request / push to main"]
   ci_wf["ci.yml\nbuild · check dist · npm run test:docker"]
-  tests["98 Playwright\ntests"]
+  tests["116 Playwright\ntests"]
   pass["✅ pass"]
 
   src --> vite --> dist --> commit --> rel_wf --> release --> hacs --> ha
@@ -197,7 +197,7 @@ card-ha/
 ├─ tests/
 │  ├─ fixture.html             # test harness: box-stub icons, animations off, mountCard()
 │  └─ e2e/
-│     ├─ card.spec.js          # 98 Playwright tests (snapshot + behavioral)
+│     ├─ card.spec.js          # 116 Playwright tests (snapshot + behavioral)
 │     └─ snapshots/            # committed baseline PNGs — ground truth for CI
 │        └─ chromium/
 ├─ .github/
@@ -650,7 +650,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 - **Animations and transitions are disabled** in `tests/fixture.html` for deterministic screenshots.
 - **Icons use a box stub** (not Iconify CDN) — a solid-color rectangle per icon. Snapshots show layout and color, not specific icon glyphs. No CDN dependency, no flaky rendering.
 
-### What is covered (112 tests)
+### What is covered (116 tests)
 
 | Category | Tests |
 |---|---|
@@ -671,6 +671,7 @@ Each test mounts the card with a specific `hass` state via `window.mountCard(con
 | Config | Custom icon, custom name, `max_entities` limit |
 | Entity filtering | `exclude_entities` on classified entity, on chip-strip entity; `add_entities` from outside area; `entities` whitelist overrides area discovery |
 | History chart | SVG rendered when configured; absent when not configured; gradient thresholds (both); high-threshold only |
+| History chart trend badge | `computeHistoryTrend()` (`viewModel.js`) compares 2nd-half vs 1st-half average of the visible points; `trend-up`/`trend-down` when the swing is ≥5% of the series' own range, `trend-flat` under that, no badge at all with <4 points |
 | Camera preview | Snapshot image + recording dot rendered; hidden with no camera entity; hidden with `show_camera: false`; click opens more-info; dims + "(offline)" title when `unavailable`; a second camera in the area falls back to a chip instead of being lost |
 | Controls/Settings/Diagnostics sweep | siren + generic button always land in Controls (press-to-act), regardless of device; any other operable domain sharing a *device* with ≥1 other qualifying entity lands in Settings (configure) instead; read-only `sensor`/`binary_sensor`/`image` on that same device land in Diagnostics — threshold is per-device total (≥2 qualifying entities on the device, not per-role), else the entity stays a plain chip; button click calls `button.press`; siren click calls `siren.toggle`; Settings/Diagnostics click opens more-info |
 | Device tabs | `groupTabsByDevice()` regroups Controls/Settings/Diagnostics/PTZ by `deviceId` into one exclusive tab strip, `host._activeSection` keyed by deviceId (or `'__other__'`) — no tab active by default; opening one closes whichever was open; a device with <2 qualifying entities folds into a shared "Other" tab; tab order is the camera's device first, then by descending entity count; `controls_collapsed: false` opens the first available tab; `collapsible_controls: false` drops the tab bar and always shows every device stacked; tab label resolves from `hass.devices[id].name`, falling back to the common entity_id prefix (`deviceLabel()` in `utils.js`). Within one device's tab, `renderDeviceRoleSections()` (`templates.js`) captions each role's pill (`.device-role-label`) — bundling multiple roles under one device tab loses the old per-tab label as a role boundary, the caption restores it. `.section-tab-panel` has no `max-height`/`overflow-y` — a busy device (25+ segments) grows the card instead of clipping behind a nested scroll region |
@@ -707,7 +708,7 @@ test('my new scenario', async ({ page }) => {
 | Icons | Box stubs (deterministic) | Iconify CDN (real glyphs) |
 | Animations | Disabled | Enabled |
 | Scenarios | Via `mountCard()` API | Scenario buttons |
-| Card count | Single card | 6 room cards + 14 feature gallery + 5 history + 3 filter cards |
+| Card count | Single card | 6 room cards + 14 feature gallery + 5 history + 3 trend + 3 filter cards |
 | `callWS` stub | Fixed 24-point array (deterministic) | 48-point sinusoidal (visual preview) |
 | Purpose | Automated testing | Interactive development |
 
@@ -790,7 +791,8 @@ Vite serves `src/` as native ES modules — no bundling in dev. Edit any `src/` 
 
 - Seven rooms rendered: Living Room, Bedroom, Kitchen, Bathroom, Cucina, Esterno, Ripostiglio Interno — Cucina/Esterno mirror real HA debug logs (camera + PTZ/siren/switch controls + weather sensors); Cucina and Ripostiglio Interno additionally model multiple no-camera devices (IR blaster + LED; dehumidifier + climate sensor) each getting their own device tab
 - One error-state card (`nonexistent_area`) to validate error rendering
-- Five history chart cards (default, custom color, 48h, gradient thresholds both, high-only) with `callWS` stub; each shows min/max/period labels and dashed threshold lines
+- Five history chart cards (default, custom color, 48h, gradient thresholds both, high-only) with `callWS` stub; each shows min/max/period/trend labels and dashed threshold lines
+- Three trend-badge cards (rising, falling, flat — same series as the "trend badge" e2e tests in `card.spec.js`, via `makeTrendCallWS()`) to eyeball the ⬈/⬊/➡ glyphs and colors
 - Scenario toggle buttons:
 
 | Button | What it tests |

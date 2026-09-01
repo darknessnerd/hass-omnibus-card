@@ -888,6 +888,11 @@ function mountStatic(container, config, stateOverrides, callWSOverride) {
   </div>
 
   <div class="section">
+    <h2>History Chart — Trend badge (rising / falling / flat)</h2>
+    <div class="grid" id="trend-history-cards"></div>
+  </div>
+
+  <div class="section">
     <h2>Entity Filtering</h2>
     <div class="grid" id="filter-cards"></div>
   </div>
@@ -1126,6 +1131,25 @@ const flatCallWS = msg => {
   return Promise.resolve({});
 };
 
+// trend badge demo — same shapes exercised by the "trend badge" e2e tests
+// (tests/e2e/card.spec.js), reused here so the visual and the assertion agree
+function makeTrendCallWS(values) {
+  return msg => {
+    if (msg.type === 'history/history_during_period') {
+      const id = msg.entity_ids[0];
+      const now = Date.now() / 1000;
+      const n = values.length;
+      const pts = values.map((v, i) => ({ s: String(v), lu: now - (n - 1 - i) * 3600 }));
+      log(`callWS trend history: ${id} → ${pts.length} points`);
+      return Promise.resolve({ [id]: pts });
+    }
+    return Promise.resolve({});
+  };
+}
+const TREND_UP_CALLWS   = makeTrendCallWS([15, 17, 19, 21, 23, 25, 27, 30]);
+const TREND_DOWN_CALLWS = makeTrendCallWS([30, 27, 25, 23, 21, 19, 17, 15]);
+const TREND_FLAT_CALLWS = makeTrendCallWS([10, 12, 14, 16, 16, 14, 12, 10]);
+
 function buildRealDemoCard() {
   const cfg = loadRealDemoConfig();
   const container = document.getElementById('real-demo-cards');
@@ -1236,6 +1260,32 @@ window.addEventListener('load', () => {
       show_camera: false,
       history_chart: ESTERNO_HISTORY_CHART,
     }, {}, esternoCallWS);
+
+    // ── Trend badge (rising / falling / flat) ───────────────────────────────
+    // Each card needs its own fake entity_id — history.js caches fetched
+    // points keyed by `entityId:hours:bucket` at module scope, shared across
+    // every card on the page regardless of which hass/callWS mounted it. Reusing
+    // 'sensor.temperature' here would silently hit the "Default sparkline"
+    // card's already-cached fetch above and never call our override callWS.
+    const trendContainer = document.getElementById('trend-history-cards');
+    const trendStateOverride = id => ({
+      [id]: { state: '0', attributes: { friendly_name: 'Trend demo', unit_of_measurement: '°C' } },
+    });
+    mountStatic(trendContainer, {
+      area: 'living_room',
+      name: 'Trend — up ⬈',
+      history_chart: { entity_id: 'sensor.trend_demo_up' },
+    }, trendStateOverride('sensor.trend_demo_up'), TREND_UP_CALLWS);
+    mountStatic(trendContainer, {
+      area: 'living_room',
+      name: 'Trend — down ⬊',
+      history_chart: { entity_id: 'sensor.trend_demo_down' },
+    }, trendStateOverride('sensor.trend_demo_down'), TREND_DOWN_CALLWS);
+    mountStatic(trendContainer, {
+      area: 'living_room',
+      name: 'Trend — flat ➡',
+      history_chart: { entity_id: 'sensor.trend_demo_flat' },
+    }, trendStateOverride('sensor.trend_demo_flat'), TREND_FLAT_CALLWS);
 
     const FILTER_CARDS = [
       // exclude motion + TV from living room — no occupancy dot, fewer chips

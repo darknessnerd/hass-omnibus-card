@@ -545,6 +545,78 @@ test('history chart overlay — stat-max/min show ↑/↓ prefixes', async ({ pa
   await expect(page.locator('#mount').locator('.stat-min')).toContainText(/^↓\s/);
 });
 
+test('history chart overlay — trend badge shows ⬈ trend-up for a real rising series', async ({ page }) => {
+  await page.evaluate(() => {
+    window.BASE_HASS.callWS = msg => {
+      if (msg.type === 'history/history_during_period') {
+        const id = msg.entity_ids[0];
+        const values = [15, 17, 19, 21, 23, 25, 27, 30];
+        const points = values.map((v, i) => ({ s: String(v), lu: 1704067200 + i * 3600 }));
+        return Promise.resolve({ [id]: points });
+      }
+      return Promise.resolve({});
+    };
+  });
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  const trend = page.locator('#mount').locator('.stat-trend');
+  await expect(trend).toHaveClass(/trend-up/);
+  await expect(trend).toContainText('⬈');
+});
+
+test('history chart overlay — trend badge shows ⬊ trend-down for a real falling series', async ({ page }) => {
+  await page.evaluate(() => {
+    window.BASE_HASS.callWS = msg => {
+      if (msg.type === 'history/history_during_period') {
+        const id = msg.entity_ids[0];
+        const values = [30, 27, 25, 23, 21, 19, 17, 15];
+        const points = values.map((v, i) => ({ s: String(v), lu: 1704067200 + i * 3600 }));
+        return Promise.resolve({ [id]: points });
+      }
+      return Promise.resolve({});
+    };
+  });
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  const trend = page.locator('#mount').locator('.stat-trend');
+  await expect(trend).toHaveClass(/trend-down/);
+  await expect(trend).toContainText('⬊');
+});
+
+test('history chart overlay — trend badge shows ➡ trend-flat when start/end average barely move', async ({ page }) => {
+  await page.evaluate(() => {
+    window.BASE_HASS.callWS = msg => {
+      if (msg.type === 'history/history_during_period') {
+        const id = msg.entity_ids[0];
+        const values = [10, 12, 14, 16, 16, 14, 12, 10];
+        const points = values.map((v, i) => ({ s: String(v), lu: 1704067200 + i * 3600 }));
+        return Promise.resolve({ [id]: points });
+      }
+      return Promise.resolve({});
+    };
+  });
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  const trend = page.locator('#mount').locator('.stat-trend');
+  await expect(trend).toHaveClass(/trend-flat/);
+  await expect(trend).toContainText('➡');
+});
+
+test('history chart overlay — no trend badge with fewer than 4 points', async ({ page }) => {
+  await page.evaluate(() => {
+    window.BASE_HASS.callWS = msg => {
+      if (msg.type === 'history/history_during_period') {
+        const id = msg.entity_ids[0];
+        return Promise.resolve({ [id]: [{ s: '20', lu: 1 }, { s: '25', lu: 2 }] });
+      }
+      return Promise.resolve({});
+    };
+  });
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('#mount').locator('.stat-trend')).toHaveCount(0);
+});
+
 test('history chart overlay — threshold_high label visible and shows value', async ({ page }) => {
   await mount(page, {
     area: 'living_room',

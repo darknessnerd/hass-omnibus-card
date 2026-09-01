@@ -122,6 +122,19 @@ export const CARD_STYLES = `
 
   .chart-stat { font-size: 8px; }
 
+  /* Dimmer than the shared .chart-threshold/.chart-tooltip opacity above —
+     these three are always-on chrome sitting over the chart on every render,
+     not a hover/tap-triggered readout, so they need to recede rather than
+     compete with the line itself. Scoped to the specific classes (not the
+     shared .chart-stat) so it doesn't also wash out .chart-empty's one-and-
+     only message or the trend badge's deliberately saturated colors below. */
+  .stat-max, .stat-min, .stat-period { opacity: 0.55; }
+
+  .stat-trend { font-weight: 700; }
+  .trend-up   { color: #ff8a65; }
+  .trend-down { color: #4fc3f7; }
+  .trend-flat { color: #bdbdbd; }
+
   .chart-empty {
     top: 50%;
     left: 50%;
@@ -131,6 +144,7 @@ export const CARD_STYLES = `
   .stat-max    { top: 5px;    right: 7px; }
   .stat-min    { bottom: 5px; right: 7px; }
   .stat-period { bottom: 5px; left:  7px; }
+  .stat-trend  { top: 5px;    left:  7px; }
 
   .chart-threshold {
     left: 7px;
