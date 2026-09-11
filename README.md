@@ -2,6 +2,7 @@
   <img src="assets/banner.svg" alt="Hass Omnibus Card" width="100%">
 </p>
 <hr>
+
 # hass-omnibus-card
 
 A compact, intelligent Home Assistant Lovelace card that summarizes an entire room from a single `area:` ID — no manual entity lists required.
