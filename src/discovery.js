@@ -36,6 +36,11 @@ export function getAreaEntities(hass, areaId) {
  * Normal mode (config.entities absent):
  *   - exclude_entities: entity IDs to drop from area discovery
  *   - add_entities:     entity IDs to force-add (even from outside the area)
+ *
+ * `entity_category` is preserved from Home Assistant's entity registry.
+ * We later use it in `classify()` to distinguish ambient room sensors from a
+ * device's own technical readouts (for example a router's CPU temperature or
+ * humidity), which must not pollute the area's env-row averages.
  */
 export function filterEntities(areaEntities, config, hass) {
   if (config.entities?.length) {
@@ -118,13 +123,12 @@ export function classify(areaEntities) {
     const dc     = state.attributes?.device_class ?? '';
     const val    = state.state;
 
-    // entityCategory 'diagnostic'/'config' marks a sensor as a device's own
-    // technical readout (router CPU temp, camera board humidity, etc.), not
-    // a room-ambient reading — excluded from the temperature/humidity/weather
-    // buckets that feed the area's env-row average so one router doesn't
-    // drag "Casa"'s displayed temperature up to its CPU temp. Falls through
-    // to `others` instead, same as any other diagnostic sensor.
-    const isAmbient = !item.entityCategory;
+    // `entityCategory` is HA's registry hint that the entity is not a room
+    // sensor but a device-owned technical readout (router CPU temp, camera board
+    // humidity, etc.). Keep those out of the ambient temp/humidity/weather
+    // averages; they are still valid `others`/diagnostic items, just not room
+    // climate data. `diagnostic` and `config` are explicit non-ambient cases.
+    const isAmbient = item.entityCategory == null || (item.entityCategory !== 'diagnostic' && item.entityCategory !== 'config');
 
     if      (domain === 'light')                                                            out.lights.push(item);
     else if (domain === 'climate')                                                          out.climate.push(item);
