@@ -1,1431 +1,909 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>hass-omnibus-card dev</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>hass-omnibus-card · playground</title>
 
-<!-- MDI icons via Iconify -->
-<script src="https://cdn.jsdelivr.net/npm/iconify-icon@2/dist/iconify-icon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/iconify-icon@2/dist/iconify-icon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4/dist/js-yaml.min.js"></script>
+  <script>window.__VERSION__ = 'dev';</script>
 
-<!-- constants.js references __VERSION__, normally replaced by Vite's `define` at build/dev-serve time.
-     This file is served as-is (no Vite) when opened directly or via GH Pages, so stub it here. -->
-<script>window.__VERSION__ = 'dev';</script>
-
-<style>
-  :root {
-    /* Chrome tokens — deliberately reuse the card's own semantic hexes
-       (constants.js / styles.js) so the harness reads as one instrument,
-       not a demo page bolted onto an unrelated brand. */
-    --dev-bg: #0d0f13;
-    --dev-panel: #161920;
-    --dev-hairline: rgba(255,255,255,.08);
-    --dev-text: #e4e6eb;
-    --dev-text-dim: #7b828f;
-    --dev-cyan: #03a9f4;   /* == card's --primary-color fallback */
-    --dev-amber: #f57c00;  /* == card's temperature chip icon */
-    --dev-alarm: #f44336;  /* == card's smoke/error color */
-    --dev-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
-  }
-  body.light-theme {
-    --dev-bg: #f6f4ef;
-    --dev-panel: #ffffff;
-    --dev-hairline: rgba(0,0,0,.08);
-    --dev-text: #1a1d24;
-    --dev-text-dim: #6b7280;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--dev-bg);
-    color: var(--dev-text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    padding: 24px;
-    min-height: 100vh;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-  h2 {
-    font-family: var(--dev-mono); color: var(--dev-text-dim);
-    font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .12em;
-    margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--dev-hairline);
-  }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 32px; }
-  .section { margin-bottom: 32px; }
-  .eyebrow {
-    font-family: var(--dev-mono); font-size: 10px; color: var(--dev-text-dim);
-    text-transform: uppercase; letter-spacing: .12em; margin-right: 6px;
-  }
-  button {
-    font-family: var(--dev-mono);
-    background: var(--dev-panel); color: var(--dev-text-dim); border: 1px solid var(--dev-hairline);
-    border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 12px;
-  }
-  button:hover { color: var(--dev-text); border-color: var(--dev-text-dim); }
-  #log { font-family: var(--dev-mono); font-size: 12px; color: var(--dev-text-dim); margin-top: 24px; white-space: pre-wrap; }
-
-  /* ── Header ─────────────────────────────────────────────────────────── */
-  #page-header {
-    display: flex; justify-content: space-between; align-items: flex-start;
-    gap: 16px; margin-bottom: 24px; padding-bottom: 20px;
-    border-bottom: 1px solid var(--dev-hairline);
-  }
-  #page-header h1 { font-size: 20px; font-weight: 600; color: var(--dev-text); display: flex; align-items: center; }
-  #page-header p { font-size: 13px; color: var(--dev-text-dim); margin-top: 4px; }
-  #page-header .badge {
-    font-size: 11px; font-family: var(--dev-mono); color: var(--dev-text-dim);
-    background: var(--dev-panel); border: 1px solid var(--dev-hairline);
-    border-radius: 4px; padding: 2px 6px; margin-left: 8px; font-weight: 400;
-  }
-  .status-line { font-family: var(--dev-mono); font-size: 11px; color: var(--dev-text-dim); margin-top: 6px; letter-spacing: .04em; }
-  .status-line span { color: var(--dev-text); }
-
-  /* Status LED — reflects the *actual* active scenario, not decoration */
-  .led {
-    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-    margin-right: 10px; background: var(--dev-cyan);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--dev-cyan) 20%, transparent);
-    flex-shrink: 0;
-  }
-  .led.pulse { animation: led-pulse 1.4s ease-in-out infinite; }
-  @keyframes led-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-  @media (prefers-reduced-motion: reduce) { .led.pulse { animation: none; } }
-
-  /* ── Live demo controls ─────────────────────────────────────────────── */
-  #controls { margin-bottom: 24px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  #controls .divider { width: 1px; height: 20px; background: var(--dev-hairline); margin: 0 4px; }
-  button.primary { background: var(--dev-cyan); color: #fff; border-color: transparent; }
-  button.primary:hover { opacity: .85; color: #fff; }
-
-  /* scenario buttons carry a state dot colored to match the card's own
-     alarm/status hues — set inline per-button via --dot-color */
-  button.scenario-btn { position: relative; padding-left: 24px; }
-  button.scenario-btn::before {
-    content: ''; position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--dot-color, var(--dev-text-dim));
-  }
-
-  #config-controls, #real-demo-controls, #real-demo-options {
-    margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
-    font-size: 13px; color: var(--dev-text-dim);
-  }
-  #config-controls label, #real-demo-controls label, #real-demo-options label {
-    display: flex; align-items: center; gap: 6px; cursor: pointer;
-  }
-
-  /* ── Developer tools (collapsed by default) ──────────────────────────── */
-  #dev-tools {
-    margin-top: 40px; border-top: 1px dashed var(--dev-hairline); padding-top: 8px;
-  }
-  #dev-tools > summary {
-    cursor: pointer; font-family: var(--dev-mono); font-size: 12px; color: var(--dev-text-dim);
-    padding: 8px 0; text-transform: uppercase; letter-spacing: .1em; user-select: none;
-  }
-  #dev-tools > summary:hover { color: var(--dev-text); }
-  #dev-tools[open] {
-    background: var(--dev-panel); border: 1px solid var(--dev-hairline);
-    border-radius: 8px; padding: 8px 20px 20px;
-  }
-  #dev-tools[open] > summary { color: var(--dev-text); margin-bottom: 16px; }
-  #dev-tools .section:first-of-type { margin-top: 8px; }
-</style>
-
-<!-- ── HA stub elements ──────────────────────────────────────────────────── -->
-<script>
-  // ha-card: styled container with slot
-  customElements.define('ha-card', class extends HTMLElement {
-    connectedCallback() {
-      Object.assign(this.style, {
-        display: 'block',
-        borderRadius: '12px',
-        background: 'var(--ha-card-background, var(--card-background-color))',
-        boxShadow: '0 2px 12px rgba(0,0,0,.25)',
-        overflow: 'hidden',
-        position: 'relative',
-      });
+  <style>
+    /* ══════════════════════════════════════════════════════════════════
+       HARNESS — neon-terminal console (development tool only)
+       ══════════════════════════════════════════════════════════════════ */
+    :root {
+      --bg:        #04070a;
+      --panel:     rgba(6, 20, 14, 0.72);
+      --line:      rgba(0, 255, 153, 0.16);
+      --line-hi:   rgba(0, 255, 153, 0.42);
+      --text:      #b8ffd6;
+      --text-hi:   #e6fff1;
+      --dim:       #4d8f74;
+      --accent:    #00ff99;
+      --err:       #ff3b6b;
+      --glow:      0 0 6px rgba(0, 255, 153, 0.55), 0 0 18px rgba(0, 255, 153, 0.18);
+      --glow-soft: 0 0 4px rgba(0, 255, 153, 0.35);
+      --mono: ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+      --aside-w: 400px;
     }
-  });
-
-  // ha-icon: delegate to iconify-icon
-  customElements.define('ha-icon', class extends HTMLElement {
-    static get observedAttributes() { return ['icon']; }
-    connectedCallback() { this._sync(); }
-    attributeChangedCallback() { this._sync(); }
-    _sync() {
-      const raw = this.getAttribute('icon') || '';
-      // mdi:foo → iconify mdi:foo
-      const iconName = raw.startsWith('mdi:') ? raw : raw.replace(':', ':');
-      this.innerHTML = `<iconify-icon icon="${iconName}" style="font-size:inherit;--iconify-font-size:inherit"></iconify-icon>`;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background:
+              radial-gradient(ellipse 80% 60% at 50% -10%, rgba(0,255,153,.09), transparent 60%),
+              radial-gradient(ellipse 60% 40% at 50% 110%, rgba(0,255,153,.06), transparent 60%),
+              var(--bg);
+      color: var(--text);
+      font: 13px/1.5 var(--mono);
+      display: grid;
+      grid-template-columns: var(--aside-w) 6px 1fr;
+      height: 100vh; overflow: hidden;
+      text-shadow: 0 0 2px rgba(0,255,153,.15);
     }
-  });
-</script>
+    ::selection { background: rgba(0,255,153,.28); color: var(--text-hi); }
 
-<!-- ── CSS variables (minimal HA theme) ────────────────────────────────── -->
-<style>
-  :root {
-    --ha-card-background: #1c1c1e;
-    --card-background-color: #1c1c1e;
-    --primary-color: #03a9f4;
-    --primary-text-color: #e1e1e1;
-    --secondary-text-color: #9e9e9e;
-    --secondary-background-color: rgba(255,255,255,.06);
-    --disabled-text-color: #5e5e5e;
-    --divider-color: rgba(255,255,255,.08);
-    --error-color: #f44336;
-    --success-color: #4caf50;
-    --warning-color: #ff9800;
-    --mdc-icon-size: 20px;
-  }
-
-  body.light-theme {
-    --ha-card-background: #ffffff;
-    --card-background-color: #ffffff;
-    --primary-color: #03a9f4;
-    --primary-text-color: #212121;
-    --secondary-text-color: #727272;
-    --secondary-background-color: rgba(0,0,0,.06);
-    --disabled-text-color: #9e9e9e;
-    --divider-color: rgba(0,0,0,.12);
-  }
-</style>
-
-<!-- ── Mock hass data ────────────────────────────────────────────────────── -->
-<script>
-const MOCK_HASS = {
-  areas: {
-    living_room: { area_id: 'living_room', name: 'Living Room', icon: 'mdi:sofa' },
-    bedroom:     { area_id: 'bedroom',     name: 'Bedroom',     icon: 'mdi:bed' },
-    kitchen:     { area_id: 'kitchen',     name: 'Kitchen',     icon: 'mdi:chef-hat' },
-    bathroom:    { area_id: 'bathroom',    name: 'Bathroom',    icon: 'mdi:shower' },
-    cucina:      { area_id: 'cucina',      name: 'Cucina',      icon: 'mdi:silverware-fork-knife' },
-    esterno:     { area_id: 'esterno',     name: 'Esterno',     icon: 'mdi:tree' },
-    ripostiglio_interno: { area_id: 'ripostiglio_interno', name: 'Ripostiglio Interno', icon: 'mdi:archive' },
-    // casa — real HA setup, network/infra devices with no room sensors at all:
-    // FRITZ!Repeater (its own CPU-temperature diagnostic sensor), an Ookla
-    // Speedtest integration, a Zigbee2MQTT bridge, and a weather forecast
-    // entity. Demonstrates the entity_category fix (see classify() in
-    // discovery.js) — the repeater's CPU temp is entity_category: diagnostic,
-    // so it must NOT feed the area's env-row temperature average.
-    casa: { area_id: 'casa', name: 'Casa', icon: 'mdi:tree' },
-  },
-
-  devices: {
-    dev_lr_lamp:    { area_id: 'living_room', name: 'Living Room Lamp' },
-    dev_lr_sensor:  { area_id: 'living_room', name: 'Living Room Sensor' },
-    dev_bed_lamp:   { area_id: 'bedroom', name: 'Bedroom Lamp' },
-    dev_kit_sensor: { area_id: 'kitchen', name: 'Kitchen Sensor' },
-    dev_cam_cucina: { area_id: 'cucina', name: 'Cam Cucina' },
-    dev_esterno_cam:{ area_id: 'esterno', name: 'Esterno Cam' },
-    // IR blaster device, no camera link — same real-world "device pushes a
-    // pile of switches/selects/numbers" shape as the camera devices below,
-    // but with no camera in play at all
-    dev_ir_clima_cucina: { area_id: 'cucina', name: 'ir_clima_cucina' },
-    // Zigbee2MQTT LED — its firmware update entity is diverted to the Updates
-    // bucket before it ever reaches `others`, so only the switch + select
-    // count toward the sweep threshold, but both still share this device
-    dev_led_cucina: { area_id: 'cucina', name: 'Led Cucina' },
-    // ripostiglio_interno — real HA setup from the same production debug log:
-    // a D017 dehumidifier device + a separate ripostiglio_interno_ths climate
-    // sensor device, no camera at all
-    dev_d017_dehumidifier: { area_id: 'ripostiglio_interno', name: 'D017-Dehumidifier-5V' },
-    dev_ths_ripostiglio:   { area_id: 'ripostiglio_interno', name: 'ripostiglio_interno_ths' },
-    // SONOFF SNZB-04P contact sensor (Zigbee2MQTT, topic zigbee2mqtt/door_ground_floor) —
-    // real device shape: contact + tamper binary_sensors, battery/voltage/linkquality
-    // diagnostics. Contact/tamper each get their own always-visible header badge
-    // (Openings, Tamper); battery+voltage+linkquality (3 read-only sensors on one
-    // device) sweep into the Diagnostics tab.
-    dev_door_ground_floor: { area_id: 'living_room', name: 'Door Ground Floor' },
-    // casa — network/infra devices, no camera or room sensors
-    dev_fritz_repeater:     { area_id: 'casa', name: 'FRITZ!Repeater 6000' },
-    dev_ookla_speedtest:    { area_id: 'casa', name: 'Ookla Speedtest' },
-    dev_zigbee2mqtt_bridge: { area_id: 'casa', name: 'Zigbee2MQTT Bridge' },
-  },
-
-  entities: {
-    // living_room — via device
-    'light.ceiling':           { area_id: null, device_id: 'dev_lr_lamp',   hidden_by: null },
-    'light.floor_lamp':        { area_id: null, device_id: 'dev_lr_lamp',   hidden_by: null },
-    'sensor.temperature':      { area_id: null, device_id: 'dev_lr_sensor', hidden_by: null },
-    'sensor.humidity':         { area_id: null, device_id: 'dev_lr_sensor', hidden_by: null },
-    'binary_sensor.motion':    { area_id: 'living_room', device_id: null,   hidden_by: null },
-    'binary_sensor.window':    { area_id: 'living_room', device_id: null,   hidden_by: null },
-    'sensor.window_battery':   { area_id: 'living_room', device_id: null,   hidden_by: null },
-    'sensor.remote_battery':   { area_id: 'living_room', device_id: null,   hidden_by: null },
-    'media_player.tv':         { area_id: 'living_room', device_id: null,   hidden_by: null },
-    'climate.hvac':            { area_id: 'living_room', device_id: null,   hidden_by: null },
-    'binary_sensor.door_ground_floor_contact': { area_id: null, device_id: 'dev_door_ground_floor', hidden_by: null },
-    'binary_sensor.door_ground_floor_tamper':  { area_id: null, device_id: 'dev_door_ground_floor', hidden_by: null },
-    'sensor.door_ground_floor_battery':        { area_id: null, device_id: 'dev_door_ground_floor', hidden_by: null },
-    'sensor.door_ground_floor_voltage':        { area_id: null, device_id: 'dev_door_ground_floor', hidden_by: null },
-    'sensor.door_ground_floor_linkquality':    { area_id: null, device_id: 'dev_door_ground_floor', hidden_by: null },
-    // bedroom — direct area
-    'light.bedside':           { area_id: 'bedroom', device_id: null,        hidden_by: null },
-    'sensor.bed_temperature':  { area_id: 'bedroom', device_id: null,        hidden_by: null },
-    'sensor.bed_humidity':     { area_id: 'bedroom', device_id: null,        hidden_by: null },
-    'binary_sensor.smoke_det': { area_id: 'bedroom', device_id: null,        hidden_by: null },
-    // kitchen
-    'sensor.kit_temperature':  { area_id: null, device_id: 'dev_kit_sensor', hidden_by: null },
-    'sensor.kit_humidity':     { area_id: null, device_id: 'dev_kit_sensor', hidden_by: null },
-    'binary_sensor.gas_det':   { area_id: 'kitchen', device_id: null,        hidden_by: null },
-    'light.kit_ceiling':       { area_id: 'kitchen', device_id: null,        hidden_by: null },
-    // bathroom
-    'sensor.bath_humidity':    { area_id: 'bathroom', device_id: null,       hidden_by: null },
-    'light.bath_mirror':       { area_id: 'bathroom', device_id: null,       hidden_by: null },
-    // cucina — real HA setup from a production debug log: EZVIZ camera device
-    // (cam_cucina_*, device-linked) + a separate Zigbee2MQTT LED (led_cucina) +
-    // the soggiornino THS sensor pinned in via add_entities in the real dashboard
-    'light.luci_cucina':                  { area_id: 'cucina', device_id: null, hidden_by: null },
-    'switch.led_cucina':                  { area_id: null, device_id: 'dev_led_cucina', hidden_by: null },
-    'select.led_cucina_power_on_behavior':{ area_id: null, device_id: 'dev_led_cucina', hidden_by: null },
-    'update.led_cucina':                  { area_id: null, device_id: 'dev_led_cucina', hidden_by: null },
-    'sensor.soggiornino_ths_temperature': { area_id: 'cucina', device_id: null, hidden_by: null },
-    'sensor.soggiornino_ths_humidity':    { area_id: 'cucina', device_id: null, hidden_by: null },
-    'camera.cam_cucina':                                   { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'binary_sensor.cam_cucina_movimento':                  { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'binary_sensor.cam_cucina_crittografia':                { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'binary_sensor.cam_cucina_pianificazioni_di_allarme_abilitate': { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'button.cam_cucina_ptz_su':       { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'button.cam_cucina_ptz_giu':      { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'button.cam_cucina_ptz_sinistra': { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'button.cam_cucina_ptz_destra':   { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'image.cam_cucina_ultima_immagine_motion': { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'number.cam_cucina_sensibilita_di_rilevamento': { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'select.cam_cucina_suono_di_avviso':            { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'switch.cam_cucina_audio':                                    { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'switch.cam_cucina_luce_di_stato':                            { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'switch.cam_cucina_luce_infrarossa':                          { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'switch.cam_cucina_registrazione_video_per_tutto_il_giorno':  { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'switch.cam_cucina_sospensione':                              { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'switch.cam_cucina_tracciamento_del_movimento':               { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'sensor.cam_cucina_ip_locale':      { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'sensor.cam_cucina_ip_wan':         { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'sensor.cam_cucina_canali_supportati':                    { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'sensor.cam_cucina_codice_del_tipo_di_ultimo_allarme':    { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'sensor.cam_cucina_nome_dell_ultimo_tipo_di_allarme':     { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'sensor.cam_cucina_stato_pir':                            { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    'update.cam_cucina_firmware': { area_id: null, device_id: 'dev_cam_cucina', hidden_by: null },
-    // cucina — IR blaster device, no camera link: 6 switches + 12 selects +
-    // 2 calibration numbers + a temperature-unit select, plus a battery and a
-    // learned-ir-code sensor. Real production shape (see the top-of-conversation
-    // debug log) that used to flood the generic chip strip since the old sweep
-    // only ever looked at devices sharing a camera.
-    'climate.mitsubishi_electric_msz_hr35vf': { area_id: 'cucina', device_id: null, hidden_by: null },
-    'sensor.ir_clima_cucina_temperature':     { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'sensor.ir_clima_cucina_humidity':        { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'sensor.ir_clima_cucina_battery':         { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'sensor.ir_clima_cucina_learned_ir_code': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'number.ir_clima_cucina_temperature_calibration': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'number.ir_clima_cucina_humidity_calibration':    { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_temperature_unit': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'button.ir_clima_cucina_switch_learn_ir_code': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'infrared.ir_clima_cucina_ir_emitter':          { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'infrared.ir_clima_cucina_learned_ir_timings':  { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'switch.ir_clima_cucina_switch1': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'switch.ir_clima_cucina_switch2': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'switch.ir_clima_cucina_switch3': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'switch.ir_clima_cucina_switch4': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'switch.ir_clima_cucina_switch5': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'switch.ir_clima_cucina_switch6': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch1_on':  { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch1_off': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch2_on':  { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch2_off': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch3_on':  { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch3_off': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch4_on':  { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch4_off': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch5_on':  { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch5_off': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch6_on':  { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'select.ir_clima_cucina_switch6_off': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    'text.ir_clima_cucina_ir_code_to_send': { area_id: null, device_id: 'dev_ir_clima_cucina', hidden_by: null },
-    // ripostiglio_interno — IR-free room: D017 dehumidifier device (2 switches +
-    // 2 selects + 1 number + a lone error sensor) and a separate THS climate
-    // sensor device (2 calibration numbers + vpd/battery sensors)
-    'switch.d017_dehumidifier_5v_power':      { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
-    'switch.d017_dehumidifier_5v_child_lock': { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
-    'select.d017_dehumidifier_5v_fan':        { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
-    'select.d017_dehumidifier_5v_mode':       { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
-    'number.d017_dehumidifier_5v_humidity_tartget': { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
-    'sensor.d017_dehumidifier_5v_error':       { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
-    'sensor.d017_dehumidifier_5v_humidity':    { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
-    'sensor.d017_dehumidifier_5v_temperature': { area_id: null, device_id: 'dev_d017_dehumidifier', hidden_by: null },
-    'number.ripostiglio_interno_ths_humidity_calibration':    { area_id: null, device_id: 'dev_ths_ripostiglio', hidden_by: null },
-    'number.ripostiglio_interno_ths_temperature_calibration': { area_id: null, device_id: 'dev_ths_ripostiglio', hidden_by: null },
-    'sensor.ripostiglio_interno_ths_battery':    { area_id: null, device_id: 'dev_ths_ripostiglio', hidden_by: null },
-    'sensor.ripostiglio_interno_ths_dew_point':  { area_id: null, device_id: 'dev_ths_ripostiglio', hidden_by: null },
-    'sensor.ripostiglio_interno_ths_humidity':   { area_id: null, device_id: 'dev_ths_ripostiglio', hidden_by: null },
-    'sensor.ripostiglio_interno_ths_temperature':{ area_id: null, device_id: 'dev_ths_ripostiglio', hidden_by: null },
-    'sensor.ripostiglio_interno_ths_vpd':        { area_id: null, device_id: 'dev_ths_ripostiglio', hidden_by: null },
-    'update.ripostiglio_interno_ths':            { area_id: null, device_id: 'dev_ths_ripostiglio', hidden_by: null },
-    // esterno — real HA setup from the same debug log: EZVIZ camera device
-    // (esterno_cb8c_bh2113803_*, Italian PTZ + siren + 5 switches + number + 2
-    // selects + diagnostic sensors) + a Bresser 7-in-1 weather station (no device)
-    'camera.esterno_cb8c_bh2113803': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'binary_sensor.esterno_cb8c_bh2113803_movimento_2':      { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'binary_sensor.esterno_cb8c_bh2113803_crittografia_2':   { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'binary_sensor.esterno_cb8c_bh2113803_pianificazioni_di_allarme_abilitate_2': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'button.esterno_cb8c_bh2113803_ptz_su':       { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'button.esterno_cb8c_bh2113803_ptz_giu':      { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'button.esterno_cb8c_bh2113803_ptz_sinistra': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'button.esterno_cb8c_bh2113803_ptz_destra':   { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'image.esterno_cb8c_bh2113803_ultima_immagine_motion': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'number.esterno_cb8c_bh2113803_sensibilita_di_rilevamento': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'select.esterno_cb8c_bh2113803_suono_di_avviso':                            { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'select.esterno_cb8c_bh2113803_modalita_di_funzionamento_della_batteria':   { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'siren.esterno_cb8c_bh2113803_sirena': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'switch.esterno_cb8c_bh2113803_audio_2':                              { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'switch.esterno_cb8c_bh2113803_luce_di_stato_2':                      { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'switch.esterno_cb8c_bh2113803_luce_infrarossa_2':                    { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'switch.esterno_cb8c_bh2113803_luce_a_intermittenza_sul_movimento_2': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'switch.esterno_cb8c_bh2113803_segui_il_movimento_2':                 { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'sensor.esterno_cb8c_bh2113803_batteria':    { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'sensor.esterno_cb8c_bh2113803_ip_locale_2': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'sensor.esterno_cb8c_bh2113803_stato_pir_2': { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'update.esterno_cb8c_bh2113803_firmware':    { area_id: null, device_id: 'dev_esterno_cam', hidden_by: null },
-    'sensor.bresser_7in1_65351_temperature':      { area_id: 'esterno', device_id: null, hidden_by: null },
-    'sensor.bresser_7in1_65351_humidity':         { area_id: 'esterno', device_id: null, hidden_by: null },
-    'sensor.bresser_7in1_65351_battery':          { area_id: 'esterno', device_id: null, hidden_by: null },
-    'sensor.bresser_7in1_65351_wind_average':     { area_id: 'esterno', device_id: null, hidden_by: null },
-    'sensor.bresser_7in1_65351_wind_max':         { area_id: 'esterno', device_id: null, hidden_by: null },
-    'sensor.bresser_7in1_65351_wind_direction':   { area_id: 'esterno', device_id: null, hidden_by: null },
-    'sensor.bresser_7in1_65351_rain_total':       { area_id: 'esterno', device_id: null, hidden_by: null },
-    'sensor.bresser_7in1_65351_outside_luminance':{ area_id: 'esterno', device_id: null, hidden_by: null },
-    'sensor.bresser_7in1_65351_noise':            { area_id: 'esterno', device_id: null, hidden_by: null },
-    'sensor.bresser_7in1_65351_uv_index':         { area_id: 'esterno', device_id: null, hidden_by: null },
-    // casa — real values from a production debug log
-    'binary_sensor.zigbee2mqtt_bridge_connection_state_2': { area_id: null, device_id: 'dev_zigbee2mqtt_bridge', hidden_by: null },
-    'button.zigbee2mqtt_bridge_restart_2':                 { area_id: null, device_id: 'dev_zigbee2mqtt_bridge', hidden_by: null },
-    'select.zigbee2mqtt_bridge_log_level_2':               { area_id: null, device_id: 'dev_zigbee2mqtt_bridge', hidden_by: null },
-    'sensor.zigbee2mqtt_bridge_version_2':                 { area_id: null, device_id: 'dev_zigbee2mqtt_bridge', hidden_by: null },
-    'switch.zigbee2mqtt_bridge_permit_join_2':             { area_id: null, device_id: 'dev_zigbee2mqtt_bridge', hidden_by: null },
-    'button.fritz_repeater_6000_riavvia':      { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null },
-    'button.fritz_repeater_6000_riconnetti':   { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null },
-    'image.fritz_repeater_6000_trollnethome':  { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null },
-    'update.fritz_repeater_6000_fritz_os':     { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null },
-    // entity_category: 'diagnostic' — a router's own CPU temp/uptime, not a
-    // room-ambient reading. Must be excluded from the area's env-row average
-    // (see isAmbient in discovery.js classify()) and land in this device's
-    // own Diagnostics tab instead.
-    'sensor.fritz_repeater_6000_temperatura_cpu':   { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null, entity_category: 'diagnostic' },
-    'sensor.fritz_repeater_6000_tempo_di_attivita': { area_id: null, device_id: 'dev_fritz_repeater', hidden_by: null, entity_category: 'diagnostic' },
-    'sensor.ookla_speedtest_ping':               { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
-    'sensor.ookla_speedtest_download':           { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
-    'sensor.ookla_speedtest_upload':             { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
-    'sensor.ookla_speedtest_bufferbloat_grade':  { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
-    'sensor.ookla_speedtest_jitter':             { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
-    'sensor.ookla_speedtest_server':             { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
-    'sensor.ookla_speedtest_isp':                { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
-    'sensor.ookla_speedtest_result_url':         { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
-    'sensor.ookla_speedtest_last_test':          { area_id: null, device_id: 'dev_ookla_speedtest', hidden_by: null },
-    'weather.forecast_casa': { area_id: 'casa', device_id: null, hidden_by: null },
-  },
-
-  states: {
-    // living_room
-    'light.ceiling': {
-      state: 'on',
-      attributes: { friendly_name: 'Ceiling', rgb_color: [255, 200, 100], brightness: 200 },
-    },
-    'light.floor_lamp': {
-      state: 'off',
-      attributes: { friendly_name: 'Floor Lamp' },
-    },
-    'sensor.temperature': {
-      state: '21.5',
-      attributes: { friendly_name: 'Temperature', device_class: 'temperature', unit_of_measurement: '°C' },
-    },
-    'sensor.humidity': {
-      state: '52',
-      attributes: { friendly_name: 'Humidity', device_class: 'humidity', unit_of_measurement: '%' },
-    },
-    'binary_sensor.motion': {
-      state: 'on',
-      attributes: { friendly_name: 'Motion', device_class: 'motion' },
-    },
-    'binary_sensor.window': {
-      state: 'off',
-      attributes: { friendly_name: 'Window', device_class: 'window' },
-    },
-    'sensor.window_battery': {
-      state: '78',
-      attributes: { friendly_name: 'Window Sensor Battery', device_class: 'battery', unit_of_measurement: '%' },
-    },
-    'sensor.remote_battery': {
-      state: '42',
-      attributes: { friendly_name: 'Remote Battery', device_class: 'battery', unit_of_measurement: '%' },
-    },
-    'media_player.tv': {
-      state: 'playing',
-      attributes: { friendly_name: 'TV', media_title: 'Netflix' },
-    },
-    'climate.hvac': {
-      state: 'heat',
-      attributes: { friendly_name: 'HVAC', current_temperature: 20.5 },
-    },
-    // SONOFF SNZB-04P contact sensor — real values from a debug log
-    'binary_sensor.door_ground_floor_contact': {
-      state: 'off',
-      attributes: { friendly_name: 'Door Ground Floor', device_class: 'opening' },
-    },
-    'binary_sensor.door_ground_floor_tamper': {
-      state: 'off',
-      attributes: { friendly_name: 'Door Ground Floor Tamper', device_class: 'tamper' },
-    },
-    'sensor.door_ground_floor_battery': {
-      state: '100',
-      attributes: { friendly_name: 'Door Ground Floor Battery', device_class: 'battery', unit_of_measurement: '%' },
-    },
-    'sensor.door_ground_floor_voltage': {
-      state: '3100',
-      attributes: { friendly_name: 'Door Ground Floor Voltage', device_class: 'voltage', unit_of_measurement: 'mV' },
-    },
-    'sensor.door_ground_floor_linkquality': {
-      state: '132',
-      attributes: { friendly_name: 'Door Ground Floor Linkquality', unit_of_measurement: 'lqi' },
-    },
-    // bedroom
-    'light.bedside': {
-      state: 'off',
-      attributes: { friendly_name: 'Bedside' },
-    },
-    'sensor.bed_temperature': {
-      state: '19.2',
-      attributes: { friendly_name: 'Bedroom Temp', device_class: 'temperature', unit_of_measurement: '°C' },
-    },
-    'sensor.bed_humidity': {
-      state: '65',
-      attributes: { friendly_name: 'Bedroom Humidity', device_class: 'humidity', unit_of_measurement: '%' },
-    },
-    'binary_sensor.smoke_det': {
-      state: 'off',
-      attributes: { friendly_name: 'Smoke Detector', device_class: 'smoke' },
-    },
-    // kitchen
-    'sensor.kit_temperature': {
-      state: '23.8',
-      attributes: { friendly_name: 'Kitchen Temp', device_class: 'temperature', unit_of_measurement: '°C' },
-    },
-    'sensor.kit_humidity': {
-      state: '48',
-      attributes: { friendly_name: 'Kitchen Humidity', device_class: 'humidity', unit_of_measurement: '%' },
-    },
-    'binary_sensor.gas_det': {
-      state: 'off',
-      attributes: { friendly_name: 'Gas Detector', device_class: 'gas' },
-    },
-    'light.kit_ceiling': {
-      state: 'on',
-      attributes: { friendly_name: 'Kitchen Light' },
-    },
-    // bathroom
-    'sensor.bath_humidity': {
-      state: '78',
-      attributes: { friendly_name: 'Bath Humidity', device_class: 'humidity', unit_of_measurement: '%' },
-    },
-    'light.bath_mirror': {
-      state: 'off',
-      attributes: { friendly_name: 'Mirror Light' },
-    },
-    // cucina — real values from a production debug log
-    'light.luci_cucina':                   { state: 'off', attributes: { friendly_name: 'Luci Cucina' } },
-    'switch.led_cucina':                   { state: 'off', attributes: { friendly_name: 'Led Cucina' } },
-    'select.led_cucina_power_on_behavior': { state: 'off', attributes: { friendly_name: 'Led Cucina Power On Behavior' } },
-    'update.led_cucina':                   { state: 'off', attributes: { friendly_name: 'Led Cucina Firmware' } },
-    'sensor.soggiornino_ths_temperature': {
-      state: '30.7',
-      attributes: { friendly_name: 'Soggiornino THS Temperature', device_class: 'temperature', unit_of_measurement: '°C' },
-    },
-    'sensor.soggiornino_ths_humidity': {
-      state: '55.5',
-      attributes: { friendly_name: 'Soggiornino THS Humidity', device_class: 'humidity', unit_of_measurement: '%' },
-    },
-    'camera.cam_cucina': {
-      state: 'recording',
-      attributes: { friendly_name: 'Cam Cucina', entity_picture: 'https://placehold.co/640x360/1c1c1e/9e9e9e?text=Camera+snapshot' },
-    },
-    'binary_sensor.cam_cucina_movimento':     { state: 'off', attributes: { friendly_name: 'Cam Cucina Movimento', device_class: 'motion' } },
-    'binary_sensor.cam_cucina_crittografia':  { state: 'on',  attributes: { friendly_name: 'Cam Cucina Crittografia' } },
-    'binary_sensor.cam_cucina_pianificazioni_di_allarme_abilitate': { state: 'off', attributes: { friendly_name: 'Cam Cucina Pianificazioni Di Allarme Abilitate' } },
-    'button.cam_cucina_ptz_su':       { state: 'unknown', attributes: { friendly_name: 'Cam Cucina PTZ Su' } },
-    'button.cam_cucina_ptz_giu':      { state: 'unknown', attributes: { friendly_name: 'Cam Cucina PTZ Giu' } },
-    'button.cam_cucina_ptz_sinistra': { state: 'unknown', attributes: { friendly_name: 'Cam Cucina PTZ Sinistra' } },
-    'button.cam_cucina_ptz_destra':   { state: 'unknown', attributes: { friendly_name: 'Cam Cucina PTZ Destra' } },
-    'image.cam_cucina_ultima_immagine_motion': { state: '2026-08-24T02:22:56', attributes: { friendly_name: 'Cam Cucina Ultima Immagine Motion' } },
-    'number.cam_cucina_sensibilita_di_rilevamento': { state: '3', attributes: { friendly_name: 'Cam Cucina Sensibilita Di Rilevamento' } },
-    'select.cam_cucina_suono_di_avviso':            { state: 'silent', attributes: { friendly_name: 'Cam Cucina Suono Di Avviso' } },
-    'switch.cam_cucina_audio':                                   { state: 'on',  attributes: { friendly_name: 'Cam Cucina Audio' } },
-    'switch.cam_cucina_luce_di_stato':                           { state: 'on',  attributes: { friendly_name: 'Cam Cucina Luce Di Stato' } },
-    'switch.cam_cucina_luce_infrarossa':                         { state: 'on',  attributes: { friendly_name: 'Cam Cucina Luce Infrarossa' } },
-    'switch.cam_cucina_registrazione_video_per_tutto_il_giorno': { state: 'off', attributes: { friendly_name: 'Cam Cucina Registrazione Video Per Tutto Il Giorno' } },
-    'switch.cam_cucina_sospensione':                             { state: 'off', attributes: { friendly_name: 'Cam Cucina Sospensione' } },
-    'switch.cam_cucina_tracciamento_del_movimento':              { state: 'off', attributes: { friendly_name: 'Cam Cucina Tracciamento Del Movimento' } },
-    'sensor.cam_cucina_ip_locale': { state: '192.168.178.20', attributes: { friendly_name: 'Cam Cucina Ip Locale' } },
-    'sensor.cam_cucina_ip_wan':    { state: '87.120.85.64',   attributes: { friendly_name: 'Cam Cucina Ip Wan' } },
-    'sensor.cam_cucina_canali_supportati':                 { state: '1',     attributes: { friendly_name: 'Cam Cucina Canali Supportati' } },
-    'sensor.cam_cucina_codice_del_tipo_di_ultimo_allarme':  { state: '10002', attributes: { friendly_name: 'Cam Cucina Codice Del Tipo Di Ultimo Allarme' } },
-    'sensor.cam_cucina_nome_dell_ultimo_tipo_di_allarme':   { state: 'Motion Detection Alarm', attributes: { friendly_name: 'Cam Cucina Nome Dell Ultimo Tipo Di Allarme' } },
-    'sensor.cam_cucina_stato_pir':                          { state: '0',     attributes: { friendly_name: 'Cam Cucina Stato Pir' } },
-    'update.cam_cucina_firmware': { state: 'off', attributes: { friendly_name: 'Cam Cucina Firmware' } },
-    // cucina — IR blaster, real values from the top-of-conversation debug log
-    'climate.mitsubishi_electric_msz_hr35vf': { state: 'off', attributes: { friendly_name: 'Mitsubishi Electric MSZ-HR35VF', hvac_modes: ['off', 'cool', 'heat', 'dry', 'fan_only'] } },
-    'sensor.ir_clima_cucina_temperature': { state: '25.8', attributes: { friendly_name: 'ir_clima_cucina Temperatura', device_class: 'temperature', unit_of_measurement: '°C' } },
-    'sensor.ir_clima_cucina_humidity':    { state: '43',   attributes: { friendly_name: 'ir_clima_cucina Umidità', device_class: 'humidity', unit_of_measurement: '%' } },
-    'sensor.ir_clima_cucina_battery':     { state: '75',   attributes: { friendly_name: 'ir_clima_cucina Batteria', device_class: 'battery', unit_of_measurement: '%' } },
-    'sensor.ir_clima_cucina_learned_ir_code': { state: 'JgBMAm80IBcSJA8MDwwODA8n', attributes: { friendly_name: 'ir_clima_cucina Learned ir code' } },
-    'number.ir_clima_cucina_temperature_calibration': { state: '0', attributes: { friendly_name: 'ir_clima_cucina Temperature calibration' } },
-    'number.ir_clima_cucina_humidity_calibration':    { state: '0', attributes: { friendly_name: 'ir_clima_cucina Humidity calibration' } },
-    'select.ir_clima_cucina_temperature_unit': { state: 'celsius', attributes: { friendly_name: 'ir_clima_cucina Temperature unit' } },
-    'button.ir_clima_cucina_switch_learn_ir_code': { state: 'unknown', attributes: { friendly_name: 'ir_clima_cucina Learn ir code' } },
-    'infrared.ir_clima_cucina_ir_emitter':         { state: 'unknown', attributes: { friendly_name: 'ir_clima_cucina Ir emitter' } },
-    'infrared.ir_clima_cucina_learned_ir_timings': { state: 'unknown', attributes: { friendly_name: 'ir_clima_cucina Learned ir timings' } },
-    'switch.ir_clima_cucina_switch1': { state: 'on',  attributes: { friendly_name: 'ir_clima_cucina Switch1' } },
-    'switch.ir_clima_cucina_switch2': { state: 'off', attributes: { friendly_name: 'ir_clima_cucina Switch2' } },
-    'switch.ir_clima_cucina_switch3': { state: 'off', attributes: { friendly_name: 'ir_clima_cucina Switch3' } },
-    'switch.ir_clima_cucina_switch4': { state: 'off', attributes: { friendly_name: 'ir_clima_cucina Switch4' } },
-    'switch.ir_clima_cucina_switch5': { state: 'off', attributes: { friendly_name: 'ir_clima_cucina Switch5' } },
-    'switch.ir_clima_cucina_switch6': { state: 'off', attributes: { friendly_name: 'ir_clima_cucina Switch6' } },
-    'select.ir_clima_cucina_switch1_on':  { state: 'registered',   attributes: { friendly_name: 'ir_clima_cucina Switch1 on' } },
-    'select.ir_clima_cucina_switch1_off': { state: 'registered',   attributes: { friendly_name: 'ir_clima_cucina Switch1 off' } },
-    'select.ir_clima_cucina_switch2_on':  { state: 'registered',   attributes: { friendly_name: 'ir_clima_cucina Switch2 on' } },
-    'select.ir_clima_cucina_switch2_off': { state: 'registered',   attributes: { friendly_name: 'ir_clima_cucina Switch2 off' } },
-    'select.ir_clima_cucina_switch3_on':  { state: 'unregistered', attributes: { friendly_name: 'ir_clima_cucina Switch3 on' } },
-    'select.ir_clima_cucina_switch3_off': { state: 'unregistered', attributes: { friendly_name: 'ir_clima_cucina Switch3 off' } },
-    'select.ir_clima_cucina_switch4_on':  { state: 'unregistered', attributes: { friendly_name: 'ir_clima_cucina Switch4 on' } },
-    'select.ir_clima_cucina_switch4_off': { state: 'unregistered', attributes: { friendly_name: 'ir_clima_cucina Switch4 off' } },
-    'select.ir_clima_cucina_switch5_on':  { state: 'unregistered', attributes: { friendly_name: 'ir_clima_cucina Switch5 on' } },
-    'select.ir_clima_cucina_switch5_off': { state: 'unregistered', attributes: { friendly_name: 'ir_clima_cucina Switch5 off' } },
-    'select.ir_clima_cucina_switch6_on':  { state: 'unregistered', attributes: { friendly_name: 'ir_clima_cucina Switch6 on' } },
-    'select.ir_clima_cucina_switch6_off': { state: 'unregistered', attributes: { friendly_name: 'ir_clima_cucina Switch6 off' } },
-    'text.ir_clima_cucina_ir_code_to_send': { state: 'unknown', attributes: { friendly_name: 'ir_clima_cucina Ir code to send' } },
-    // ripostiglio_interno — real values from the top-of-conversation debug log
-    'switch.d017_dehumidifier_5v_power':      { state: 'on', attributes: { friendly_name: 'D017-Dehumidifier-5V power' } },
-    'switch.d017_dehumidifier_5v_child_lock': { state: 'on', attributes: { friendly_name: 'D017-Dehumidifier-5V child-lock' } },
-    'select.d017_dehumidifier_5v_fan':  { state: '2', attributes: { friendly_name: 'D017-Dehumidifier-5V fan' } },
-    'select.d017_dehumidifier_5v_mode': { state: 'dehumidifier,laundry,mute,wind', attributes: { friendly_name: 'D017-Dehumidifier-5V mode' } },
-    'number.d017_dehumidifier_5v_humidity_tartget': { state: '55', attributes: { friendly_name: 'D017-Dehumidifier-5V humidity_tartget' } },
-    'sensor.d017_dehumidifier_5v_error':       { state: '0',  attributes: { friendly_name: 'D017-Dehumidifier-5V error' } },
-    'sensor.d017_dehumidifier_5v_humidity':    { state: '37', attributes: { friendly_name: 'D017-Dehumidifier-5V humidity', device_class: 'humidity', unit_of_measurement: '%' } },
-    'sensor.d017_dehumidifier_5v_temperature': { state: '31', attributes: { friendly_name: 'D017-Dehumidifier-5V temperature', device_class: 'temperature', unit_of_measurement: '°C' } },
-    'number.ripostiglio_interno_ths_humidity_calibration':    { state: '0', attributes: { friendly_name: 'ripostiglio_interno_ths Humidity calibration' } },
-    'number.ripostiglio_interno_ths_temperature_calibration': { state: '0', attributes: { friendly_name: 'ripostiglio_interno_ths Temperature calibration' } },
-    'sensor.ripostiglio_interno_ths_battery':     { state: '100',  attributes: { friendly_name: 'ripostiglio_interno_ths Batteria', device_class: 'battery', unit_of_measurement: '%' } },
-    'sensor.ripostiglio_interno_ths_dew_point':   { state: '19.2', attributes: { friendly_name: 'ripostiglio_interno_ths Dew point', device_class: 'temperature', unit_of_measurement: '°C' } },
-    'sensor.ripostiglio_interno_ths_humidity':    { state: '54.8', attributes: { friendly_name: 'ripostiglio_interno_ths Umidità', device_class: 'humidity', unit_of_measurement: '%' } },
-    'sensor.ripostiglio_interno_ths_temperature': { state: '29.2', attributes: { friendly_name: 'ripostiglio_interno_ths Temperatura', device_class: 'temperature', unit_of_measurement: '°C' } },
-    'sensor.ripostiglio_interno_ths_vpd':         { state: '1.83', attributes: { friendly_name: 'ripostiglio_interno_ths Vpd' } },
-    'update.ripostiglio_interno_ths':             { state: 'off', attributes: { friendly_name: 'ripostiglio_interno_ths Firmware' } },
-    // esterno — real values from the same debug log
-    'camera.esterno_cb8c_bh2113803': {
-      state: 'recording',
-      attributes: { friendly_name: 'Esterno Cam', entity_picture: 'https://placehold.co/640x360/1c1c1e/9e9e9e?text=Camera+snapshot' },
-    },
-    'binary_sensor.esterno_cb8c_bh2113803_movimento_2':    { state: 'off', attributes: { friendly_name: 'Esterno Movimento', device_class: 'motion' } },
-    'binary_sensor.esterno_cb8c_bh2113803_crittografia_2': { state: 'on',  attributes: { friendly_name: 'Esterno Crittografia' } },
-    'binary_sensor.esterno_cb8c_bh2113803_pianificazioni_di_allarme_abilitate_2': { state: 'off', attributes: { friendly_name: 'Esterno Pianificazioni Di Allarme Abilitate' } },
-    'button.esterno_cb8c_bh2113803_ptz_su':       { state: 'unknown', attributes: { friendly_name: 'Esterno PTZ Su' } },
-    'button.esterno_cb8c_bh2113803_ptz_giu':      { state: 'unknown', attributes: { friendly_name: 'Esterno PTZ Giu' } },
-    'button.esterno_cb8c_bh2113803_ptz_sinistra': { state: 'unknown', attributes: { friendly_name: 'Esterno PTZ Sinistra' } },
-    'button.esterno_cb8c_bh2113803_ptz_destra':   { state: 'unknown', attributes: { friendly_name: 'Esterno PTZ Destra' } },
-    'image.esterno_cb8c_bh2113803_ultima_immagine_motion': { state: '2026-08-22T11:38:54', attributes: { friendly_name: 'Esterno Ultima Immagine Motion' } },
-    'number.esterno_cb8c_bh2113803_sensibilita_di_rilevamento': { state: '70', attributes: { friendly_name: 'Esterno Sensibilita Di Rilevamento' } },
-    'select.esterno_cb8c_bh2113803_suono_di_avviso':                          { state: 'silent',           attributes: { friendly_name: 'Esterno Suono Di Avviso' } },
-    'select.esterno_cb8c_bh2113803_modalita_di_funzionamento_della_batteria': { state: 'high_performance', attributes: { friendly_name: 'Esterno Modalita Di Funzionamento Della Batteria' } },
-    'siren.esterno_cb8c_bh2113803_sirena': { state: 'off', attributes: { friendly_name: 'Esterno Sirena' } },
-    'switch.esterno_cb8c_bh2113803_audio_2':                              { state: 'on',  attributes: { friendly_name: 'Esterno Audio' } },
-    'switch.esterno_cb8c_bh2113803_luce_di_stato_2':                      { state: 'on',  attributes: { friendly_name: 'Esterno Luce Di Stato' } },
-    'switch.esterno_cb8c_bh2113803_luce_infrarossa_2':                    { state: 'on',  attributes: { friendly_name: 'Esterno Luce Infrarossa' } },
-    'switch.esterno_cb8c_bh2113803_luce_a_intermittenza_sul_movimento_2': { state: 'off', attributes: { friendly_name: 'Esterno Luce A Intermittenza Sul Movimento' } },
-    'switch.esterno_cb8c_bh2113803_segui_il_movimento_2':                 { state: 'off', attributes: { friendly_name: 'Esterno Segui Il Movimento' } },
-    // read-only entities on the camera's own device — must stay chips, not Controls
-    'sensor.esterno_cb8c_bh2113803_batteria':    { state: '100', attributes: { friendly_name: 'Esterno Batteria', device_class: 'battery', unit_of_measurement: '%' } },
-    'sensor.esterno_cb8c_bh2113803_ip_locale_2': { state: '192.168.178.24', attributes: { friendly_name: 'Esterno Ip Locale' } },
-    'sensor.esterno_cb8c_bh2113803_stato_pir_2': { state: '0', attributes: { friendly_name: 'Esterno Stato Pir' } },
-    'update.esterno_cb8c_bh2113803_firmware':    { state: 'off', attributes: { friendly_name: 'Esterno Firmware' } },
-    // Bresser 7-in-1 weather station — real values from the same debug log
-    'sensor.bresser_7in1_65351_temperature':      { state: '30.5', attributes: { friendly_name: 'Bresser Temperature', device_class: 'temperature', unit_of_measurement: '°C' } },
-    'sensor.bresser_7in1_65351_humidity':         { state: '67.0', attributes: { friendly_name: 'Bresser Humidity', device_class: 'humidity', unit_of_measurement: '%' } },
-    'sensor.bresser_7in1_65351_battery':          { state: '100',  attributes: { friendly_name: 'Bresser Battery', device_class: 'battery', unit_of_measurement: '%' } },
-    'sensor.bresser_7in1_65351_wind_average':     { state: '3.96', attributes: { friendly_name: 'Bresser Wind Average', device_class: 'wind_speed', unit_of_measurement: 'km/h' } },
-    'sensor.bresser_7in1_65351_wind_max':         { state: '3.96', attributes: { friendly_name: 'Bresser Wind Max', device_class: 'wind_speed', unit_of_measurement: 'km/h' } },
-    'sensor.bresser_7in1_65351_wind_direction':   { state: '162',   attributes: { friendly_name: 'Bresser Wind Direction' } },
-    'sensor.bresser_7in1_65351_rain_total':       { state: '57.15',attributes: { friendly_name: 'Bresser Rain Total', device_class: 'precipitation', unit_of_measurement: 'mm' } },
-    'sensor.bresser_7in1_65351_outside_luminance':{ state: '15741',attributes: { friendly_name: 'Bresser Outside Luminance', device_class: 'illuminance', unit_of_measurement: 'lx' } },
-    'sensor.bresser_7in1_65351_noise':            { state: '-20.92', attributes: { friendly_name: 'Bresser Noise', device_class: 'sound_pressure', unit_of_measurement: 'dB' } },
-    'sensor.bresser_7in1_65351_uv_index':         { state: '1.3',  attributes: { friendly_name: 'Bresser Uv Index' } },
-    // casa — real values from a production debug log: FRITZ!Repeater 6000 +
-    // Ookla Speedtest + Zigbee2MQTT bridge, no room sensors at all. The
-    // repeater's CPU temp (76°C, entity_category: diagnostic — see entities
-    // registry above) must NOT surface as the area's ambient temperature.
-    'binary_sensor.zigbee2mqtt_bridge_connection_state_2': { state: 'on', attributes: { friendly_name: 'Zigbee2MQTT Bridge Connection state', icon: 'mdi:wifi' } },
-    'button.zigbee2mqtt_bridge_restart_2': { state: 'unknown', attributes: { friendly_name: 'Zigbee2MQTT Bridge Restart' } },
-    'select.zigbee2mqtt_bridge_log_level_2': { state: 'info', attributes: { friendly_name: 'Zigbee2MQTT Bridge Log level' } },
-    'sensor.zigbee2mqtt_bridge_version_2': { state: '2.13.0', attributes: { friendly_name: 'Zigbee2MQTT Bridge Version', icon: 'mdi:zigbee' } },
-    'switch.zigbee2mqtt_bridge_permit_join_2': { state: 'off', attributes: { friendly_name: 'Zigbee2MQTT Bridge Permit join', icon: 'mdi:human-greeting-proximity' } },
-    'button.fritz_repeater_6000_riavvia':    { state: 'unknown', attributes: { friendly_name: 'FRITZ!Repeater 6000 Riavvia' } },
-    'button.fritz_repeater_6000_riconnetti': { state: 'unknown', attributes: { friendly_name: 'FRITZ!Repeater 6000 Riconnetti' } },
-    'image.fritz_repeater_6000_trollnethome': { state: '2026-08-31T07:43:22.015022+00:00', attributes: { friendly_name: 'FRITZ!Repeater 6000 trollnethome' } },
-    'update.fritz_repeater_6000_fritz_os':   { state: 'off', attributes: { friendly_name: 'FRITZ!Repeater 6000 FRITZ!OS' } },
-    'sensor.fritz_repeater_6000_temperatura_cpu':   { state: '76', attributes: { friendly_name: 'FRITZ!Repeater 6000 Temperatura CPU', device_class: 'temperature', unit_of_measurement: '°C' } },
-    'sensor.fritz_repeater_6000_tempo_di_attivita': { state: '2026-08-08T13:38:30+00:00', attributes: { friendly_name: 'FRITZ!Repeater 6000 Tempo di attività', device_class: 'timestamp' } },
-    'sensor.ookla_speedtest_ping':              { state: '2.69',   attributes: { friendly_name: 'Ookla Speedtest Ping', unit_of_measurement: 'ms', icon: 'mdi:speedometer' } },
-    'sensor.ookla_speedtest_download':          { state: '939.26', attributes: { friendly_name: 'Ookla Speedtest Download', unit_of_measurement: 'Mbit/s', icon: 'mdi:download' } },
-    'sensor.ookla_speedtest_upload':            { state: '932.7',  attributes: { friendly_name: 'Ookla Speedtest Upload', unit_of_measurement: 'Mbit/s', icon: 'mdi:upload' } },
-    'sensor.ookla_speedtest_bufferbloat_grade': { state: 'A+',     attributes: { friendly_name: 'Ookla Speedtest Bufferbloat Grade', icon: 'mdi:check-network' } },
-    'sensor.ookla_speedtest_jitter':            { state: '0.09',   attributes: { friendly_name: 'Ookla Speedtest Jitter', unit_of_measurement: 'ms', icon: 'mdi:pulse' } },
-    'sensor.ookla_speedtest_server':            { state: 'Openfiber S.p.A. (Rome, Italy)', attributes: { friendly_name: 'Ookla Speedtest Server', icon: 'mdi:server' } },
-    'sensor.ookla_speedtest_isp':               { state: 'Open Fiber', attributes: { friendly_name: 'Ookla Speedtest ISP', icon: 'mdi:web' } },
-    'sensor.ookla_speedtest_result_url':        { state: 'https://www.speedtest.net/result/c/04a557ef-e200-464e-863f-d9187e968950', attributes: { friendly_name: 'Ookla Speedtest Result URL', icon: 'mdi:link' } },
-    'sensor.ookla_speedtest_last_test':         { state: '2026-09-01T07:45:38+00:00', attributes: { friendly_name: 'Ookla Speedtest Last Test', device_class: 'timestamp', icon: 'mdi:clock' } },
-    'weather.forecast_casa': { state: 'sunny', attributes: { friendly_name: 'Forecast Casa' } },
-  },
-
-  // stub methods the card might call
-  callService: (domain, service, data) => {
-    log(`callService: ${domain}.${service}`, data);
-  },
-  fireEvent: (el, type, detail) => {
-    el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
-  },
-  callWS(msg) {
-    if (msg.type === 'history/history_during_period') {
-      const id  = msg.entity_ids[0];
-      const now = Date.now() / 1000;
-      const pts = Array.from({ length: 48 }, (_, i) => ({
-        s:  String((21 + Math.sin(i / 5) * 2.5 + Math.cos(i / 9)).toFixed(2)),
-        lu: now - (48 - i) * 1800,
-      }));
-      log(`callWS history: ${id} → ${pts.length} points`);
-      return Promise.resolve({ [id]: pts });
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0,255,153,.18); border-radius: 4px;
+      border: 2px solid transparent; background-clip: padding-box;
     }
-    return Promise.resolve({});
-  },
-};
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,255,153,.35); background-clip: padding-box; }
 
+    #splitter { background: transparent; cursor: col-resize; position: relative; z-index: 5; }
+    #splitter::before {
+      content: ''; position: absolute; left: 2px; top: 0; bottom: 0; width: 2px;
+      background: var(--line); transition: background .12s, box-shadow .12s;
+    }
+    #splitter:hover::before,
+    body.dragging #splitter::before {
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(0,255,153,.6);
+    }
+    body.dragging { cursor: col-resize; user-select: none; }
+    body.dragging * { pointer-events: none; }
+    body.dragging #splitter { pointer-events: auto; }
 
-// ── Scenario toggles ───────────────────────────────────────────────────────
+    aside {
+      background:
+              linear-gradient(180deg, rgba(0,255,153,.03), transparent 30%),
+              var(--panel);
+      backdrop-filter: blur(14px) saturate(120%);
+      -webkit-backdrop-filter: blur(14px) saturate(120%);
+      border-right: 1px solid var(--line);
+      box-shadow: inset -1px 0 0 rgba(0,255,153,.05), 0 0 40px rgba(0,255,153,.04);
+      display: flex; flex-direction: column; overflow: hidden;
+      min-width: 0;
+      position: relative;
+    }
+    aside::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(
+              to bottom,
+              rgba(0,255,153,.035) 0px,
+              rgba(0,255,153,.035) 1px,
+              transparent 1px,
+              transparent 3px
+      );
+      mix-blend-mode: screen;
+      z-index: 2;
+    }
+    aside > * { position: relative; z-index: 3; }
 
-const SCENARIOS = {
-  normal: () => {
-    MOCK_HASS.states['binary_sensor.smoke_det'].state = 'off';
-    MOCK_HASS.states['binary_sensor.gas_det'].state = 'off';
-    MOCK_HASS.states['binary_sensor.motion'].state = 'on';
-    MOCK_HASS.states['sensor.bath_humidity'].state = '78';
-    MOCK_HASS.states['light.ceiling'].state = 'on';
-    MOCK_HASS.states['sensor.window_battery'].state = '78';
-    MOCK_HASS.states['sensor.remote_battery'].state = '42';
-    MOCK_HASS.states['binary_sensor.door_ground_floor_contact'].state = 'off';
-    MOCK_HASS.states['binary_sensor.door_ground_floor_tamper'].state = 'off';
-  },
-  alarm: () => {
-    MOCK_HASS.states['binary_sensor.smoke_det'].state = 'on';
-  },
-  door_open: () => {
-    MOCK_HASS.states['binary_sensor.door_ground_floor_contact'].state = 'on';
-  },
-  door_tamper: () => {
-    MOCK_HASS.states['binary_sensor.door_ground_floor_tamper'].state = 'on';
-  },
-  gas: () => {
-    MOCK_HASS.states['binary_sensor.gas_det'].state = 'on';
-  },
-  no_motion: () => {
-    MOCK_HASS.states['binary_sensor.motion'].state = 'off';
-  },
-  mold: () => {
-    MOCK_HASS.states['sensor.bath_humidity'].state = '85';
-  },
-  lights_off: () => {
-    MOCK_HASS.states['light.ceiling'].state = 'off';
-  },
-  light_offline: () => {
-    MOCK_HASS.states['light.ceiling'].state = 'unavailable';
-  },
-  battery_low: () => {
-    MOCK_HASS.states['sensor.remote_battery'].state = '4';
-  },
-};
+    aside header {
+      padding: 12px 16px; border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+      font-family: var(--mono); font-size: 11px;
+      color: var(--accent);
+      text-transform: uppercase; letter-spacing: .18em;
+      flex-shrink: 0;
+      text-shadow: var(--glow-soft);
+    }
+    aside header::before {
+      content: '▶'; color: var(--accent);
+      font-size: 9px; margin-right: 6px;
+      animation: blink 1.4s steps(2) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    aside header > span:first-child { margin-right: auto; }
+    aside header a {
+      color: var(--dim); text-decoration: none; letter-spacing: .1em;
+      transition: color .12s, text-shadow .12s;
+    }
+    aside header a:hover { color: var(--accent); text-shadow: var(--glow); }
 
-const SCENARIO_META = {
-  normal:        { color: '#03a9f4', label: 'normal',       pulse: false },
-  alarm:         { color: '#f44336', label: 'smoke alarm',  pulse: true  },
-  gas:           { color: '#ff9800', label: 'gas alarm',    pulse: true  },
-  no_motion:     { color: '#7b828f', label: 'no motion',    pulse: false },
-  mold:          { color: '#4caf50', label: 'mold risk',    pulse: false },
-  lights_off:    { color: '#7b828f', label: 'lights off',   pulse: false },
-  light_offline: { color: '#ff9800', label: 'light offline',pulse: false },
-  battery_low:   { color: '#f44336', label: 'battery low',  pulse: true  },
-  door_open:     { color: '#ff9800', label: 'door open',    pulse: false },
-  door_tamper:   { color: '#f44336', label: 'door tamper',  pulse: true  },
-};
+    #status-pill {
+      font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+      padding: 2px 8px; border-radius: 3px;
+      border: 1px solid var(--line);
+      color: var(--dim); min-width: 64px; text-align: center;
+      text-transform: uppercase;
+      transition: color .15s, border-color .15s, box-shadow .15s;
+    }
+    #status-pill.ok {
+      color: var(--accent);
+      border-color: var(--line-hi);
+      box-shadow: var(--glow-soft), inset 0 0 6px rgba(0,255,153,.15);
+    }
+    #status-pill.err {
+      color: var(--err);
+      border-color: rgba(255,59,107,.5);
+      box-shadow: 0 0 6px rgba(255,59,107,.4);
+    }
 
-function setStatusLed(name) {
-  const meta = SCENARIO_META[name] ?? SCENARIO_META.normal;
-  const led = document.getElementById('status-led');
-  const text = document.getElementById('status-text');
-  led.style.background = meta.color;
-  led.classList.toggle('pulse', meta.pulse);
-  text.textContent = meta.label;
-}
+    .row {
+      padding: 10px 16px; border-bottom: 1px solid var(--line);
+      display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+    }
+    .row label {
+      font-family: var(--mono); font-size: 10px; color: var(--dim);
+      text-transform: uppercase; letter-spacing: .18em; flex: 0 0 68px;
+    }
+    .row label::after { content: ':' ; color: var(--dim); }
 
-function applyScenario(name) {
-  SCENARIOS.normal();
-  if (name !== 'normal') SCENARIOS[name]?.();
-  refreshAll();
-  setStatusLed(name);
-  log(`scenario: ${name}`);
-}
+    select, input[type="text"] {
+      flex: 1; min-width: 0;
+      background: rgba(0, 20, 12, 0.7);
+      color: var(--text-hi);
+      border: 1px solid var(--line); border-radius: 3px;
+      padding: 5px 8px; font: inherit; font-family: var(--mono); font-size: 12px;
+      outline: none;
+      transition: border-color .12s, box-shadow .12s;
+      text-shadow: none;
+    }
+    select:focus, input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(0,255,153,.25), var(--glow-soft);
+    }
+    select option { background: #06100d; color: var(--text); }
 
-function refreshAll() {
-  // data-static cards have fixed state — skip them
-  document.querySelectorAll('hass-omnibus-card:not([data-static])').forEach(el => {
-    el.hass = { ...MOCK_HASS };
-  });
-}
+    button {
+      font: inherit; font-family: var(--mono); font-size: 11px;
+      padding: 5px 10px;
+      background: rgba(0, 255, 153, 0.04);
+      color: var(--accent);
+      border: 1px solid var(--line); border-radius: 3px;
+      cursor: pointer; flex-shrink: 0;
+      text-transform: uppercase; letter-spacing: .1em;
+      text-shadow: var(--glow-soft);
+      transition: background .12s, border-color .12s, box-shadow .12s, color .12s;
+    }
+    button:hover {
+      background: rgba(0, 255, 153, 0.10);
+      border-color: var(--line-hi);
+      box-shadow: var(--glow-soft), inset 0 0 8px rgba(0,255,153,.12);
+      color: var(--text-hi);
+    }
+    button:active { box-shadow: inset 0 0 12px rgba(0,255,153,.35); }
 
-function mountStatic(container, config, stateOverrides, callWSOverride) {
-  const hass = JSON.parse(JSON.stringify(MOCK_HASS));
-  hass.callService = MOCK_HASS.callService;
-  hass.callWS      = callWSOverride ?? MOCK_HASS.callWS;
-  hass.fireEvent   = MOCK_HASS.fireEvent;
-  for (const [id, patch] of Object.entries(stateOverrides ?? {})) {
-    hass.states[id] = { ...(hass.states[id] ?? {}), ...patch };
-  }
-  const el = document.createElement('hass-omnibus-card');
-  el.setAttribute('data-static', '');
-  el.setConfig(config);
-  el.hass = hass;
-  container.appendChild(el);
-}
-</script>
+    .stack { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+    .pane { display: flex; flex-direction: column; min-height: 60px; overflow: hidden; }
+    .pane.editor-pane { flex: 0 0 var(--yaml-h, 220px); }
+    .pane.state-pane  { flex: 1 1 auto; }
+    .pane > textarea {
+      flex: 1; width: 100%; min-height: 0;
+      resize: none; border: none; outline: none;
+      background: transparent;
+      color: var(--text-hi); padding: 12px 16px;
+      font-family: var(--mono); font-size: 12px; line-height: 1.65; tab-size: 2;
+      caret-color: var(--accent);
+      text-shadow: 0 0 3px rgba(0,255,153,.18);
+    }
+    .pane > textarea::placeholder { color: var(--dim); }
+    .pane.state-pane > textarea {
+      background:
+              linear-gradient(180deg, rgba(0,255,153,.02), transparent 40%),
+              rgba(0, 12, 8, 0.55);
+    }
 
-<!-- ── Card script ───────────────────────────────────────────────────────── -->
-<script type="module" src="./src/index.js"></script>
+    .hsplitter { height: 5px; flex-shrink: 0; cursor: row-resize; position: relative; }
+    .hsplitter::before {
+      content: ''; position: absolute; left: 0; right: 0; top: 2px; height: 1px;
+      background: var(--line); transition: background .12s, box-shadow .12s;
+    }
+    .hsplitter:hover::before,
+    body.dragging-h .hsplitter::before {
+      background: var(--accent);
+      box-shadow: 0 0 6px rgba(0,255,153,.5);
+    }
+    body.dragging-h { cursor: row-resize; user-select: none; }
+    body.dragging-h * { pointer-events: none; }
+    body.dragging-h .hsplitter { pointer-events: auto; }
 
+    #error {
+      padding: 8px 16px;
+      font-family: var(--mono); font-size: 11px;
+      color: var(--err);
+      border-top: 1px solid rgba(255,59,107,.25);
+      background: rgba(255,59,107,.06);
+      white-space: pre-wrap; display: none; flex-shrink: 0;
+      text-shadow: 0 0 4px rgba(255,59,107,.4);
+    }
+    #error:not(:empty) { display: block; }
+    #error:not(:empty)::before { content: '! '; color: var(--err); }
+
+    /* ══════════════════════════════════════════════════════════════════
+       STAGE — Home Assistant theme context
+       Provides the exact CSS custom properties the card reads from its
+       host, plus the official HA font stack and background colors.
+       The card's own shadow-root CSS (ha-card, .chip, .badge, …) is
+       untouched — everything below is host-side only.
+       ══════════════════════════════════════════════════════════════════ */
+
+    /* ── HA Light Theme (default) ─────────────────────────────────── */
+    :root {
+      /* Typography — official HA tokens */
+      --ha-font-family-body: Roboto, Noto, sans-serif;
+      --ha-font-size-scale: 1;
+      --ha-font-size-xs: calc(10px * var(--ha-font-size-scale));
+      --ha-font-size-s:  calc(12px * var(--ha-font-size-scale));
+      --ha-font-size-m:  calc(14px * var(--ha-font-size-scale));
+      --ha-font-size-l:  calc(16px * var(--ha-font-size-scale));
+      --ha-font-size-xl: calc(20px * var(--ha-font-size-scale));
+      --ha-font-weight-normal: 400;
+      --ha-font-weight-medium: 500;
+      --ha-font-weight-bold:   700;
+      --ha-line-height-normal: 1.6;
+      --ha-font-smoothing: antialiased;
+
+      /* Core semantic colors */
+      --primary-color: #03a9f4;
+      --accent-color: #ff9800;
+      --primary-text-color: #212121;
+      --secondary-text-color: #727272;
+      --disabled-text-color: #bdbdbd;
+      --divider-color: rgba(0, 0, 0, 0.12);
+      --error-color: #db4437;
+      --warning-color: #ffa600;
+      --success-color: #43a047;
+      --info-color: #039be5;
+
+      /* Surfaces */
+      --card-background-color: #ffffff;
+      --ha-card-background: #ffffff;
+      --primary-background-color: #fafafa;
+      --secondary-background-color: #e5e5e5;
+
+      /* ha-card appearance — the card's internal CSS relies on these */
+      --ha-card-border-radius: 12px;
+      --ha-card-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+      --ha-card-border-width: 0px;
+      --ha-card-border-color: transparent;
+
+      /* State / icon colors */
+      --state-icon-color: #44739e;
+      --state-icon-active-color: #fdd835;
+      --state-icon-unavailable-color: #bdbdbd;
+
+      --mdc-icon-size: 24px;
+
+      color-scheme: light;
+    }
+
+    /* ── HA Dark Theme (follows browser preference) ───────────────── */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --primary-color: #03a9f4;
+        --accent-color: #ff9800;
+        --primary-text-color: #e1e1e1;
+        --secondary-text-color: #9b9b9b;
+        --disabled-text-color: #6f6f6f;
+        --divider-color: rgba(225, 225, 225, 0.12);
+        --error-color: #ef5350;
+        --warning-color: #ffa726;
+        --success-color: #66bb6a;
+        --info-color: #42a5f5;
+
+        --card-background-color: #1c1c1e;
+        --ha-card-background: #1c1c1e;
+        --primary-background-color: #111111;
+        --secondary-background-color: #2c2c2e;
+
+        --ha-card-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.5);
+
+        --state-icon-color: #6c8ba0;
+        --state-icon-unavailable-color: #6f6f6f;
+
+        color-scheme: dark;
+      }
+    }
+
+    /* Stage background: HA primary background */
+    main {
+      overflow: auto; padding: 40px 32px;
+      display: flex; flex-direction: column; align-items: center; gap: 32px;
+      min-width: 0;
+      position: relative;
+      background: var(--primary-background-color);
+      font-family: var(--ha-font-family-body);
+      color: var(--primary-text-color);
+    }
+    main::before { display: none; }
+    main > * { position: relative; z-index: 1; }
+
+    #cards {
+      width: 100%; max-width: 560px;
+      display: flex; flex-direction: column; gap: 28px;
+    }
+
+    .slot { display: flex; flex-direction: column; gap: 8px; }
+    .slot .slot-label {
+      font-family: var(--mono); font-size: 10px;
+      color: var(--secondary-text-color);
+      text-transform: uppercase; letter-spacing: .18em;
+    }
+    .slot .slot-label::before { content: '// '; opacity: .5; }
+
+    /* The card's internal CSS owns ha-card entirely (position, overflow,
+       transitions, hover/active transforms). We only supply the CSS
+       custom properties above; nothing here overrides the card's shadow
+       styles. */
+  </style>
+
+  <script>
+    customElements.define('ha-icon', class extends HTMLElement {
+      static get observedAttributes() { return ['icon']; }
+      connectedCallback() { this._sync(); }
+      attributeChangedCallback() { this._sync(); }
+      _sync() {
+        const raw = this.getAttribute('icon') || '';
+        this.innerHTML = `<iconify-icon icon="${raw}" style="font-size:inherit"></iconify-icon>`;
+      }
+    });
+  </script>
 </head>
 <body>
 
-<header id="page-header">
-  <div>
-    <h1><span class="led" id="status-led" aria-hidden="true"></span>hass-omnibus-card <span class="badge">v1.21.0 · dev</span></h1>
-    <p>Home Assistant area card — occupancy, climate, alarms, battery, camera controls, history sparklines.</p>
-    <p class="status-line">scenario: <span id="status-text">normal</span></p>
+<aside>
+  <header>
+    <span>omnibus.playground</span>
+    <span id="status-pill">idle</span>
+    <a href="#" onclick="copyLink();return false" title="Copy shareable URL">share↗</a>
+  </header>
+
+  <div class="row">
+    <label>fixture</label>
+    <select id="fixture-select" onchange="loadFixture(this.value)"></select>
   </div>
-  <button onclick="toggleTheme()" id="theme-toggle">Toggle theme</button>
-</header>
 
-<div id="controls">
-  <span class="eyebrow">Scenario</span>
-  <button class="scenario-btn" style="--dot-color:#03a9f4" onclick="applyScenario('normal')">Normal</button>
-  <button class="scenario-btn" style="--dot-color:#f44336" onclick="applyScenario('alarm')">Smoke alarm</button>
-  <button class="scenario-btn" style="--dot-color:#ff9800" onclick="applyScenario('gas')">Gas alarm</button>
-  <button class="scenario-btn" style="--dot-color:#7b828f" onclick="applyScenario('no_motion')">No motion</button>
-  <button class="scenario-btn" style="--dot-color:#4caf50" onclick="applyScenario('mold')">Mold risk (bath)</button>
-  <button class="scenario-btn" style="--dot-color:#7b828f" onclick="applyScenario('lights_off')">Lights off</button>
-  <button class="scenario-btn" style="--dot-color:#ff9800" onclick="applyScenario('light_offline')">Light offline</button>
-  <button class="scenario-btn" style="--dot-color:#f44336" onclick="applyScenario('battery_low')">Battery low</button>
-  <button class="scenario-btn" style="--dot-color:#ff9800" onclick="applyScenario('door_open')">Door open</button>
-  <button class="scenario-btn" style="--dot-color:#f44336" onclick="applyScenario('door_tamper')">Door tamper</button>
-</div>
-
-<div class="section">
-  <h2>Rooms</h2>
-  <div class="grid" id="cards"></div>
-</div>
-
-<div class="section">
-  <h2>Real Data Demo</h2>
-  <div id="real-demo-controls">
-    <span>Dataset:</span>
-    <label><input type="radio" name="real-demo-dataset" id="real-demo-esterno" value="esterno"> Esterno (real, 244pt history)</label>
-    <label><input type="radio" name="real-demo-dataset" id="real-demo-cucina" value="cucina"> Cucina (real, flat history)</label>
+  <div class="row">
+    <label>actions</label>
+    <button onclick="resetStateEditor()">reset state</button>
+    <button onclick="addCompare()">compare A/B</button>
   </div>
-  <div class="grid" id="real-demo-cards"></div>
-</div>
 
-<details id="dev-tools">
-  <summary>Complete feature card set: Developer Tools</summary>
+  <div class="stack">
+    <div class="pane editor-pane">
+      <textarea id="yaml" spellcheck="false"></textarea>
+    </div>
 
-  <div class="section">
-    <h2>Room card config (persisted)</h2>
-    <div id="config-controls">
-      <label><input type="checkbox" id="cfg-debug"> debug</label>
-      <label><input type="checkbox" id="cfg-show_camera"> show_camera</label>
-      <label><input type="checkbox" id="cfg-controls_collapsed"> controls_collapsed</label>
-      <label><input type="checkbox" id="cfg-collapsible_controls"> collapsible_controls</label>
+    <div class="hsplitter" data-split="yaml-state"></div>
+
+    <div class="pane state-pane">
+      <textarea id="state-editor" spellcheck="false" placeholder="// state overrides — JSON keyed by entity_id"></textarea>
     </div>
   </div>
 
-  <div class="section">
-    <h2>Real Data Demo — display options (persisted)</h2>
-    <div id="real-demo-options">
-      <label><input type="checkbox" id="real-demo-debug"> debug</label>
-      <label><input type="checkbox" id="real-demo-show_camera"> show_camera</label>
-      <label><input type="checkbox" id="real-demo-controls_collapsed"> controls_collapsed</label>
-      <label><input type="checkbox" id="real-demo-collapsible_controls"> collapsible_controls</label>
-    </div>
-  </div>
+  <div id="error"></div>
+</aside>
 
-  <div class="section">
-    <h2>Feature Gallery (static — not affected by scenario buttons)</h2>
-    <div class="grid" id="gallery-cards"></div>
-  </div>
+<div id="splitter" role="separator" aria-orientation="vertical"></div>
 
-  <div class="section">
-    <h2>History Chart</h2>
-    <div class="grid" id="history-cards"></div>
-  </div>
-
-  <div class="section">
-    <h2>History Chart — Flat Line (new sensor, 2 identical points)</h2>
-    <div class="grid" id="flat-history-cards"></div>
-  </div>
-
-  <div class="section">
-    <h2>History Chart — Real Dataset (Esterno, 244 pts, 18h)</h2>
-    <div class="grid" id="esterno-history-cards"></div>
-  </div>
-
-  <div class="section">
-    <h2>History Chart — Trend badge (rising / falling / flat)</h2>
-    <div class="grid" id="trend-history-cards"></div>
-  </div>
-
-  <div class="section">
-    <h2>Entity Filtering</h2>
-    <div class="grid" id="filter-cards"></div>
-  </div>
-
-  <div id="log"></div>
-</details>
+<main>
+  <div id="cards"></div>
+</main>
 
 <script>
-function log(...args) {
-  const el = document.getElementById('log');
-  el.textContent = `[${new Date().toLocaleTimeString()}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}\n` + el.textContent;
-}
-
-// Intercept more-info events
-window.addEventListener('hass-more-info', e => log('more-info:', e.detail?.entityId));
-window.addEventListener('location-changed', e => log('navigate:', e.detail?.replace));
-
-// ── Theme + dev-tools open state, persisted in localStorage ─────────────
-const THEME_STORAGE_KEY = 'omnibus-dev-theme';
-const DEV_TOOLS_STORAGE_KEY = 'omnibus-dev-tools-open';
-
-function toggleTheme() {
-  const isLight = document.body.classList.toggle('light-theme');
-  localStorage.setItem(THEME_STORAGE_KEY, isLight ? 'light' : 'dark');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  if (localStorage.getItem(THEME_STORAGE_KEY) === 'light') {
-    document.body.classList.add('light-theme');
-  }
-  const devTools = document.getElementById('dev-tools');
-  devTools.open = localStorage.getItem(DEV_TOOLS_STORAGE_KEY) === 'true';
-  devTools.addEventListener('toggle', () => {
-    localStorage.setItem(DEV_TOOLS_STORAGE_KEY, devTools.open);
-  });
-});
-
-// ── Room card config, persisted in localStorage ─────────────────────────
-const CONFIG_STORAGE_KEY = 'omnibus-dev-room-config';
-const CONFIG_DEFAULTS = {
-  debug: false,
-  show_camera: true,
-  controls_collapsed: true,
-  collapsible_controls: true,
-};
-
-function loadRoomConfigOverrides() {
-  try {
-    return { ...CONFIG_DEFAULTS, ...JSON.parse(localStorage.getItem(CONFIG_STORAGE_KEY)) };
-  } catch {
-    return { ...CONFIG_DEFAULTS };
-  }
-}
-
-function saveRoomConfigOverrides(overrides) {
-  localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(overrides));
-}
-
-const ROOM_CARDS = [
-  // history_chart, with gradient thresholds — shows the threshold-tint feature
-  { area: 'living_room', history_chart: { entity_id: 'sensor.temperature', threshold_high: 22, threshold_low: 19 } },
-  // history_chart, plain — shows the default sparkline with no thresholds
-  { area: 'bedroom', mold_threshold: 60, history_chart: { entity_id: 'sensor.bed_temperature' } },
-  { area: 'kitchen' },
-  { area: 'bathroom', mold_threshold: 65 },
-  // real production config, verbatim from a user-submitted debug log: EZVIZ
-  // camera device + a *separate* IR blaster device with no camera at all
-  // (6 switches + 12 selects + 2 numbers + a battery/learned-code sensor) —
-  // the case the Settings/Diagnostics device-link sweep needed to generalize
-  // beyond "shares a device with the area's camera" to actually catch.
-  {
-    area: 'cucina',
-    icon: 'mdi:silverware-fork-knife',
-    mold_threshold: 65,
-    history_chart: {
-      entity_id: 'sensor.ir_clima_cucina_temperature', hours: 24,
-      color: 'rgba(255,200,100,0.15)',
-      threshold_high: 27, color_high: 'rgba(244,67,54,0.18)',
-      threshold_low: 19, color_low: 'rgba(33,150,243,0.18)',
-      y_min: 10, y_max: 40,
+  /* ────────────────────────────────────────────────────────────────────────
+     Mock HA
+     ──────────────────────────────────────────────────────────────────── */
+  const BASE_HASS = {
+    areas: {
+      soggiorno: { area_id: 'soggiorno', name: 'Soggiorno', icon: 'mdi:sofa' },
+      cucina:    { area_id: 'cucina',    name: 'Cucina',    icon: 'mdi:stove' },
+      esterno:   { area_id: 'esterno',   name: 'Esterno',   icon: 'mdi:balcony' },
+      cameretta: { area_id: 'cameretta', name: 'Cameretta', icon: 'mdi:teddy-bear' },
     },
-    show_entities: true,
-    debug: true,
-    max_entities: 20,
-  },
-  // real production config: camera hidden (show_camera: false) — the controls
-  // pill + diagnostic chips + weather chip alone are already dense enough
-  {
-    area: 'esterno', max_entities: 20, show_camera: false,
-    history_chart: {
-      entity_id: 'sensor.bresser_7in1_65351_temperature', hours: 24,
-      color: 'rgba(255,200,100,0.15)',
-      threshold_high: 30, color_high: 'rgba(244,67,54,0.18)',
-      threshold_low: 26, color_low: 'rgba(33,150,243,0.18)',
-      y_min: 24,
+    devices: {
+      dev_cam:    { area_id: 'cucina',    name: 'cam_cucina' },
+      dev_light:  { area_id: 'cucina',    name: 'luci_cucina' },
+      dev_clima:  { area_id: 'cucina',    name: 'ir_clima_cucina' },
+      dev_door:   { area_id: 'cucina',    name: 'door_ground_floor' },
+      dev_temp:   { area_id: 'soggiorno', name: 'soggiorno_ths' },
+      dev_ext:    { area_id: 'esterno',   name: 'bresser_7in1' },
+      dev_bed:    { area_id: 'cameretta', name: 'cameretta_ths' },
     },
-  },
-  // real production config, verbatim from a user-submitted debug log: a D017
-  // dehumidifier device + a *separate* ripostiglio_interno_ths climate sensor
-  // device, no camera at all — threshold_low is entity-backed (resolves to the
-  // dehumidifier's own humidity target, 55). x_max isn't a recognized
-  // history_chart key (rides along unused, same as any unknown config key).
-  {
-    area: 'ripostiglio_interno',
-    icon: 'mdi:archive',
-    mold_threshold: 60,
-    history_chart: {
-      entity_id: 'sensor.ripostiglio_interno_ths_humidity', hours: 24,
-      color: 'rgba(255,200,100,0.15)',
-      threshold_high: 65, color_high: 'rgba(244,67,54,0.18)',
-      threshold_low: 'number.d017_dehumidifier_5v_humidity_tartget',
-      x_max: 75, y_min: 45,
+    entities: {
+      'camera.cam_cucina':                       { area_id: null, device_id: 'dev_cam' },
+      'binary_sensor.cam_cucina_movimento':      { area_id: null, device_id: 'dev_cam' },
+      'switch.cam_cucina_luce_infrarossa':       { area_id: null, device_id: 'dev_cam' },
+      'switch.cam_cucina_audio':                 { area_id: null, device_id: 'dev_cam' },
+      'button.cam_cucina_ptz_su':                { area_id: null, device_id: 'dev_cam' },
+      'button.cam_cucina_ptz_giu':               { area_id: null, device_id: 'dev_cam' },
+      'button.cam_cucina_ptz_sinistra':          { area_id: null, device_id: 'dev_cam' },
+      'button.cam_cucina_ptz_destra':            { area_id: null, device_id: 'dev_cam' },
+      'light.luci_cucina':                       { area_id: null, device_id: 'dev_light' },
+      'sensor.ir_clima_cucina_temperature':      { area_id: null, device_id: 'dev_clima' },
+      'sensor.ir_clima_cucina_humidity':         { area_id: null, device_id: 'dev_clima' },
+      'climate.mitsubishi_electric_msz_hr35vf':  { area_id: null, device_id: 'dev_clima' },
+      'binary_sensor.door_ground_floor_contact': { area_id: null, device_id: 'dev_door' },
+      'sensor.door_ground_floor_battery':        { area_id: null, device_id: 'dev_door' },
+      'sensor.soggiorno_ths_temperature':        { area_id: null, device_id: 'dev_temp' },
+      'sensor.soggiorno_ths_humidity':           { area_id: null, device_id: 'dev_temp' },
+      'sensor.bresser_7in1_temperature':         { area_id: 'esterno', device_id: null },
+      'sensor.bresser_7in1_humidity':            { area_id: 'esterno', device_id: null },
+      'sensor.bresser_7in1_wind_average':        { area_id: 'esterno', device_id: null },
+      'sensor.bresser_7in1_rain_total':          { area_id: 'esterno', device_id: null },
+      'sensor.cameretta_ths_temperature':        { area_id: null, device_id: 'dev_bed' },
+      'sensor.cameretta_ths_humidity':           { area_id: null, device_id: 'dev_bed' },
     },
-    show_entities: true,
-    debug: true,
-    max_entities: 20,
-  },
-  // casa — network/infra devices, no room sensors at all: demonstrates the
-  // entity_category fix (isAmbient in discovery.js classify()). The FRITZ!
-  // Repeater's CPU temp is entity_category: diagnostic, so the env-row must
-  // show no temperature at all here rather than the router's 76°C.
-  { area: 'casa' },
-  { area: 'nonexistent_area' },  // error state
-];
+    states: {
+      'camera.cam_cucina': {
+        state: 'recording',
+        attributes: { friendly_name: 'cam_cucina', entity_picture: 'https://placehold.co/640x360/06100d/00ff99?text=Camera+feed' },
+      },
+      'binary_sensor.cam_cucina_movimento': { state: 'off', attributes: { friendly_name: 'Movimento', device_class: 'motion' } },
+      'switch.cam_cucina_luce_infrarossa':  { state: 'on',  attributes: { friendly_name: 'Luce IR' } },
+      'switch.cam_cucina_audio':            { state: 'on',  attributes: { friendly_name: 'Audio' } },
+      'button.cam_cucina_ptz_su':           { state: 'unknown', attributes: { friendly_name: 'PTZ su' } },
+      'button.cam_cucina_ptz_giu':          { state: 'unknown', attributes: { friendly_name: 'PTZ giù' } },
+      'button.cam_cucina_ptz_sinistra':     { state: 'unknown', attributes: { friendly_name: 'PTZ sinistra' } },
+      'button.cam_cucina_ptz_destra':       { state: 'unknown', attributes: { friendly_name: 'PTZ destra' } },
+      'light.luci_cucina':                  { state: 'on', attributes: { friendly_name: 'luci_cucina', brightness: 255, color_temp_kelvin: 4000, rgb_color: [255,206,166] } },
+      'sensor.ir_clima_cucina_temperature': { state: '26.8', attributes: { friendly_name: 'Temperatura', device_class: 'temperature', unit_of_measurement: '°C' } },
+      'sensor.ir_clima_cucina_humidity':    { state: '54',   attributes: { friendly_name: 'Umidità', device_class: 'humidity', unit_of_measurement: '%' } },
+      'climate.mitsubishi_electric_msz_hr35vf': {
+        state: 'heat',
+        attributes: { friendly_name: 'Mitsubishi', hvac_modes: ['off','cool','heat','dry','fan_only'], current_temperature: 24, temperature: 22, min_temp: 16, max_temp: 31 },
+      },
+      'binary_sensor.door_ground_floor_contact': { state: 'off', attributes: { friendly_name: 'Porta', device_class: 'opening' } },
+      'sensor.door_ground_floor_battery':        { state: '100', attributes: { friendly_name: 'Batteria', device_class: 'battery', unit_of_measurement: '%' } },
+      'sensor.soggiorno_ths_temperature':        { state: '26.8', attributes: { friendly_name: 'Temperatura', device_class: 'temperature', unit_of_measurement: '°C' } },
+      'sensor.soggiorno_ths_humidity':           { state: '49.7', attributes: { friendly_name: 'Umidità', device_class: 'humidity', unit_of_measurement: '%' } },
+      'sensor.bresser_7in1_temperature':         { state: '28.9', attributes: { friendly_name: 'Temperatura', device_class: 'temperature', unit_of_measurement: '°C' } },
+      'sensor.bresser_7in1_humidity':            { state: '49.0', attributes: { friendly_name: 'Umidità', device_class: 'humidity', unit_of_measurement: '%' } },
+      'sensor.bresser_7in1_wind_average':        { state: '3.6',  attributes: { friendly_name: 'Vento', device_class: 'wind_speed', unit_of_measurement: 'km/h' } },
+      'sensor.bresser_7in1_rain_total':          { state: '87.1', attributes: { friendly_name: 'Pioggia', device_class: 'precipitation', unit_of_measurement: 'mm' } },
+      'sensor.cameretta_ths_temperature':        { state: '28.4', attributes: { friendly_name: 'Temperatura', device_class: 'temperature', unit_of_measurement: '°C' } },
+      'sensor.cameretta_ths_humidity':           { state: '41.6', attributes: { friendly_name: 'Umidità', device_class: 'humidity', unit_of_measurement: '%' } },
+    },
+  };
 
-function buildRoomCards() {
-  const overrides = loadRoomConfigOverrides();
-  const container = document.getElementById('cards');
-  container.innerHTML = '';
-  ROOM_CARDS.forEach(config => {
-    const el = document.createElement('hass-omnibus-card');
-    el.setConfig({ ...config, ...overrides });
-    el.hass = { ...MOCK_HASS };
-    container.appendChild(el);
-  });
-  log('room cards rebuilt', overrides);
-}
+  /* ────────────────────────────────────────────────────────────────────────
+     Fixtures
+     ──────────────────────────────────────────────────────────────────── */
+  const FIXTURES = {
+    'cucina-baseline': { yaml: `area: cucina` },
 
-document.addEventListener('DOMContentLoaded', () => {
-  const overrides = loadRoomConfigOverrides();
-  for (const key of Object.keys(CONFIG_DEFAULTS)) {
-    const checkbox = document.getElementById(`cfg-${key}`);
-    checkbox.checked = overrides[key];
-    checkbox.addEventListener('change', () => {
-      const next = { ...loadRoomConfigOverrides(), [key]: checkbox.checked };
-      saveRoomConfigOverrides(next);
-      buildRoomCards();
-    });
-  }
-});
+    'cucina-with-history': {
+      yaml: `area: cucina
+history_chart:
+  entity_id: sensor.ir_clima_cucina_temperature
+  hours: 24
+  threshold_high: 27
+  threshold_low: 19
+  y_min: 10
+  y_max: 40`,
+    },
 
-// ── Real Data Demo: real HA snapshots (cucina/esterno, from debug log), ──
-// ── dataset + display options configurable, persisted in localStorage ───
-const REAL_DEMO_STORAGE_KEY = 'omnibus-dev-real-demo-config';
-const REAL_DEMO_DEFAULTS = {
-  dataset: 'esterno',
-  debug: false,
-  show_camera: true,
-  controls_collapsed: true,
-  collapsible_controls: true,
-};
+    'cucina-battery-low': {
+      yaml: `area: cucina`,
+      state: { 'sensor.door_ground_floor_battery': { state: '3' } },
+    },
 
-function loadRealDemoConfig() {
-  try {
-    return { ...REAL_DEMO_DEFAULTS, ...JSON.parse(localStorage.getItem(REAL_DEMO_STORAGE_KEY)) };
-  } catch {
-    return { ...REAL_DEMO_DEFAULTS };
-  }
-}
+    'cucina-door-open': {
+      yaml: `area: cucina`,
+      state: { 'binary_sensor.door_ground_floor_contact': { state: 'on' } },
+    },
 
-function saveRealDemoConfig(cfg) {
-  localStorage.setItem(REAL_DEMO_STORAGE_KEY, JSON.stringify(cfg));
-}
+    'cucina-light-offline': {
+      yaml: `area: cucina`,
+      state: { 'light.luci_cucina': { state: 'unavailable' } },
+    },
 
-// real dataset: 244-point temperature history from an actual Bresser 7-in-1
-// outdoor sensor (see debug log referenced throughout this file)
-const ESTERNO_HISTORY_POINTS = [
-  30.6111111111111, 30.7777777777778, 30.8888888888889, 31, 31.2222222222222, 31.2777777777778, 31.3888888888889, 31.5, 31.6111111111111, 31.8888888888889,
-  31.7777777777778, 31.7222222222222, 31.6111111111111, 31.2222222222222, 31.1111111111111, 30.8888888888889, 31, 31.1111111111111, 31.2222222222222, 31.2777777777778,
-  32, 32.1111111111111, 32.2222222222222, 32.2777777777778, 32.3888888888889, 32.5, 32.6111111111111, 32.7222222222222, 32.2777777777778, 32.2222222222222,
-  32.1111111111111, 32, 31.8888888888889, 31.7777777777778, 31.7222222222222, 31.2777777777778, 31.2222222222222, 31.1111111111111, 31, 30.8888888888889,
-  30.7222222222222, 30.6111111111111, 30.5, 30.3888888888889, 30.2777777777778, 30.2222222222222, 29.8888888888889, 29.7777777777778, 29.7222222222222, 29.6111111111111,
-  29.5, 29.3888888888889, 29.2777777777778, 29.2222222222222, 29.1111111111111, 29, 28.8888888888889, 28.7777777777778, 28.7222222222222, 28.6111111111111,
-  28.5, 28.3888888888889, 28.2777777777778, 28.2222222222222, 28, 27.7222222222222, 27.6111111111111, 27.5, 27.3888888888889, 27.2777777777778,
-  27.2222222222222, 27.1111111111111, 27, 26.7777777777778, 26.7222222222222, 26.6111111111111, 26.5, 26.3888888888889, 26.2777777777778, 26.2222222222222,
-  26.1111111111111, 26, 25.8888888888889, 25.7777777777778, 25.7222222222222, 25.6111111111111, 25.5, 25.3888888888889, 25.2777777777778, 25.3888888888889,
-  25.5, 25.3888888888889, 25.2777777777778, 25.2222222222222, 25.1111111111111, 25, 24.8888888888889, 24.7777777777778, 24.7222222222222, 24.6111111111111,
-  24.5, 24.3888888888889, 24.2777777777778, 24.2222222222222, 24.2777777777778, 24.2222222222222, 24.1111111111111, 24, 24.1111111111111, 24.2222222222222,
-  24.1111111111111, 24, 23.8888888888889, 24, 23.8888888888889, 23.7777777777778, 23.7222222222222, 23.6111111111111, 23.5, 23.3888888888889,
-  23.2777777777778, 23.2222222222222, 23.2777777777778, 23.3888888888889, 23.2777777777778, 23.2222222222222, 23.1111111111111, 23.2222222222222, 23.2777777777778, 23.2222222222222,
-  23.1111111111111, 23, 22.8888888888889, 23, 22.8888888888889, 22.7777777777778, 22.7222222222222, 22.7777777777778, 22.8888888888889, 23,
-  23.1111111111111, 23.2222222222222, 23.2777777777778, 23.3888888888889, 23.5, 23.6111111111111, 23.7222222222222, 23.7777777777778, 23.8888888888889, 24,
-  24.1111111111111, 24.2222222222222, 24.2777777777778, 24.3888888888889, 24.5, 24.6111111111111, 24.7222222222222, 24.7777777777778, 24.8888888888889, 25,
-  25.1111111111111, 25.2222222222222, 25.2777777777778, 25.3888888888889, 25.5, 25.6111111111111, 25.7222222222222, 25.7777777777778, 25.8888888888889, 26,
-  26.1111111111111, 26.2222222222222, 26.2777777777778, 26.3888888888889, 26.5, 26.6111111111111, 26.7222222222222, 26.7777777777778, 26.8888888888889, 27,
-  27.1111111111111, 27.2222222222222, 27.2777777777778, 27.5, 27.7222222222222, 27.8888888888889, 28, 28.1111111111111, 28.2222222222222, 28.2777777777778,
-  28.3888888888889, 28.5, 28.7222222222222, 28.7777777777778, 29, 29.1111111111111, 29.2222222222222, 29.2777777777778, 29.3888888888889, 29.5,
-  29.6111111111111, 29.7222222222222, 29.7777777777778, 29.8888888888889, 30, 30.1111111111111, 30.2222222222222, 30.2777777777778, 30.5, 30.6111111111111,
-  30.7222222222222, 30.7777777777778, 30.8888888888889, 31, 31.1111111111111, 31.2777777777778, 31.3888888888889, 31.2777777777778, 31.3888888888889, 31.5,
-  31.7222222222222, 31.7777777777778, 31.8888888888889, 32, 32.1111111111111, 32.2222222222222, 32.2777777777778, 32.5, 32.6111111111111, 32.2777777777778,
-  32.5, 32.6111111111111, 32.7777777777778, 32.8888888888889, 33, 33.2222222222222, 33.2777777777778, 33.3888888888889, 33.6111111111111, 32,
-  31.8888888888889, 31.7777777777778, 31.8888888888889, 32,
-];
-const ESTERNO_HISTORY_CHART = {
-  entity_id: 'sensor.bresser_7in1_65351_temperature',
-  hours: 18,
-  color: 'rgba(255,200,100,0.15)',
-  threshold_high: 34,
-  color_high: 'rgba(244,67,54,0.18)',
-  threshold_low: 27.6,
-  color_low: 'rgba(33,150,243,0.18)',
-  y_min: 5,
-};
-const esternoCallWS = msg => {
-  if (msg.type === 'history/history_during_period') {
-    const id = msg.entity_ids[0];
-    const now = Date.now() / 1000;
-    const n = ESTERNO_HISTORY_POINTS.length;
-    const step = (ESTERNO_HISTORY_CHART.hours * 3600) / (n - 1);
-    const pts = ESTERNO_HISTORY_POINTS.map((v, i) => ({ s: String(v), lu: now - (n - 1 - i) * step }));
-    log(`callWS esterno history: ${id} → ${pts.length} points`);
-    return Promise.resolve({ [id]: pts });
-  }
-  return Promise.resolve({});
-};
+    'cucina-light-off': {
+      yaml: `area: cucina`,
+      state: { 'light.luci_cucina': { state: 'off', attributes: { friendly_name: 'luci_cucina' } } },
+    },
 
-// real dataset: cucina/sensor.soggiornino_ths_temperature, brand-new sensor —
-// HA reports only 2 identical readings until enough history accumulates
-const flatCallWS = msg => {
-  if (msg.type === 'history/history_during_period') {
-    const id = msg.entity_ids[0];
-    const pts = [{ s: '29.4', lu: Date.now() / 1000 - 3600 }, { s: '29.4', lu: Date.now() / 1000 }];
-    log(`callWS flat history: ${id} → ${pts.length} points (identical)`);
-    return Promise.resolve({ [id]: pts });
-  }
-  return Promise.resolve({});
-};
+    'cucina-no-numeric-history': {
+      yaml: `area: cucina
+history_chart:
+  entity_id: binary_sensor.door_ground_floor_contact
+  hours: 24`,
+      callWS: () => Promise.resolve({ 'binary_sensor.door_ground_floor_contact': [] }),
+    },
 
-// trend badge demo — same shapes exercised by the "trend badge" e2e tests
-// (tests/e2e/card.spec.js), reused here so the visual and the assertion agree
-function makeTrendCallWS(values) {
-  return msg => {
-    if (msg.type === 'history/history_during_period') {
-      const id = msg.entity_ids[0];
-      const now = Date.now() / 1000;
-      const n = values.length;
-      const pts = values.map((v, i) => ({ s: String(v), lu: now - (n - 1 - i) * 3600 }));
-      log(`callWS trend history: ${id} → ${pts.length} points`);
-      return Promise.resolve({ [id]: pts });
+    'cucina-flat-history': {
+      yaml: `area: cucina
+history_chart:
+  entity_id: sensor.ir_clima_cucina_temperature
+  hours: 24
+  y_min: 0`,
+      callWS: (msg) => {
+        if (msg.type !== 'history/history_during_period') return Promise.resolve({});
+        const id = msg.entity_ids[0];
+        const now = Date.now() / 1000;
+        return Promise.resolve({ [id]: [{ s: '29.4', lu: now - 3600 }, { s: '29.4', lu: now }] });
+      },
+    },
+
+    'esterno-camera-hidden': {
+      yaml: `area: esterno
+show_camera: false
+max_entities: 20`,
+    },
+
+    'soggiorno-minimal': { yaml: `area: soggiorno` },
+    'cameretta-minimal': { yaml: `area: cameretta` },
+
+    'whitelist-only': {
+      yaml: `# no area — whitelist mode. name/icon still optional.
+entities:
+  - sensor.ir_clima_cucina_temperature
+  - sensor.ir_clima_cucina_humidity`,
+    },
+
+    'missing-area': { yaml: `area: nowhere` },
+
+    'mold-warning': {
+      yaml: `area: cucina
+mold_threshold: 30`,
+    },
+  };
+
+  /* ────────────────────────────────────────────────────────────────────────
+     Discovery
+     ──────────────────────────────────────────────────────────────────── */
+  function discoverAreaEntities(areaId) {
+    if (!areaId) return [];
+    const ids = new Set();
+    for (const [eid, entry] of Object.entries(BASE_HASS.entities)) {
+      if (!entry.device_id) continue;
+      const dev = BASE_HASS.devices[entry.device_id];
+      if (dev?.area_id === areaId) ids.add(eid);
     }
-    return Promise.resolve({});
-  };
-}
-const TREND_UP_CALLWS   = makeTrendCallWS([15, 17, 19, 21, 23, 25, 27, 30]);
-const TREND_DOWN_CALLWS = makeTrendCallWS([30, 27, 25, 23, 21, 19, 17, 15]);
-const TREND_FLAT_CALLWS = makeTrendCallWS([10, 12, 14, 16, 16, 14, 12, 10]);
-
-function buildRealDemoCard() {
-  const cfg = loadRealDemoConfig();
-  const container = document.getElementById('real-demo-cards');
-  container.innerHTML = '';
-  const overrides = {
-    debug: cfg.debug,
-    show_camera: cfg.show_camera,
-    controls_collapsed: cfg.controls_collapsed,
-    collapsible_controls: cfg.collapsible_controls,
-  };
-
-  if (cfg.dataset === 'esterno') {
-    mountStatic(container, {
-      area: 'esterno',
-      name: 'Esterno — real dataset',
-      history_chart: ESTERNO_HISTORY_CHART,
-      ...overrides,
-    }, {}, esternoCallWS);
-  } else {
-    mountStatic(container, {
-      area: 'cucina',
-      name: 'Cucina — real dataset',
-      history_chart: { entity_id: 'sensor.soggiornino_ths_temperature', hours: 48, color: 'rgba(255,200,100,0.15)', threshold_high: 27, color_high: 'rgba(244,67,54,0.18)', y_min: 0 },
-      ...overrides,
-    }, {}, flatCallWS);
+    for (const [eid, entry] of Object.entries(BASE_HASS.entities)) {
+      if (entry.area_id === areaId) ids.add(eid);
+    }
+    return [...ids].sort();
   }
-  log('real demo card rebuilt', cfg);
-}
 
-document.addEventListener('DOMContentLoaded', () => {
-  const cfg = loadRealDemoConfig();
-  document.getElementById(`real-demo-${cfg.dataset}`).checked = true;
-  document.querySelectorAll('input[name="real-demo-dataset"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      saveRealDemoConfig({ ...loadRealDemoConfig(), dataset: radio.value });
-      buildRealDemoCard();
+  function resolveConfigEntities(config) {
+    if (!config) return [];
+
+    if (Array.isArray(config.entities) && config.entities.length) {
+      return [...config.entities].sort();
+    }
+
+    const ids = new Set(discoverAreaEntities(config.area ?? null));
+    if (Array.isArray(config.add_entities)) {
+      for (const id of config.add_entities) ids.add(id);
+    }
+    if (Array.isArray(config.exclude_entities)) {
+      for (const id of config.exclude_entities) ids.delete(id);
+    }
+    return [...ids].sort();
+  }
+
+  function currentStateSnapshot(config) {
+    const ids = resolveConfigEntities(config);
+    const snap = {};
+    for (const id of ids) {
+      const s = BASE_HASS.states[id];
+      if (s) snap[id] = JSON.parse(JSON.stringify(s));
+    }
+    return snap;
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────
+     buildHass
+     ──────────────────────────────────────────────────────────────────── */
+  function isDarkTheme() {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  function buildHass(overrides, callWSOverride) {
+    const hass = JSON.parse(JSON.stringify(BASE_HASS));
+    hass.callService = (d, s, data) => console.log('[callService]', d, s, data);
+    hass.callWS = callWSOverride ?? ((msg) => {
+      if (msg.type === 'history/history_during_period') {
+        const id = msg.entity_ids[0];
+        const now = Date.now() / 1000;
+        const pts = Array.from({ length: 48 }, (_, i) => ({
+          s: String((22 + Math.sin(i / 4) * 2 + Math.cos(i / 7)).toFixed(2)),
+          lu: now - (48 - i) * 1800,
+        }));
+        return Promise.resolve({ [id]: pts });
+      }
+      return Promise.resolve({});
+    });
+
+    hass.locale = { language: 'it', number_format: 'comma_decimal', time_format: '24' };
+    hass.config = { unit_system: { length: 'km', temperature: '°C' } };
+    hass.themes = { darkMode: isDarkTheme() };
+    hass.user = { name: 'dev', is_admin: true };
+
+    for (const [id, patch] of Object.entries(overrides ?? {})) {
+      hass.states[id] = { ...(hass.states[id] ?? {}), ...patch };
+    }
+    return hass;
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────
+     Mount
+     ──────────────────────────────────────────────────────────────────── */
+  const cardsEl = document.getElementById('cards');
+  const mountedCards = [];
+
+  function mountCard(config, overrides, callWSOverride, label) {
+    if (!customElements.get('hass-omnibus-card')) {
+      setTimeout(() => mountCard(config, overrides, callWSOverride, label), 30);
+      return;
+    }
+    const slot = document.createElement('div');
+    slot.className = 'slot';
+    if (label) {
+      const lbl = document.createElement('div');
+      lbl.className = 'slot-label';
+      lbl.textContent = label;
+      slot.appendChild(lbl);
+    }
+    const card = document.createElement('hass-omnibus-card');
+    slot.appendChild(card);
+    cardsEl.appendChild(slot);
+    try {
+      card.setConfig(config);
+      card.hass = buildHass(overrides, callWSOverride);
+      mountedCards.push(card);
+    } catch (e) {
+      showError(e.message);
+    }
+  }
+
+  function clearCards() {
+    cardsEl.innerHTML = '';
+    mountedCards.length = 0;
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────
+     Editor plumbing
+     ──────────────────────────────────────────────────────────────────── */
+  const yamlEl  = document.getElementById('yaml');
+  const stateEl = document.getElementById('state-editor');
+  const errorEl = document.getElementById('error');
+  const pillEl  = document.getElementById('status-pill');
+
+  function showError(msg) { errorEl.textContent = msg; setPill('error', 'err'); }
+  function clearError()   { errorEl.textContent = ''; }
+
+  let _pillTimer = null;
+  function setPill(text, kind) {
+    pillEl.textContent = text;
+    pillEl.classList.remove('ok', 'err');
+    if (kind) pillEl.classList.add(kind);
+    clearTimeout(_pillTimer);
+    if (kind) {
+      _pillTimer = setTimeout(() => {
+        pillEl.textContent = 'idle';
+        pillEl.classList.remove('ok', 'err');
+      }, 1200);
+    }
+  }
+
+  function parseYaml() {
+    const config = jsyaml.load(yamlEl.value) || {};
+    if (typeof config !== 'object' || Array.isArray(config)) {
+      throw new Error('config must be a YAML mapping');
+    }
+    return config;
+  }
+
+  function readStateEditor() {
+    const raw = stateEl.value.trim();
+    if (!raw) return {};
+    return JSON.parse(raw);
+  }
+
+  function rerender() {
+    clearError();
+    let config, overrides;
+    try { config = parseYaml(); }
+    catch (e) { showError('yaml: ' + e.message); return false; }
+    try { overrides = readStateEditor(); }
+    catch (e) { showError('state: ' + e.message); return false; }
+
+    clearCards();
+    mountCard(config, overrides, currentFixture()?.callWS, null);
+    setPill('applied', 'ok');
+    return true;
+  }
+
+  let _applyTimer = null;
+  function scheduleApply(delay = 250) {
+    clearTimeout(_applyTimer);
+    _applyTimer = setTimeout(() => rerender(), delay);
+  }
+  function flushApply() { clearTimeout(_applyTimer); rerender(); }
+
+  yamlEl.addEventListener('input', () => scheduleApply());
+  stateEl.addEventListener('input', () => scheduleApply());
+
+  [yamlEl, stateEl].forEach(el => {
+    el.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault(); flushApply();
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const s = el.selectionStart;
+        el.value = el.value.slice(0, s) + '  ' + el.value.slice(s);
+        el.selectionStart = el.selectionEnd = s + 2;
+        scheduleApply();
+      }
     });
   });
-  for (const key of ['debug', 'show_camera', 'controls_collapsed', 'collapsible_controls']) {
-    const checkbox = document.getElementById(`real-demo-${key}`);
-    checkbox.checked = cfg[key];
-    checkbox.addEventListener('change', () => {
-      saveRealDemoConfig({ ...loadRealDemoConfig(), [key]: checkbox.checked });
-      buildRealDemoCard();
-    });
+
+  /* ────────────────────────────────────────────────────────────────────────
+     Fixture loading
+     ──────────────────────────────────────────────────────────────────── */
+  let _currentFixtureName = null;
+  function currentFixture() { return FIXTURES[_currentFixtureName]; }
+
+  function loadFixture(name) {
+    _currentFixtureName = name;
+    const fx = FIXTURES[name];
+    if (!fx) return;
+
+    yamlEl.value = fx.yaml;
+    clearError();
+
+    let config;
+    try { config = jsyaml.load(fx.yaml) || {}; }
+    catch (e) { showError(e.message); return; }
+
+    const snapshot = currentStateSnapshot(config);
+    const merged = { ...snapshot, ...(fx.state ?? {}) };
+    stateEl.value = Object.keys(merged).length ? JSON.stringify(merged, null, 2) : '';
+
+    flushApply();
+    updateHash();
   }
-});
 
-// Build cards after module loads
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    buildRoomCards();
-    buildRealDemoCard();
+  function resetStateEditor() {
+    let config;
+    try { config = parseYaml(); }
+    catch (e) { showError(e.message); return; }
+    const snapshot = currentStateSnapshot(config);
+    stateEl.value = Object.keys(snapshot).length ? JSON.stringify(snapshot, null, 2) : '';
+    flushApply();
+  }
 
-    const HISTORY_CARDS = [
-      { area: 'living_room', name: 'Default sparkline',   history_chart: { entity_id: 'sensor.temperature' } },
-      { area: 'living_room', name: 'Custom color',        history_chart: { entity_id: 'sensor.temperature', color: 'rgba(255,152,0,0.18)' } },
-      { area: 'bedroom',     name: '48h window',          history_chart: { entity_id: 'sensor.bed_temperature', hours: 48 } },
-      // gradient: above 22 → red zone, below 19 → blue zone, middle → baseline
-      { area: 'living_room', name: 'Gradient thresholds', history_chart: { entity_id: 'sensor.temperature', threshold_high: 22, threshold_low: 19 } },
-      // single high threshold only
-      { area: 'living_room', name: 'High threshold only', history_chart: { entity_id: 'sensor.temperature', threshold_high: 22 } },
-      // y_min: 0 — scale floor pinned at 0, baseline never floats
-      { area: 'living_room', name: 'y_min: 0',            history_chart: { entity_id: 'sensor.temperature', y_min: 0 } },
-      // y_min + y_max — fixed scale 0–40
-      { area: 'living_room', name: 'y_min: 0, y_max: 40', history_chart: { entity_id: 'sensor.temperature', y_min: 0, y_max: 40 } },
-    ];
+  function addCompare() {
+    clearError();
+    let config, edited;
+    try {
+      config = parseYaml();
+      edited = readStateEditor();
+    } catch (e) { showError(e.message); return; }
 
-    const historyContainer = document.getElementById('history-cards');
-    HISTORY_CARDS.forEach(config => {
-      const el = document.createElement('hass-omnibus-card');
-      el.setConfig(config);
-      el.hass = { ...MOCK_HASS };
-      historyContainer.appendChild(el);
+    const pristine = currentStateSnapshot(config);
+    const fx = currentFixture();
+
+    clearCards();
+    mountCard(config, edited,   fx?.callWS, 'A — your edits');
+    mountCard(config, pristine, fx?.callWS, 'B — current / pristine');
+    setPill('compare', 'ok');
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────
+     Splitters
+     ──────────────────────────────────────────────────────────────────── */
+  (function initSplitter() {
+    const splitter = document.getElementById('splitter');
+    let startX = 0, startW = 0;
+    function onMove(e) {
+      const dx = e.clientX - startX;
+      const next = Math.max(240, Math.min(window.innerWidth - 320, startW + dx));
+      document.documentElement.style.setProperty('--aside-w', next + 'px');
+      localStorage.setItem('pg-aside-w', String(next));
+    }
+    function onUp() {
+      document.body.classList.remove('dragging');
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    splitter.addEventListener('mousedown', e => {
+      e.preventDefault();
+      startX = e.clientX;
+      startW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--aside-w'), 10) || 400;
+      document.body.classList.add('dragging');
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
     });
+    const saved = parseInt(localStorage.getItem('pg-aside-w') || '', 10);
+    if (saved) document.documentElement.style.setProperty('--aside-w', saved + 'px');
+  })();
 
-    // ── Flat history (new sensor — 2 identical points) ──────────────────────
-    // Simulates real debug log: cucina / sensor.soggiornino_ths_temperature
-    // callWS returns only 2 identical points, as HA would for a brand-new sensor
-    // (flatCallWS defined globally above, reused by the Real Data Demo section)
-
-    const flatContainer = document.getElementById('flat-history-cards');
-
-    // no y_min → guard triggers → sparkline hidden (correct: no meaningful shape)
-    mountStatic(flatContainer, {
-      area: 'cucina',
-      name: 'Cucina — flat, no y_min (hidden)',
-      history_chart: { entity_id: 'sensor.soggiornino_ths_temperature', hours: 48, color: 'rgba(255,200,100,0.15)', threshold_high: 27, color_high: 'rgba(244,67,54,0.18)' },
-    }, {}, flatCallWS);
-
-    // y_min: 0 → flat line renders at ~top (29.4 out of 0–29.4 scale)
-    mountStatic(flatContainer, {
-      area: 'cucina',
-      name: 'Cucina — flat, y_min: 0 (shows line)',
-      history_chart: { entity_id: 'sensor.soggiornino_ths_temperature', hours: 48, color: 'rgba(255,200,100,0.15)', threshold_high: 27, color_high: 'rgba(244,67,54,0.18)', y_min: 0 },
-    }, {}, flatCallWS);
-
-    // cucina normal area card (no history)
-    mountStatic(flatContainer, { area: 'cucina', name: 'Cucina — area card' }, {});
-
-    // ── Real dataset (Esterno outdoor sensor, 244 pts / 18h, thresholds + y_min) ──
-    // (ESTERNO_HISTORY_POINTS/CHART + esternoCallWS defined globally above,
-    // reused by the Real Data Demo section)
-    const esternoContainer = document.getElementById('esterno-history-cards');
-    mountStatic(esternoContainer, {
-      area: 'esterno',
-      name: 'Esterno — real dataset',
-      show_camera: false,
-      history_chart: ESTERNO_HISTORY_CHART,
-    }, {}, esternoCallWS);
-
-    // ── Trend badge (rising / falling / flat) ───────────────────────────────
-    // Each card needs its own fake entity_id — history.js caches fetched
-    // points keyed by `entityId:hours:bucket` at module scope, shared across
-    // every card on the page regardless of which hass/callWS mounted it. Reusing
-    // 'sensor.temperature' here would silently hit the "Default sparkline"
-    // card's already-cached fetch above and never call our override callWS.
-    const trendContainer = document.getElementById('trend-history-cards');
-    const trendStateOverride = id => ({
-      [id]: { state: '0', attributes: { friendly_name: 'Trend demo', unit_of_measurement: '°C' } },
+  (function initHSplitters() {
+    const editorPane = document.querySelector('.pane.editor-pane');
+    document.querySelectorAll('.hsplitter').forEach(sp => {
+      let startY = 0, startH = 0;
+      function onMove(e) {
+        const dy = e.clientY - startY;
+        const stack = editorPane.parentElement;
+        const stackH = stack.clientHeight;
+        const next = Math.max(80, Math.min(stackH - 120, startH + dy));
+        editorPane.style.setProperty('--yaml-h', next + 'px');
+        editorPane.style.flex = `0 0 ${next}px`;
+      }
+      function onUp() {
+        document.body.classList.remove('dragging-h');
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        const h = parseInt(editorPane.style.flex.match(/[\d.]+/)?.[0] || '220', 10);
+        localStorage.setItem('pg-yaml-h', String(h));
+      }
+      sp.addEventListener('mousedown', e => {
+        e.preventDefault();
+        startY = e.clientY;
+        startH = editorPane.getBoundingClientRect().height;
+        document.body.classList.add('dragging-h');
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      });
     });
-    mountStatic(trendContainer, {
-      area: 'living_room',
-      name: 'Trend — up ⬈',
-      history_chart: { entity_id: 'sensor.trend_demo_up' },
-    }, trendStateOverride('sensor.trend_demo_up'), TREND_UP_CALLWS);
-    mountStatic(trendContainer, {
-      area: 'living_room',
-      name: 'Trend — down ⬊',
-      history_chart: { entity_id: 'sensor.trend_demo_down' },
-    }, trendStateOverride('sensor.trend_demo_down'), TREND_DOWN_CALLWS);
-    mountStatic(trendContainer, {
-      area: 'living_room',
-      name: 'Trend — flat ➡',
-      history_chart: { entity_id: 'sensor.trend_demo_flat' },
-    }, trendStateOverride('sensor.trend_demo_flat'), TREND_FLAT_CALLWS);
+    const saved = parseInt(localStorage.getItem('pg-yaml-h') || '', 10);
+    if (saved) {
+      editorPane.style.flex = `0 0 ${saved}px`;
+      editorPane.style.setProperty('--yaml-h', saved + 'px');
+    }
+  })();
 
-    const FILTER_CARDS = [
-      // exclude motion + TV from living room — no occupancy dot, fewer chips
-      {
-        area: 'living_room',
-        name: 'Living Room (exclude)',
-        exclude_entities: ['binary_sensor.motion', 'media_player.tv'],
-      },
-      // pin bedroom humidity into living room — humidity avg includes bed sensor
-      {
-        area: 'living_room',
-        name: 'Living Room (add)',
-        add_entities: ['sensor.bed_humidity'],
-      },
-      // whitelist: only temp + humidity, skip everything else in living room
-      {
-        area: 'living_room',
-        name: 'Living Room (whitelist)',
-        entities: ['sensor.temperature', 'sensor.humidity'],
-      },
-    ];
+  /* ────────────────────────────────────────────────────────────────────────
+     URL
+     ──────────────────────────────────────────────────────────────────── */
+  function updateHash() {
+    const p = new URLSearchParams();
+    if (_currentFixtureName) p.set('fixture', _currentFixtureName);
+    history.replaceState(null, '', '#' + p.toString());
+  }
 
-    const filterContainer = document.getElementById('filter-cards');
-    FILTER_CARDS.forEach(config => {
-      const el = document.createElement('hass-omnibus-card');
-      el.setConfig(config);
-      el.hass = { ...MOCK_HASS };
-      filterContainer.appendChild(el);
-    });
+  function copyLink() {
+    navigator.clipboard?.writeText(location.href).then(
+            () => setPill('copied', 'ok'),
+            () => setPill('blocked', 'err'),
+    );
+  }
 
-    // ── Feature gallery (static state, not changed by scenario buttons) ───
-    const gallery = document.getElementById('gallery-cards');
+  /* ────────────────────────────────────────────────────────────────────────
+     Boot
+     ──────────────────────────────────────────────────────────────────── */
+  window.addEventListener('load', () => {
+    const select = document.getElementById('fixture-select');
+    for (const name of Object.keys(FIXTURES)) {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      select.appendChild(opt);
+    }
 
-    // Climate — heat mode with current temperature
-    mountStatic(gallery, { area: 'living_room', name: 'Climate (heat)' }, {});
+    const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const initial = params.get('fixture') || 'cucina-baseline';
+    select.value = initial;
 
-    // Alarm bar — add cross-area sensors via add_entities; override window as moisture
-    mountStatic(gallery, {
-      area: 'living_room', name: 'All alarms',
-      add_entities: ['binary_sensor.smoke_det', 'binary_sensor.gas_det'],
-    }, {
-      'binary_sensor.smoke_det': { state: 'on', attributes: { friendly_name: 'Smoke', device_class: 'smoke' } },
-      'binary_sensor.gas_det':   { state: 'on', attributes: { friendly_name: 'Gas',   device_class: 'gas' } },
-      'binary_sensor.window':    { state: 'on', attributes: { friendly_name: 'Water', device_class: 'moisture' } },
-    });
-
-    // Problem badge — binary_sensor with device_class problem triggers the problems bucket
-    mountStatic(gallery, { area: 'living_room', name: 'Problem badge' }, {
-      'binary_sensor.window': { state: 'on', attributes: { friendly_name: 'Problem sensor', device_class: 'problem' } },
-    });
-
-    // Lights off — grey badge, no tint
-    mountStatic(gallery, { area: 'living_room', name: 'Lights off (grey badge)' }, {
-      'light.ceiling':    { state: 'off', attributes: { friendly_name: 'Ceiling' } },
-      'light.floor_lamp': { state: 'off', attributes: { friendly_name: 'Floor Lamp' } },
-    });
-
-    // Light offline — orange dot on badge
-    mountStatic(gallery, { area: 'living_room', name: 'Light offline (dot)' }, {
-      'light.ceiling': { state: 'unavailable', attributes: { friendly_name: 'Ceiling' } },
-    });
-
-    // Battery badge — appears only when a battery sensor is at/below battery_low_threshold
-    mountStatic(gallery, { area: 'living_room', name: 'Battery low (badge)' }, {
-      'sensor.window_battery': { state: '78', attributes: { friendly_name: 'Window Sensor Battery', device_class: 'battery', unit_of_measurement: '%' } },
-      'sensor.remote_battery': { state: '4',  attributes: { friendly_name: 'Remote Battery',        device_class: 'battery', unit_of_measurement: '%' } },
-    });
-
-    // Battery badge — hidden, all battery sensors above threshold
-    mountStatic(gallery, { area: 'living_room', name: 'Battery ok (no badge)' }, {
-      'sensor.window_battery': { state: '78', attributes: { friendly_name: 'Window Sensor Battery', device_class: 'battery', unit_of_measurement: '%' } },
-      'sensor.remote_battery': { state: '42', attributes: { friendly_name: 'Remote Battery',        device_class: 'battery', unit_of_measurement: '%' } },
-    });
-
-    // Occupancy idle — grey dot
-    mountStatic(gallery, { area: 'living_room', name: 'Not occupied (grey dot)' }, {
-      'binary_sensor.motion': { state: 'off', attributes: { friendly_name: 'Motion', device_class: 'motion' } },
-    });
-
-    // Door open — Openings chip segment highlighted amber (SNZB-04P contact sensor)
-    mountStatic(gallery, { area: 'living_room', name: 'Door open (openings chip)' }, {
-      'binary_sensor.door_ground_floor_contact': { state: 'on', attributes: { friendly_name: 'Door Ground Floor', device_class: 'opening' } },
-    });
-
-    // Door tamper — own red shield badge next to Openings, distinct from both
-    // the door open/closed state and the generic problem badge
-    mountStatic(gallery, { area: 'living_room', name: 'Door tamper (tamper badge)' }, {
-      'binary_sensor.door_ground_floor_tamper': { state: 'on', attributes: { friendly_name: 'Door Ground Floor Tamper', device_class: 'tamper' } },
-    });
-
-    // Debug mode — check browser console for [hass-omnibus-card] update logs
-    mountStatic(gallery, { area: 'living_room', name: 'Debug mode (check console)', debug: true }, {});
-
-    // Camera preview + controls row — PTZ button, siren, IR light/audio switches
-    // (device-linked to the camera) grouped separately from the generic plug switch
-    mountStatic(gallery, { area: 'esterno', name: 'Camera + controls' }, {});
-
-    // show_camera: false — preview hidden, controls row unaffected
-    mountStatic(gallery, { area: 'esterno', name: 'show_camera: false', show_camera: false }, {});
-
-    // Controls row collapsed by default — chevron icon expands it
-    mountStatic(gallery, { area: 'esterno', name: 'Controls collapsed (default)' }, {});
-
-    // controls_collapsed: false — starts expanded, collapse with the chevron icon
-    mountStatic(gallery, { area: 'esterno', name: 'controls_collapsed: false', controls_collapsed: false }, {});
-
-    // collapsible_controls: false — no chevron icon, always expanded
-    mountStatic(gallery, { area: 'esterno', name: 'collapsible_controls: false', collapsible_controls: false }, {});
-
-    // Real sensors — soggiorno THS + Bresser (normal values)
-    mountStatic(gallery, {
-      name: 'Soggiorno + Bresser (normal)',
-      entities: ['sensor.soggiorno_ths_temperature', 'sensor.bresser_7in1_65351_temperature'],
-    }, {
-      'sensor.soggiorno_ths_temperature':      { state: '29.5', attributes: { friendly_name: 'Soggiorno THS', device_class: 'temperature', unit_of_measurement: '°C' } },
-      'sensor.bresser_7in1_65351_temperature': { state: '27.5', attributes: { friendly_name: 'Bresser Temp',  device_class: 'temperature', unit_of_measurement: '°C' } },
-    });
-
-    // Real sensors — error states
-    mountStatic(gallery, {
-      name: 'Soggiorno + Bresser (unavailable)',
-      entities: ['sensor.soggiorno_ths_temperature', 'sensor.bresser_7in1_65351_temperature'],
-    }, {
-      'sensor.soggiorno_ths_temperature':      { state: 'unavailable', attributes: { friendly_name: 'Soggiorno THS', device_class: 'temperature', unit_of_measurement: '°C' } },
-      'sensor.bresser_7in1_65351_temperature': { state: 'unavailable', attributes: { friendly_name: 'Bresser Temp',  device_class: 'temperature', unit_of_measurement: '°C' } },
-    });
-
-    // Real sensors — one valid, one unavailable
-    mountStatic(gallery, {
-      name: 'Soggiorno + Bresser (partial)',
-      entities: ['sensor.soggiorno_ths_temperature', 'sensor.bresser_7in1_65351_temperature'],
-    }, {
-      'sensor.soggiorno_ths_temperature':      { state: '29.5',        attributes: { friendly_name: 'Soggiorno THS', device_class: 'temperature', unit_of_measurement: '°C' } },
-      'sensor.bresser_7in1_65351_temperature': { state: 'unavailable', attributes: { friendly_name: 'Bresser Temp',  device_class: 'temperature', unit_of_measurement: '°C' } },
-    });
-
-    log('cards mounted');
-  }, 100);
-});
+    const t = setInterval(() => {
+      if (customElements.get('hass-omnibus-card')) {
+        clearInterval(t);
+        loadFixture(initial);
+      }
+    }, 20);
+  });
 </script>
+
+<script type="module" src="./src/index.js"></script>
 
 </body>
 </html>
