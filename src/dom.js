@@ -147,9 +147,7 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
     });
   });
 
-  shadowRoot.querySelectorAll('.settings-seg[data-entity]').forEach(el => {
-    el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
-  });
+  shadowRoot.querySelectorAll('.settings-seg[data-entity]').forEach(el => bindChipAction(el, host));
 
   const lightBadge = shadowRoot.querySelector('.badge-lights');
   if (lightBadge && host._config?.area && host._hass?.callService) {
@@ -167,11 +165,42 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
     if (eid) el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, eid); });
   });
 
-  shadowRoot.querySelectorAll('.chip[data-entity]').forEach(el => {
-    el.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, el.dataset.entity); });
-  });
+  shadowRoot.querySelectorAll('.chip[data-entity]').forEach(el => bindChipAction(el, host));
 
   bindChartTooltip(shadowRoot);
+}
+
+// Wall-panel interaction: a tap acts (toggle a light/switch, run a scene),
+// a long-press (≥ HOLD_MS) opens more-info for the full controls — same
+// split as HA's own tile card. Entities whose data-tap is 'more-info'
+// (sensors, locks, anything without a safe toggle) just open more-info on
+// tap. Keyboard Enter/Space arrives as el.click() → the tap path.
+const HOLD_MS = 500;
+
+function bindChipAction(el, host) {
+  const entityId = el.dataset.entity;
+  const tap      = el.dataset.tap ?? 'more-info';
+  let holdTimer = null, held = false;
+
+  const clearHold = () => { clearTimeout(holdTimer); holdTimer = null; };
+  el.addEventListener('pointerdown', () => {
+    held = false;
+    clearHold();
+    holdTimer = setTimeout(() => { held = true; fireMoreInfo(host, entityId); }, HOLD_MS);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => el.addEventListener(t, clearHold));
+  // long-press on touch also fires the browser's context menu
+  el.addEventListener('contextmenu', e => e.preventDefault());
+
+  el.addEventListener('click', e => {
+    e.stopPropagation();
+    if (held) { held = false; return; }
+    const domain = entityId.split('.')[0];
+    const call   = host._hass?.callService;
+    if (tap === 'toggle' && call)       host._hass.callService(domain, 'toggle', {}, { entity_id: entityId });
+    else if (tap === 'trigger' && call) host._hass.callService(domain, 'turn_on', {}, { entity_id: entityId });
+    else                                fireMoreInfo(host, entityId);
+  });
 }
 
 // Native SVG <title> tooltips only fire on desktop hover — dead on touch,

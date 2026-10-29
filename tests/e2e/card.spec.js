@@ -538,8 +538,15 @@ test('history chart — hovering a sparse series\' hit-target does NOT show the 
 
 // ── History chart overlay labels ──────────────────────────────────────────────
 
-test('history chart overlay — stat-max/min show ↑/↓ prefixes', async ({ page }) => {
+test('history chart overlay — stat-max/min hidden by default (ambient chart, no corner numbers)', async ({ page }) => {
   await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature' } });
+  await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('#mount').locator('.stat-max')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.stat-period')).toHaveCount(0);
+});
+
+test('history chart overlay — show_stats: true shows stat-max/min with ↑/↓ prefixes', async ({ page }) => {
+  await mount(page, { area: 'living_room', history_chart: { entity_id: 'sensor.temperature', show_stats: true } });
   await expect(page.locator('#mount').locator('.bg-chart')).toBeVisible({ timeout: 2000 });
   await expect(page.locator('#mount').locator('.stat-max')).toContainText(/^↑\s/);
   await expect(page.locator('#mount').locator('.stat-min')).toContainText(/^↓\s/);
@@ -684,14 +691,20 @@ test('debug: false (default) — no console.debug', async ({ page }) => {
 
 // ── Battery badge ─────────────────────────────────────────────────────────────
 
-test('battery — chip shown, no low badge when above threshold', async ({ page }) => {
+test('battery — no chip by default (low-battery badge covers it), no badge when above threshold', async ({ page }) => {
   await mount(page, { area: 'living_room', entities: ['sensor.battery_test'] });
+  await expect(page.locator('#mount').locator('.chip[data-entity]')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.status-seg-battery')).not.toBeVisible();
+});
+
+test('battery — show_diagnostics: true shows the chip, no low badge when above threshold', async ({ page }) => {
+  await mount(page, { area: 'living_room', entities: ['sensor.battery_test'], show_diagnostics: true });
   await expect(page.locator('#mount').locator('.chip')).toHaveCount(1);
   await expect(page.locator('#mount').locator('.status-seg-battery')).not.toBeVisible();
 });
 
-test('battery — low badge appears at/below default threshold (20%), chip still shown', async ({ page }) => {
-  await mount(page, { area: 'living_room', entities: ['sensor.battery_test'] }, {
+test('battery — low badge appears at/below default threshold (20%), chip still shown with show_diagnostics', async ({ page }) => {
+  await mount(page, { area: 'living_room', entities: ['sensor.battery_test'], show_diagnostics: true }, {
     'sensor.battery_test': { state: '15', attributes: { friendly_name: 'Battery Test', device_class: 'battery', unit_of_measurement: '%' } },
   });
   await expect(page.locator('#mount').locator('.status-seg-battery')).toBeVisible();
@@ -876,7 +889,7 @@ test('controls — read-only sensor/image sharing the camera device stay out of 
   // alongside the actual switches/buttons — neither is operable, so the device-link
   // sweep must not pull them into Controls. Two or more of them group into their
   // own diagnostics pill (same pattern as weather/controls) instead of two plain chips.
-  await mount(page, GARAGE);
+  await mount(page, { ...GARAGE, show_diagnostics: true });
   await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
   for (const entityId of ['sensor.garage_cam_ip', 'image.garage_cam_snapshot']) {
     const seg = page.locator('#mount').locator(`.diagnostics-seg[data-entity="${entityId}"]`);
@@ -905,7 +918,7 @@ test('section tabs — a device with all 4 roles captions each role pill and has
   // dev_cam (garage) carries ptz + controls + settings + diagnostics all at
   // once — the real multi-role shape (e.g. a camera device) that used to lose
   // its role boundary once bundled into one device tab with no per-tab label.
-  await mount(page, { area: 'garage', max_entities: 20 });
+  await mount(page, { area: 'garage', max_entities: 20, show_diagnostics: true });
   await page.locator('#mount').locator('.section-tab[data-section="dev_cam"]').click();
   const panel = page.locator('#mount').locator('.section-tab-panel.active');
 
@@ -978,7 +991,7 @@ test('section tabs — clicking a device tab opens its panel; clicking it again 
 });
 
 test('section tabs — switching tabs is exclusive: opening the LED tab closes an already-open IR blaster tab', async ({ page }) => {
-  await mount(page, CUCINA_IR);
+  await mount(page, { ...CUCINA_IR, show_diagnostics: true });
   const irTab  = page.locator('#mount').locator('.section-tab[data-section="dev_ir_clima"]');
   const ledTab = page.locator('#mount').locator('.section-tab[data-section="dev_led_cucina"]');
   const activePanel = page.locator('#mount').locator('.section-tab-panel.active');
@@ -995,7 +1008,7 @@ test('section tabs — switching tabs is exclusive: opening the LED tab closes a
 });
 
 test('section tabs — controls_collapsed: false opens the first available tab (the busier device, IR blaster) by default', async ({ page }) => {
-  await mount(page, { ...CUCINA_IR, controls_collapsed: false });
+  await mount(page, { ...CUCINA_IR, controls_collapsed: false, show_diagnostics: true });
   const irTab  = page.locator('#mount').locator('.section-tab[data-section="dev_ir_clima"]');
   const ledTab = page.locator('#mount').locator('.section-tab[data-section="dev_led_cucina"]');
   await expect(irTab).toHaveClass(/active/);
@@ -1005,7 +1018,7 @@ test('section tabs — controls_collapsed: false opens the first available tab (
 });
 
 test('section tabs — collapsible_controls: false hides the tab bar entirely and shows one stacked group per device', async ({ page }) => {
-  await mount(page, { ...CUCINA_IR, collapsible_controls: false });
+  await mount(page, { ...CUCINA_IR, collapsible_controls: false, show_diagnostics: true });
   await expect(page.locator('#mount').locator('.section-tabs')).toHaveCount(0);
   // one settings-chip pill per device (IR blaster + LED), both always visible — no tabs to open
   await expect(page.locator('#mount').locator('.settings-chip')).toHaveCount(2);
@@ -1079,7 +1092,7 @@ test('camera — unavailable camera dims the preview and marks it offline', asyn
 // ── Weather sensor icons ─────────────────────────────────────────────────────
 
 test('weather sensors — grouped into one weather-chip, dedicated device_class icons + values', async ({ page }) => {
-  await mount(page, GARAGE);
+  await mount(page, { ...GARAGE, max_weather: 5 });
   await expect(page.locator('#mount').locator('.weather-chip')).toHaveCount(1);
   await expect(page.locator('#mount').locator('.weather-chip .weather-seg')).toHaveCount(5);
   await expect(page.locator('#mount').locator('.chip[data-entity="sensor.garage_wind"]:not(.weather-seg)')).toHaveCount(0); // not also a plain chip
@@ -1124,13 +1137,51 @@ test('controls — siren click toggles siren service, not more-info', async ({ p
   expect(calls).toEqual([{ domain: 'siren', service: 'toggle', data: {}, target: { entity_id: 'siren.garage_alarm' } }]);
 });
 
-test('controls — device-linked switch (Settings) click opens more-info (no dedicated switch service)', async ({ page }) => {
+test('controls — device-linked switch (Settings) tap toggles it (wall-panel default)', async ({ page }) => {
   await mount(page, GARAGE);
+  await page.locator('#mount').locator('.settings-seg[data-domain="switch"]').click();
+  const calls = await page.evaluate(() => window.__serviceCalls);
+  expect(calls).toEqual([{ domain: 'switch', service: 'toggle', data: {}, target: { entity_id: 'switch.garage_cam_ir_light' } }]);
+});
+
+test('controls — long-press on a toggleable segment opens more-info instead of toggling', async ({ page }) => {
+  await mount(page, GARAGE);
+  const moreInfo = page.evaluate(() => new Promise(resolve => {
+    document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
+  }));
+  const seg = page.locator('#mount').locator('.settings-seg[data-domain="switch"]');
+  await seg.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(650);
+  await page.mouse.up();
+  expect(await moreInfo).toBe('switch.garage_cam_ir_light');
+  expect(await page.evaluate(() => window.__serviceCalls)).toEqual([]);
+});
+
+test('controls — chip_tap_action: more-info restores read-only taps', async ({ page }) => {
+  await mount(page, { ...GARAGE, chip_tap_action: 'more-info' });
   const moreInfo = page.evaluate(() => new Promise(resolve => {
     document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
   }));
   await page.locator('#mount').locator('.settings-seg[data-domain="switch"]').click();
   expect(await moreInfo).toBe('switch.garage_cam_ir_light');
+});
+
+// ── Wall-panel layout + section visibility ───────────────────────────────────
+
+test('layout: panel — touch targets reach 44px', async ({ page }) => {
+  await mount(page, { ...CARD, layout: 'panel' });
+  await expect(page.locator('#mount').locator('ha-card.layout-panel')).toBeVisible();
+  const h = await page.locator('#mount').locator('.chip[data-entity]').first().evaluate(el => el.getBoundingClientRect().height);
+  expect(h).toBeGreaterThanOrEqual(44);
+  await expect(page.locator('#mount')).toHaveScreenshot('layout-panel.png', SNAP);
+});
+
+test('hide: [env, chips] drops those sections, header + alarms stay', async ({ page }) => {
+  await mount(page, { ...CARD, hide: ['env', 'chips'] });
+  await expect(page.locator('#mount').locator('.env-row')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.entity-chips')).toHaveCount(0);
+  await expect(page.locator('#mount').locator('.header')).toBeVisible();
 });
 
 // ── Real-world dataset (EZVIZ camera + Bresser weather station) ────────────
@@ -1156,8 +1207,13 @@ test('real dataset — siren alone in Controls ("press to act"); 5 switches + nu
   await expect(page.locator('#mount').locator('.settings-chip .settings-seg')).toHaveCount(8);
 });
 
-test('real dataset — camera diagnostic sensors/binary_sensor/image group into one diagnostics pill, not controls', async ({ page }) => {
+test('real dataset — camera diagnostics hidden by default (show_diagnostics opt-in)', async ({ page }) => {
   await mount(page, ESTERNO_REAL);
+  await expect(page.locator('#mount').locator('.diagnostics-seg')).toHaveCount(0);
+});
+
+test('real dataset — camera diagnostic sensors/binary_sensor/image group into one diagnostics pill, not controls', async ({ page }) => {
+  await mount(page, { ...ESTERNO_REAL, show_diagnostics: true });
   await page.locator('#mount').locator('.section-tab[data-section="dev_esterno_cam"]').click(); // open the tab — this assertion needs actual visibility
   await expect(page.locator('#mount').locator('.diagnostics-chip')).toBeVisible();
   for (const entityId of [
@@ -1171,10 +1227,18 @@ test('real dataset — camera diagnostic sensors/binary_sensor/image group into 
   await expect(page.locator('#mount').locator('.control-seg[data-entity="binary_sensor.esterno_cb8c_bh2113803_crittografia_2"]')).toHaveCount(0);
 });
 
-test('real dataset — Bresser weather station groups 5 readings into one weather chip', async ({ page }) => {
+test('real dataset — Bresser weather station: 5 readings capped at 3 + one "+2" overflow segment', async ({ page }) => {
   await mount(page, ESTERNO_REAL);
   await expect(page.locator('#mount').locator('.weather-chip')).toHaveCount(1);
-  await expect(page.locator('#mount').locator('.weather-chip .weather-seg')).toHaveCount(5); // wind avg + max, rain, luminance, noise
+  await expect(page.locator('#mount').locator('.weather-chip .weather-seg:not(.weather-more)')).toHaveCount(3);
+  await expect(page.locator('#mount').locator('.weather-more')).toHaveText('+2');
+});
+
+test('weather values — trailing .0 dropped, large lux abbreviated', async ({ page }) => {
+  await mount(page, { ...ESTERNO_REAL, max_weather: 5 });
+  const values = await page.locator('#mount').locator('.weather-seg .group-seg-value').allTextContents();
+  expect(values.some(v => /\.0\b/.test(v))).toBe(false);
+  expect(values.some(v => /^\d+(\.\d)?k lx$/.test(v.trim()))).toBe(true);
 });
 
 test('real dataset — full card snapshot', async ({ page }) => {
@@ -1243,7 +1307,7 @@ test('real dataset — IR blaster + LED, no camera: switches/selects/number swep
 });
 
 test('real dataset — IR blaster with no camera: battery + learned-code sensors swept into its own Diagnostics tab', async ({ page }) => {
-  await mount(page, CUCINA_IR);
+  await mount(page, { ...CUCINA_IR, show_diagnostics: true });
   await page.locator('#mount').locator('.section-tab[data-section="dev_ir_clima"]').click();
   await expect(page.locator('#mount').locator('.diagnostics-chip .diagnostics-seg')).toHaveCount(2);
   for (const entityId of ['sensor.ir_clima_cucina_battery', 'sensor.ir_clima_cucina_learned_ir_code']) {
@@ -1293,7 +1357,7 @@ const RIPOSTIGLIO_CONFIG = {
   max_entities: 20,
 };
 
-async function mountRipostiglio(page) {
+async function mountRipostiglio(page, extra = {}) {
   await page.evaluate(pts => {
     window.BASE_HASS.callWS = msg => {
       if (msg.type === 'history/history_during_period') {
@@ -1305,7 +1369,7 @@ async function mountRipostiglio(page) {
       return Promise.resolve({});
     };
   }, RIPOSTIGLIO_HUMIDITY_POINTS);
-  await mount(page, RIPOSTIGLIO_CONFIG);
+  await mount(page, { ...RIPOSTIGLIO_CONFIG, ...extra });
 }
 
 test('real dataset — ripostiglio_interno: mold badge absent (humidity 45.9% avg vs threshold 60)', async ({ page }) => {
@@ -1334,14 +1398,14 @@ test('real dataset — ripostiglio_interno: full card snapshot', async ({ page }
 // THS sensor is a separate device (2 calibration numbers → Settings, vpd +
 // battery sensors → Diagnostics).
 test('real dataset — ripostiglio_interno: D017 dehumidifier and THS sensor each get their own device tab', async ({ page }) => {
-  await mountRipostiglio(page);
+  await mountRipostiglio(page, { show_diagnostics: true });
   await expect(page.locator('#mount').locator('.settings-chip .settings-seg')).toHaveCount(7); // 5 (D017) + 2 (THS)
   await expect(page.locator('#mount').locator('.diagnostics-chip .diagnostics-seg')).toHaveCount(3); // 1 (D017 error) + 2 (THS vpd + battery)
 
   const d017Tab = page.locator('#mount').locator('.section-tab[data-section="dev_d017_dehumidifier"]');
   const thsTab  = page.locator('#mount').locator('.section-tab[data-section="dev_ths_ripostiglio"]');
   await expect(d017Tab).toHaveText('D017-Dehumidifier-5V');
-  await expect(thsTab).toHaveText('ripostiglio_interno_ths');
+  await expect(thsTab).toHaveText('Ths');
 
   await d017Tab.click();
   for (const entityId of [

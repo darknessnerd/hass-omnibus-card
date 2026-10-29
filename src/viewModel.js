@@ -7,7 +7,14 @@
 import { CLIMATE_MAP, ACTIVE_STATES, PTZ_ICON } from './constants.js';
 import { getAreaEntities, classify, filterEntities, groupTabsByDevice } from './discovery.js';
 import { average, anyOn, activeLights, rgbColor, lowestBattery } from './aggregators.js';
-import { friendlyLabel, entityIcon, batteryIcon, uniqueLabels, resolveThreshold } from './utils.js';
+import { entityLabel, formatNumber, entityIcon, batteryIcon, uniqueLabels, resolveThreshold } from './utils.js';
+
+// Domains a wall-panel tap toggles directly (see dom.js bindEvents) rather
+// than opening more-info — all expose a plain `<domain>.toggle` service.
+// lock/alarm_control_panel stay more-info on purpose: one stray tap must
+// never unlock a door. scene/script are one-shot `turn_on`.
+export const TOGGLE_DOMAINS  = new Set(['light', 'switch', 'fan', 'input_boolean', 'cover', 'media_player', 'humidifier', 'automation']);
+export const TRIGGER_DOMAINS = new Set(['scene', 'script']);
 
 // history_chart.threshold_high/threshold_low may be a plain number or an
 // entity_id (number/input_number/sensor) — see resolveThreshold. Returns the
@@ -27,17 +34,28 @@ function resolveHistoryChartThresholds(hass, hc) {
 // them (renderDiagnosticsChip ignores domain/isActive, for instance).
 // Label collisions across these are deduped downstream, once items are
 // grouped by device — see dedupeBucketLabels in discovery.js.
-function mapEntityItem(entityId, state, deviceId, config) {
+function mapEntityItem(hass, entityId, state, deviceId, config, areaName) {
+  const domain = entityId.split('.')[0];
   return {
     entityId,
     deviceId,
-    domain:   entityId.split('.')[0],
+    domain,
+    tapAction: chipTapAction(domain, config),
     isActive: ACTIVE_STATES.has(state.state),
     icon:     entityIcon(entityId, state),
-    label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
+    label:    config.entity_labels?.[entityId] ?? entityLabel(hass, entityId, state, deviceId, areaName),
     fullName: state.attributes?.friendly_name ?? entityId,
     title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
   };
+}
+
+// 'toggle' | 'trigger' | 'more-info' — what a plain tap on this entity's chip
+// does. chip_tap_action: more-info restores the old read-only behaviour.
+function chipTapAction(domain, config) {
+  if (config.chip_tap_action === 'more-info') return 'more-info';
+  if (TOGGLE_DOMAINS.has(domain))  return 'toggle';
+  if (TRIGGER_DOMAINS.has(domain)) return 'trigger';
+  return 'more-info';
 }
 
 // Shared shape for openingItems/tamperItems — a plain on/off badge with a
@@ -86,7 +104,9 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
 
   const raw      = config.entities?.length ? [] : getAreaEntities(hass, areaId);
   const entities = filterEntities(raw, config, hass);
-  const c          = classify(entities);
+  const showDiagnostics = config.show_diagnostics === true;
+  const c          = classify(entities, { showDiagnostics });
+  const areaName   = config.name || area?.name || areaId || '';
   const onLights    = activeLights(c.lights);
   const lightColor  = rgbColor(onLights);
   const tempVal     = average(c.temperatures);
@@ -114,7 +134,7 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
   const pendingUpdates = c.updates.filter(u => u.state.state === 'on');
 
   const controlItems = config.show_entities !== false
-    ? c.controls.map(({ entityId, state, deviceId }) => mapEntityItem(entityId, state, deviceId, config))
+    ? c.controls.map(({ entityId, state, deviceId }) => mapEntityItem(hass, entityId, state, deviceId, config, areaName))
     : [];
 
   // switch/select/number/lock/cover, etc. sharing a device with another
@@ -122,7 +142,7 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
   // the one-shot "press to act" items (siren/buttons) that stay in
   // controlItems. See discovery.js classify().
   const settingsItems = config.show_entities !== false
-    ? c.settings.map(({ entityId, state, deviceId }) => mapEntityItem(entityId, state, deviceId, config))
+    ? c.settings.map(({ entityId, state, deviceId }) => mapEntityItem(hass, entityId, state, deviceId, config, areaName))
     : [];
 
   // grouped into one pill instead of one chip per PTZ button
@@ -141,8 +161,8 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
   // grouped into their own pill once there are enough of them (see
   // discovery.js) instead of padding out the generic chip strip with
   // near-identical grey chips.
-  const diagnosticsItems = config.show_entities !== false
-    ? c.diagnostics.map(({ entityId, state, deviceId }) => mapEntityItem(entityId, state, deviceId, config))
+  const diagnosticsItems = config.show_entities !== false && showDiagnostics
+    ? c.diagnostics.map(({ entityId, state, deviceId }) => mapEntityItem(hass, entityId, state, deviceId, config, areaName))
     : [];
 
   // Each physical device gets its own tab (see discovery.js groupTabsByDevice)
@@ -162,6 +182,7 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
     hass,
     { ptz: ptzItems, controls: controlItems, settings: settingsItems, diagnostics: diagnosticsItems },
     camera?.deviceId ?? null,
+    areaName,
   );
   const availableSections = deviceGroups.map(g => g.key);
   const activeSection = !collapsibleControls ? null
@@ -173,7 +194,10 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
   const historyMax = hasNumericHistory ? Math.max(...historyPoints.map(p => p.v)) : null;
 
   return {
-    areaName:     config.name || area?.name || areaId || '',
+    areaName,
+    layout:       config.layout === 'panel' ? 'panel' : 'compact',
+    // Section keys a wall-panel config can drop entirely — see renderCard().
+    hidden:       new Set(config.hide ?? []),
     cardIcon:     config.icon || area?.icon || 'mdi:home',
     navPath,
 
@@ -240,21 +264,29 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
       ? c.tampers.map(({ entityId, state }) => mapBinaryStatusItem(entityId, state, 'isTampered', 'Tamper detected', 'Normal'))
       : [],
 
-    weatherItems: config.show_entities !== false
-      ? c.weathers.map(({ entityId, state }) => {
-          const num  = parseFloat(state.state);
-          const unit = state.attributes?.unit_of_measurement ?? '';
-          const dc   = state.attributes?.device_class ?? '';
-          return {
-            entityId,
-            dc,
-            icon:  entityIcon(entityId, state),
-            value: isNaN(num) ? state.state : num.toFixed(1),
-            unit,
-            title: `${state.attributes?.friendly_name ?? entityId} — ${state.state}${unit}`,
-          };
-        })
-      : [],
+    // Capped at max_weather (default 3) — a weather station can expose a
+    // dozen readings, and five unlabeled numbers in a row read as noise.
+    // The rest fold into one "+N" segment whose tooltip lists them.
+    ...(() => {
+      const all = config.show_entities !== false
+        ? c.weathers.map(({ entityId, state }) => {
+            const num  = parseFloat(state.state);
+            const unit = state.attributes?.unit_of_measurement ?? '';
+            const dc   = state.attributes?.device_class ?? '';
+            const value = isNaN(num) ? state.state : formatNumber(num);
+            return {
+              entityId,
+              dc,
+              icon:  entityIcon(entityId, state),
+              value,
+              unit,
+              title: `${state.attributes?.friendly_name ?? entityId} — ${value}${unit ? ' ' + unit : ''}`,
+            };
+          })
+        : [];
+      const max = config.max_weather ?? 3;
+      return { weatherItems: all.slice(0, max), weatherOverflow: all.slice(max) };
+    })(),
 
     historyPoints: hc?.entity_id ? historyPoints : null,
     // slightly more present than the old 0.12 default — the sparkline is the
@@ -277,14 +309,8 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
 
     // pre-computed chip data keeps template functions free of utility imports
     chipItems: config.show_entities !== false
-      ? uniqueLabels([...c.others, ...extraCameras].slice(0, config.max_entities ?? 12).map(({ entityId, state }) => ({
-          entityId,
-          isActive: ACTIVE_STATES.has(state.state),
-          icon:     entityIcon(entityId, state),
-          label:    config.entity_labels?.[entityId] ?? friendlyLabel(entityId, state),
-          fullName: state.attributes?.friendly_name ?? entityId,
-          title:    `${state.attributes?.friendly_name ?? entityId} — ${state.state}`,
-        })))
+      ? uniqueLabels([...c.others, ...extraCameras].slice(0, config.max_entities ?? 12)
+          .map(({ entityId, state, deviceId }) => mapEntityItem(hass, entityId, state, deviceId, config, areaName)))
       : [],
   };
 }

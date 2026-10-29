@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { uniqueLabels } from '../../src/utils.js';
+import { uniqueLabels, entityLabel, formatNumber, deviceLabel } from '../../src/utils.js';
 
 test('uniqueLabels: passthrough when no labels collide', () => {
   const items = [
@@ -51,4 +51,38 @@ test('uniqueLabels: does not mutate items that are not part of any collision', (
   ];
   const result = uniqueLabels(items);
   assert.equal(result.find(r => r.entityId === 'sensor.c').label, 'Unique');
+});
+
+test('formatNumber: drops ".0", rounds ≥ 100, abbreviates ≥ 10 000', () => {
+  assert.equal(formatNumber(4), '4');
+  assert.equal(formatNumber(2.5), '2.5');
+  assert.equal(formatNumber(57.13), '57.1');
+  assert.equal(formatNumber(-20.9), '-20.9');
+  assert.equal(formatNumber(123.6), '124');
+  assert.equal(formatNumber(15741), '15.7k');
+  assert.equal(formatNumber(20000), '20k');
+});
+
+test('entityLabel: strips the device registry name from friendly_name', () => {
+  const hass  = { devices: { cam: { name: 'Cam Esterno' } } };
+  const state = { attributes: { friendly_name: 'Cam Esterno motion detection' } };
+  assert.equal(entityLabel(hass, 'switch.x', state, 'cam'), 'Motion detection');
+});
+
+test('entityLabel: falls back to the area name prefix, then to the last word', () => {
+  const hass = { devices: {} };
+  assert.equal(entityLabel(hass, 'switch.x', { attributes: { friendly_name: 'Living Room Floor Lamp' } }, null, 'Living Room'), 'Floor Lamp');
+  assert.equal(entityLabel(hass, 'switch.x', { attributes: { friendly_name: 'Some Smart Plug' } }, null, 'Kitchen'), 'Plug');
+});
+
+test('entityLabel: a friendly_name equal to the device name is not stripped to nothing', () => {
+  const hass  = { devices: { plug: { name: 'Coffee Plug' } } };
+  const state = { attributes: { friendly_name: 'Coffee Plug' } };
+  assert.equal(entityLabel(hass, 'switch.x', state, 'plug'), 'Plug');
+});
+
+test('deviceLabel: strips the area name (slug or spaced) off the registry name', () => {
+  const hass = { devices: { ths: { name: 'ripostiglio_interno_ths' }, d017: { name: 'D017-Dehumidifier-5V' } } };
+  assert.equal(deviceLabel(hass, 'ths', [], 'Ripostiglio Interno'), 'Ths');
+  assert.equal(deviceLabel(hass, 'd017', [], 'Ripostiglio Interno'), 'D017-Dehumidifier-5V');
 });

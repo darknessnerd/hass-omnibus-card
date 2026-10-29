@@ -105,8 +105,15 @@ const PRIVACY_RE = /_(privacy|riservatezza|suspend|sospensione)$/i;
  * Buckets a flat entity list into semantic groups by domain / device_class.
  * Each bucket is an array of { entityId, state } items (ptz items also carry `direction`).
  * The `others` bucket feeds the generic chip strip.
+ *
+ * `showDiagnostics: false` (the card's default, see viewModel.js) keeps
+ * config/diagnostic-category entities out of every *display* bucket (chips,
+ * controls, settings) — a camera's "Motion sensitivity" select or a router's
+ * "Reboot" button is a setup knob, not something a wall panel should surface.
+ * They still feed the data buckets (batteries → low-battery badge, updates,
+ * problems), and battery sensors stop doubling as chips (the badge covers them).
  */
-export function classify(areaEntities) {
+export function classify(areaEntities, { showDiagnostics = true } = {}) {
   const out = {
     lights: [], climate: [],
     temperatures: [], humidities: [], weathers: [],
@@ -129,6 +136,7 @@ export function classify(areaEntities) {
     // averages; they are still valid `others`/diagnostic items, just not room
     // climate data. `diagnostic` and `config` are explicit non-ambient cases.
     const isAmbient = item.entityCategory == null || (item.entityCategory !== 'diagnostic' && item.entityCategory !== 'config');
+    const hidden    = !showDiagnostics && !isAmbient;
 
     if      (domain === 'light')                                                            out.lights.push(item);
     else if (domain === 'climate')                                                          out.climate.push(item);
@@ -153,10 +161,11 @@ export function classify(areaEntities) {
     else if (domain === 'binary_sensor' && dc === 'smoke')                                  out.smokes.push(item);
     else if (domain === 'binary_sensor' && dc === 'gas')                                    out.gases.push(item);
     else if (domain === 'binary_sensor' && dc === 'moisture')                               out.moistures.push(item);
-    else if (domain === 'sensor'        && dc === 'battery' && val !== 'unavailable') { out.batteries.push(item); out.others.push(item); }
-    else if (domain === 'switch'        && PRIVACY_RE.test(entityId))               { out.cameraPrivacy.push(item); out.others.push(item); }
+    else if (domain === 'sensor'        && dc === 'battery' && val !== 'unavailable') { out.batteries.push(item); if (showDiagnostics) out.others.push(item); }
+    else if (domain === 'switch'        && PRIVACY_RE.test(entityId))               { out.cameraPrivacy.push(item); if (!hidden) out.others.push(item); }
     else if (val === 'unavailable' || (domain === 'binary_sensor' && ['problem', 'safety'].includes(dc) && val === 'on'))
                                                                                             out.problems.push(item);
+    else if (hidden)                                                                        continue;
     else if (domain === 'siren')                                                            out.controls.push(item);
     else if (domain === 'button') {
       const match = entityId.match(PTZ_RE);
@@ -237,7 +246,7 @@ function dedupeBucketLabels(bucket) {
  * (cameraDeviceId — its own entity never lands in these pools, see classify()'s
  * `cameras` bucket), otherwise deviceIcon()'s pick off the device's own items.
  */
-export function groupTabsByDevice(hass, { ptz, controls, settings, diagnostics }, cameraDeviceId = null) {
+export function groupTabsByDevice(hass, { ptz, controls, settings, diagnostics }, cameraDeviceId = null, areaName = '') {
   const pools = { ptz, controls, settings, diagnostics };
   const emptyBucket = () => ({ ptz: [], controls: [], settings: [], diagnostics: [] });
   const countOf = b => b.ptz.length + b.controls.length + b.settings.length + b.diagnostics.length;
@@ -260,7 +269,7 @@ export function groupTabsByDevice(hass, { ptz, controls, settings, diagnostics }
       const deduped  = dedupeBucketLabels(bucket);
       const allItems = [...deduped.ptz, ...deduped.controls, ...deduped.settings, ...deduped.diagnostics];
       const icon     = deviceId === cameraDeviceId ? 'mdi:cctv' : deviceIcon(deduped);
-      groups.push({ key: deviceId, label: deviceLabel(hass, deviceId, allItems), icon, ...deduped });
+      groups.push({ key: deviceId, label: deviceLabel(hass, deviceId, allItems, areaName), icon, ...deduped });
     }
   }
   other = dedupeBucketLabels(other);

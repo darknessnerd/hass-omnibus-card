@@ -74,25 +74,28 @@ area: living_room          entities: [light.x, sensor.y]
 | Light indicator | Always-visible badge — colored when on, grey when off; tap to toggle; offline dot when any light unavailable |
 | Climate state | Heat/cool/auto/dry/fan icons with live temperature |
 | Safety alarms | Smoke, gas, water — pulsing alarm bar, high priority |
-| Battery badge | Battery sensors always show as chips; a low-battery badge (lowest charge + level-based icon) additionally appears when any drops to/below `battery_low_threshold` |
-| Mold risk | Humidity above configurable threshold → warning badge |
+| Battery badge | A low-battery badge (lowest charge + level-based icon) appears when any battery drops to/below `battery_low_threshold`. Battery sensors only show as chips with `show_diagnostics: true` |
+| Mold risk | Humidity above configurable threshold → amber warning badge |
 | Problem counter | Unavailable entities + problem/tamper binary sensors |
-| Entity chip strip | Interactive chips for remaining entities — tap opens more-info |
+| Entity chip strip | Interactive chips for remaining entities. Tap toggles `light`/`switch`/`fan`/`input_boolean`/`cover`/`media_player`/`humidifier`/`automation` and runs `scene`/`script`; long-press (or tap on read-only entities, locks, alarm panels) opens more-info. `chip_tap_action: more-info` restores read-only taps. Labels strip the device / area name from `friendly_name` ("Cam Esterno Motion detection" → "Motion detection") |
+| Wall-panel layout | `layout: panel` — same card, sized for a wall-mounted tablet: every tap target ≥ 44px, headline temperature/humidity readable from a distance |
+| Section visibility | `hide: [camera, env, chips, weather, devices, history]` drops whole sections, so one card can be a slim status tile or a full control surface. Safety alarms (smoke/gas/water/mold) can't be hidden |
+| Declutter by default | Entities HA marks `entity_category: config` or `diagnostic` (sensitivity selects, reboot buttons, IP sensors…) and read-only device diagnostics are hidden. `show_diagnostics: true` brings them back |
 | Room navigation | Tap card → navigate to any dashboard path |
 | Error handling | Clear error card when area ID is wrong or not found |
 | Shadow DOM CSS | Styles fully isolated — won't break your theme |
 | Entity filtering | Whitelist mode (`entities`), additive pinning (`add_entities`), exclusion (`exclude_entities`) |
 | Performance | Hash diff guard: DOM only rebuilds when area state actually changes |
-| History chart | Background sparkline, points spaced by real elapsed time; min/max/period/trend labels; fill zones colored by threshold (clipPath, not gradient); hover/tap a point for its exact value; "No numeric history" note instead of a silent blank area for the wrong entity domain |
+| History chart | Background sparkline, points spaced by real elapsed time; trend arrow (min/max/period labels opt-in via `show_stats: true`); fill zones colored by threshold (clipPath, not gradient); hover/tap a point for its exact value; "No numeric history" note instead of a silent blank area for the wrong entity domain |
 | History Y axis | `y_min` / `y_max` pin the sparkline scale floor/ceiling — data never clips, scale expands to fit |
 | Debug logging | `debug: true` emits console.debug on every render with entity states and view-model snapshot |
 | Camera preview | First `camera.*` entity in the area renders as a snapshot banner (uses the entity's own `entity_picture`); tap opens more-info; refresh button (top-left) re-fetches the snapshot; red dot while `state: recording`; dimmed + "(offline)" title while `state: unavailable`; disable with `show_camera: false`. Additional cameras in the same area still appear as regular chips |
 | Controls | `siren`/`button` entities always group into a "press to act" pill, regardless of device. Tap: button → `button.press`, siren → `siren.toggle` |
 | Settings | Any other *operable* entity (switch, select, number, lock…) that shares a *device* with at least one other operable/diagnostic entity groups into a "configure" pill — tap opens more-info. Read-only domains (`sensor`, `binary_sensor`, `image`) never join it, even on the same device — see "Diagnostics" below |
-| Diagnostics | Read-only `sensor`/`binary_sensor`/`image` entities sharing a device with at least one other operable/diagnostic entity group into a pill (IP address, PIR state, alarm codes, battery, etc.). A device that clears this threshold via its *other* entities still gets a diagnostics pill even for a single reading of its own — see [DEVELOPMENT.md](DEVELOPMENT.md) |
+| Diagnostics | Hidden unless `show_diagnostics: true`. Read-only `sensor`/`binary_sensor`/`image` entities sharing a device with at least one other operable/diagnostic entity group into a pill (IP address, PIR state, alarm codes, battery, etc.). A device that clears this threshold via its *other* entities still gets a diagnostics pill even for a single reading of its own — see [DEVELOPMENT.md](DEVELOPMENT.md) |
 | PTZ pad | `button` entities matching a PTZ naming pattern (`*_ptz_up/down/left/right`, English or Italian) collapse into a single directional-pad chip instead of one chip per direction; each arrow segment presses its own button |
-| Device tabs | Controls/Settings/Diagnostics/PTZ segments regroup by *physical device* — not by action type — into one exclusive tab strip: a room with an unrelated camera + IR blaster + LED gets 3 separate tabs (one per device) instead of one shared "Settings" pill with no indication of which entity belongs to which device. A device pushing only 1 qualifying entity isn't worth its own tab and folds into a shared "Other" tab; tab label comes from the device registry name. Opening a tab closes whichever one was open, so switching never stacks extra height on top of an already-expanded section, and only one panel of chips is ever in the DOM. No tab is open by default; `controls_collapsed: false` opens the first available tab (the camera's device first, then by entity count) instead. Disable tabs entirely with `collapsible_controls: false` — every device renders stacked and always expanded, no tab bar. Active tab persists across state updates but resets on config reload. Within a device's tab, each role's pill (PTZ/Controls/Settings/Diagnostics) gets its own small text caption — bundling multiple roles into one tab loses the old per-tab label as a boundary cue, so the caption restores it. No internal scroll/height cap — a busy device (a real IR blaster can expose 25+ segments) makes the card taller instead of clipping content behind a nested scroll region |
-| Weather chip | `sensor` entities with `device_class: wind_speed / precipitation / illuminance / sound_pressure` collapse into a single chip — one icon+value segment per reading, color-tinted by device_class and divided by a hairline — instead of a chip per sensor. Wind gust/max readings (entity_id ending `_max`/`_gust`/`_peak`) get a distinct icon from the plain average, since both share `device_class: wind_speed` |
+| Device tabs | Controls/Settings/Diagnostics/PTZ segments regroup by *physical device* — not by action type — into one exclusive tab strip: a room with an unrelated camera + IR blaster + LED gets 3 separate tabs (one per device) instead of one shared "Settings" pill with no indication of which entity belongs to which device. A device pushing only 1 qualifying entity isn't worth its own tab and folds into a shared "Other" tab; tab label comes from the device registry name. Opening a tab closes whichever one was open, so switching never stacks extra height on top of an already-expanded section, and only one panel of chips is ever in the DOM. No tab is open by default; `controls_collapsed: false` opens the first available tab (the camera's device first, then by entity count) instead. Disable tabs entirely with `collapsible_controls: false` — every device renders stacked and always expanded, no tab bar. Active tab persists across state updates but resets on config reload. Within a device's tab, each role's pill (PTZ/Controls/Settings/Diagnostics) gets its own small text caption once two or more roles share the tab. Tab labels drop the area name prefix ("Ripostiglio Interno THS" in a Ripostiglio Interno card → "THS"). No internal scroll/height cap — a busy device (a real IR blaster can expose 25+ segments) makes the card taller instead of clipping content behind a nested scroll region |
+| Weather chip | `sensor` entities with `device_class: wind_speed / precipitation / illuminance / sound_pressure` collapse into a single chip — one icon+value segment per reading, color-tinted by device_class and divided by a hairline — instead of a chip per sensor. Shows up to `max_weather` readings (default 3) plus a "+N" segment; values are compacted (`4 km/h`, `15.7k lx`). Wind gust/max readings (entity_id ending `_max`/`_gust`/`_peak`) get a distinct icon from the plain average, since both share `device_class: wind_speed` |
 | Firmware update badge | Any `update.*` entity reporting an update available (`state: on`) shows a header badge (count if more than one), mirroring the low-battery badge; tap opens more-info |
 | Label overrides | `entity_labels: { entity_id: 'Custom label' }` renames any chip/segment label — useful when an entity's `friendly_name` (often unlocalized/verbose on custom integrations) doesn't produce a good chip label |
 
@@ -150,6 +153,9 @@ area: living_room          # Home Assistant area_id (not the display name)
 # ── Display ───────────────────────────────────────────────────────────
 name: Soggiorno            # Override the area display name
 icon: mdi:sofa             # Override the card icon (default: area icon or mdi:home)
+layout: compact            # compact (default) | panel — wall-mounted tablet sizing, ≥ 44px touch targets
+hide: []                   # Sections to drop: camera, env, chips, weather, devices, history (alarms always show)
+show_diagnostics: false    # Show config/diagnostic-category entities, battery chips and device diagnostics (default: false)
 
 # ── Navigation ────────────────────────────────────────────────────────
 navigate_to: /lovelace/1   # Tap the card body → navigate (SPA, no page reload)
@@ -175,6 +181,8 @@ show_entities: true        # Show the entity chip strip (default: true) — also
 max_entities: 12           # Max chips to display (default: 12)
 entity_labels:             # Per-entity chip/segment label overrides (optional)
   sensor.bresser_7in1_65351_noise: Noise    # e.g. rename an ambiguous last-word label
+chip_tap_action: toggle    # toggle (default: tap toggles lights/switches/…, long-press = more-info) | more-info
+max_weather: 3             # Weather readings shown before folding the rest into "+N" (default: 3)
 
 # ── Device tabs (Controls/Settings/Diagnostics/PTZ, regrouped by device) ──
 collapsible_controls: true    # Group entities behind one exclusive tab strip, one tab per device — only one panel's chips render at a time (default: true)
@@ -206,6 +214,7 @@ history_chart:
   color_low: 'rgba(33,150,243,0.18)'   # default: blue tint
   y_min: 0                        # pin Y axis floor — prevents baseline from floating up to data min (optional)
   y_max: 40                       # pin Y axis ceiling (optional)
+  show_stats: false               # show min/max/period corner labels (default: false — trend arrow only)
 
 # ── Debug ──────────────────────────────────────────────────────────────
 debug: false                   # true → console.debug on every render with entity states + view-model
@@ -226,7 +235,7 @@ debug: false                   # true → console.debug on every render with ent
 | `binary_sensor` + `device_class: smoke` | Alarm bar |
 | `binary_sensor` + `device_class: gas` | Alarm bar |
 | `binary_sensor` + `device_class: moisture` | Alarm bar |
-| `sensor` + `device_class: battery` | Entity chip strip (always) + battery badge (header) when ≤ `battery_low_threshold` |
+| `sensor` + `device_class: battery` | Battery badge (header) when ≤ `battery_low_threshold`; entity chip only with `show_diagnostics: true` |
 | `binary_sensor` + `device_class: problem/tamper/safety` (on) | Problem badge |
 | Any entity with state `unavailable` | Problem badge |
 | `camera.*` (first found) | Camera snapshot preview banner |
@@ -374,6 +383,29 @@ The chart is fetched once via `hass.callWS` and cached for 5 minutes (and pruned
 **Note:** Requires Home Assistant 2022.6+ (history WebSocket API). No effect on installs that block the `history/history_during_period` WebSocket call.
 
 ---
+
+### Wall-mounted control panel
+
+One card per room on a tablet dashboard: big touch targets, tap toggles, long-press opens full controls. Drop what a wall panel doesn't need.
+
+```yaml
+type: grid
+columns: 2
+square: false
+cards:
+  - type: custom:hass-omnibus-card
+    area: living_room
+    layout: panel
+    hide: [history]
+  - type: custom:hass-omnibus-card
+    area: kitchen
+    layout: panel
+    hide: [history, weather]
+  - type: custom:hass-omnibus-card
+    area: entrance
+    layout: panel
+    hide: [env]            # camera + door status + siren only
+```
 
 ### Multiple rooms in a grid
 

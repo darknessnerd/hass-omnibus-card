@@ -467,3 +467,19 @@ test('classify: "door"/"window"/"garage_door" device_classes also land in openin
   const { openings } = classify(mixed);
   assert.equal(openings.length, 3);
 });
+
+test('classify showDiagnostics: false — config/diagnostic entities drop out of display buckets, still feed data buckets', () => {
+  const entities = [
+    item('select.cam_sensitivity', { state: 'high', attributes: {} }, 'cam', 'config'),
+    item('button.cam_reboot',      { state: 'unknown', attributes: {} }, 'cam', 'config'),
+    item('sensor.cam_ip',          { state: '10.0.0.2', attributes: {} }, 'cam', 'diagnostic'),
+    item('sensor.cam_battery',     { state: '80', attributes: { device_class: 'battery' } }, 'cam', 'diagnostic'),
+    item('switch.cam_siren_light', { state: 'off', attributes: {} }, 'cam'),
+  ];
+  const c = classify(entities, { showDiagnostics: false });
+  assert.equal(c.batteries.length, 1);
+  assert.deepEqual([...c.others, ...c.settings, ...c.diagnostics, ...c.controls].map(e => e.entityId), ['switch.cam_siren_light']);
+
+  const all = classify(entities);
+  assert.ok(all.controls.some(e => e.entityId === 'button.cam_reboot'));
+});

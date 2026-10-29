@@ -377,8 +377,10 @@ export const CARD_STYLES = `
 
   .chip ha-icon { --mdc-icon-size: 14px; }
 
+  /* Wide enough for a stripped entity name ("Motion detection") — labels
+     come from entityLabel() now, not just friendly_name's last word. */
   .chip-label {
-    max-width: 4.5rem;
+    max-width: 7rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -438,7 +440,7 @@ export const CARD_STYLES = `
 
   .seg-label {
     font-size: 0.72rem;
-    max-width: 3.4rem;
+    max-width: 6rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -499,6 +501,8 @@ export const CARD_STYLES = `
   .weather-seg[data-dc="precipitation"] ha-icon  { color: #0288d1; }
   .weather-seg[data-dc="illuminance"] ha-icon    { color: #f9a825; }
   .weather-seg[data-dc="sound_pressure"] ha-icon { color: #8e24aa; }
+
+  .weather-more { opacity: 0.7; }
 
   /* Shared "all clear" swatch for opening/tamper segments — green, not grey,
      so closed/normal reads as a positive state at a glance (not just an
@@ -644,13 +648,11 @@ export const CARD_STYLES = `
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    max-width: 6.5rem;
+    max-width: 9rem;
     padding: 3px 9px;
     border-radius: 12px;
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     color: var(--secondary-text-color);
     opacity: 0.6;
     cursor: pointer;
@@ -713,7 +715,50 @@ export const CARD_STYLES = `
   .alarm-smoke { background: rgba(244, 67, 54, 0.15); color: #f44336; }
   .alarm-gas   { background: rgba(255, 152, 0, 0.15); color: #ff9800; }
   .alarm-water { background: rgba(33, 150, 243, 0.15); color: #2196f3; }
-  .alarm-mold  { background: rgba(76, 175, 80, 0.15);  color: #4caf50; }
+  /* Amber, not green — green reads as "all clear" everywhere else on the
+     card (closed doors, normal tamper), so a risk badge can't wear it. */
+  .alarm-mold  { background: rgba(255, 152, 0, 0.15); color: var(--warning-color, #ff9800); animation: none; }
+
+  /* ── layout: panel ── Wall-mounted tablet mode: every tap target reaches
+     ≥ 44px (WCAG 2.5.5 / Apple HIG), headline numbers readable from a couple
+     of metres away. Same markup as compact — only sizing changes, so every
+     template and event binding stays shared. */
+  ha-card.layout-panel .card-content { padding: 20px 22px 18px; }
+
+  ha-card.layout-panel .header       { margin-bottom: 14px; }
+  ha-card.layout-panel .room-icon    { --mdc-icon-size: 30px; }
+  ha-card.layout-panel .room-name    { font-size: 1.35rem; }
+  ha-card.layout-panel .header-right { gap: 10px; }
+
+  ha-card.layout-panel .badge         { padding: 8px 14px; font-size: 0.95rem; min-height: 44px; box-sizing: border-box; border-radius: 22px; }
+  ha-card.layout-panel .badge ha-icon { --mdc-icon-size: 22px; }
+  ha-card.layout-panel .occupancy-dot { width: 12px; height: 12px; }
+
+  ha-card.layout-panel .env-row         { gap: 12px; margin-bottom: 16px; }
+  ha-card.layout-panel .env-chip        { font-size: 1.6rem; padding: 6px 12px; gap: 6px; }
+  ha-card.layout-panel .env-chip ha-icon { --mdc-icon-size: 26px; }
+
+  ha-card.layout-panel .entity-chips  { gap: 10px; }
+  ha-card.layout-panel .chip          { min-height: 48px; padding: 10px 16px; font-size: 0.95rem; gap: 8px; border-radius: 24px; box-sizing: border-box; }
+  ha-card.layout-panel .chip ha-icon  { --mdc-icon-size: 22px; }
+  ha-card.layout-panel .chip-label    { max-width: 10rem; }
+
+  ha-card.layout-panel .group-chip        { padding: 3px 4px; min-height: 0; }
+  ha-card.layout-panel .group-seg         { min-height: 44px; padding: 8px 12px; gap: 6px; border-radius: 20px; }
+  ha-card.layout-panel .group-seg ha-icon { --mdc-icon-size: 20px; }
+  ha-card.layout-panel .group-seg-value,
+  ha-card.layout-panel .seg-label         { font-size: 0.9rem; }
+  ha-card.layout-panel .seg-label         { max-width: 9rem; }
+  ha-card.layout-panel .group-section     { margin-bottom: 12px; }
+
+  ha-card.layout-panel .section-tab         { min-height: 40px; max-width: 10rem; padding: 8px 14px; font-size: 0.8rem; border-radius: 20px; box-sizing: border-box; }
+  ha-card.layout-panel .section-tab ha-icon { --mdc-icon-size: 18px; }
+
+  ha-card.layout-panel .alarm-badge         { padding: 10px 16px; font-size: 1rem; border-radius: 22px; }
+  ha-card.layout-panel .alarm-badge ha-icon { --mdc-icon-size: 22px; }
+
+  ha-card.layout-panel .camera-refresh-btn  { width: 40px; height: 40px; }
+  ha-card.layout-panel .camera-refresh-btn ha-icon { --mdc-icon-size: 22px; }
 
   /* ── Error state ── */
 

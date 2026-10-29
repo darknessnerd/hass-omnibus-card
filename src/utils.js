@@ -14,6 +14,54 @@ export function friendlyLabel(entityId, state) {
 }
 
 /**
+ * Chip label for a device-linked entity: modern HA builds friendly_name as
+ * "<device name> <entity name>", so stripping the device's own registry name
+ * (or, failing that, the area name) leaves the part that actually says what
+ * the entity does ("Cam Esterno Motion detection" → "Motion detection")
+ * instead of the last word alone ("detection") or a truncated device prefix
+ * ("Cam Esterno Mot…"). Falls back to friendlyLabel when no prefix matches.
+ */
+export function entityLabel(hass, entityId, state, deviceId = null, areaName = '') {
+  const full = state.attributes?.friendly_name;
+  if (!full) return friendlyLabel(entityId, state);
+
+  const device = deviceId ? hass.devices?.[deviceId] : null;
+  return stripPrefix(full, [device?.name_by_user, device?.name, areaName]) ?? friendlyLabel(entityId, state);
+}
+
+// First of `prefixes` that `full` starts with (case-insensitive, whole words,
+// "_" treated as a space so slug-style names match too) — returns the
+// capitalized remainder, or null when none match or nothing would be left.
+function stripPrefix(full, prefixes) {
+  const norm = str => str.replace(/_/g, ' ').toLowerCase();
+  for (const prefix of prefixes.filter(Boolean)) {
+    if (full.length > prefix.length && norm(full).startsWith(norm(prefix) + ' ')) {
+      const rest = full.slice(prefix.length + 1).replace(/_/g, ' ').trim();
+      if (rest) return rest[0].toUpperCase() + rest.slice(1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Compact numeric display for glanceable readings — drops a meaningless ".0",
+ * rounds values ≥ 100 to integers and abbreviates ≥ 10 000 as "15.7k", so a
+ * lux reading of 15741.0 doesn't eat half a segment's width.
+ *
+ * Example:
+ *   formatNumber(4)       → '4'
+ *   formatNumber(57.13)   → '57.1'
+ *   formatNumber(123.6)   → '124'
+ *   formatNumber(15741)   → '15.7k'
+ */
+export function formatNumber(num) {
+  const abs = Math.abs(num);
+  if (abs >= 10000) return `${(num / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  if (abs >= 100)   return String(Math.round(num));
+  return num.toFixed(1).replace(/\.0$/, '');
+}
+
+/**
  * De-duplicates last-word chip labels within one rendered group (e.g. two
  * entities that both happen to end in "Allarme"). Each item needs `label`
  * (from friendlyLabel), `fullName` (the untruncated friendly_name/entity_id),
@@ -57,10 +105,12 @@ export function uniqueLabels(items) {
  * + switch.ir_clima_cucina_switch2 → "Ir Clima Cucina") for mocks/tests with no
  * device name, and finally to a generic label if even that comes up empty.
  */
-export function deviceLabel(hass, deviceId, items) {
+export function deviceLabel(hass, deviceId, items, areaName = '') {
   const device = hass.devices?.[deviceId];
   const registryName = device?.name_by_user ?? device?.name;
-  if (registryName) return registryName;
+  // The tab already sits inside the area's card — "Ripostiglio Interno THS"
+  // in a "Ripostiglio Interno" card only needs "THS".
+  if (registryName) return stripPrefix(registryName, [areaName]) ?? registryName;
 
   const slugs = items.map(({ entityId }) => entityId.split('.')[1].split('_'));
   let prefix = slugs[0] ?? [];

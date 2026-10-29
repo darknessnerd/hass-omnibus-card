@@ -101,11 +101,12 @@ function renderEnvRow({ tempVal, humVal, tempUnit, tempEntities, humEntities, cl
 // strip in renderSectionGroup(); this stays always-visible.
 function renderGroupSection(label, className, pillHtml) {
   if (!pillHtml) return '';
-  return `<div class="group-section"><span class="group-label ${className}">${label}</span>${pillHtml}</div>`;
+  return `<div class="group-section">${label ? `<span class="group-label ${className}">${label}</span>` : ''}${pillHtml}</div>`;
 }
 
-function renderWeatherChip({ weatherItems }) {
+function renderWeatherChip({ weatherItems, weatherOverflow = [] }) {
   if (!weatherItems.length) return '';
+  const overflowTitle = weatherOverflow.map(w => w.title).join('\n');
   return `
     <div class="chip group-chip weather-chip">
       ${weatherItems.map(({ entityId, dc, icon, value, unit, title }) => `
@@ -113,6 +114,10 @@ function renderWeatherChip({ weatherItems }) {
           <ha-icon icon="${icon}"></ha-icon>
           <span class="group-seg-value">${value}${unit ? ' ' + unit : ''}</span>
         </span>`).join('')}
+      ${weatherOverflow.length ? `
+        <span class="group-seg weather-seg weather-more" data-entity="${weatherOverflow[0].entityId}" role="button" tabindex="0" aria-label="${overflowTitle}" title="${overflowTitle}">
+          <span class="group-seg-value">+${weatherOverflow.length}</span>
+        </span>` : ''}
     </div>`;
 }
 
@@ -150,8 +155,8 @@ function renderOpeningsChip({ openingItems }) {
 function renderChipItems({ chipItems }) {
     return `${chipItems.length ? `
       <div class="entity-chips">
-        ${chipItems.map(({ entityId, isActive, icon, label, title }) => `
-          <div class="chip${isActive ? ' on' : ''}" data-entity="${entityId}" role="button" tabindex="0" aria-label="${title}" title="${title}">
+        ${chipItems.map(({ entityId, domain, tapAction, isActive, icon, label, title }) => `
+          <div class="chip${isActive ? ' on' : ''}" data-entity="${entityId}" data-domain="${domain}" data-tap="${tapAction}" role="button" tabindex="0" aria-label="${title}" title="${title}">
             <ha-icon icon="${icon}"></ha-icon>
             <span class="chip-label">${label}</span>
           </div>`).join('')}
@@ -171,13 +176,17 @@ function renderDiagnosticsChip({ diagnosticsItems }) {
     </div>`;
 }
 
-function renderChips({ chipItems, weatherItems }) {
-  const chipsSection  = renderGroupSection('', '', renderChipItems({ chipItems }));
-  const weatherSection = renderGroupSection('Weather', 'group-label-weather', renderWeatherChip({ weatherItems }));
-  if (!chipItems.length && !weatherSection) return '';
-  return `${chipsSection}
-    ${weatherSection}
-    `;
+// Weather renders without a caption: its per-device_class icon tints (wind/
+// rain/light/sound) already say what each reading is, and a caption row above
+// a single pill cost more height than it bought clarity.
+function renderChips({ chipItems, hidden }) {
+  if (hidden.has('chips')) return '';
+  return renderGroupSection('', '', renderChipItems({ chipItems }));
+}
+
+function renderWeather({ weatherItems, weatherOverflow, hidden }) {
+  if (hidden.has('weather')) return '';
+  return renderGroupSection('', '', renderWeatherChip({ weatherItems, weatherOverflow }));
 }
 
 function renderCameraPreview({ hasCamera, cameraImage, cameraIcon, cameraEntity, cameraTitle, cameraState, cameraOffline, cameraPrivacy }) {
@@ -233,8 +242,8 @@ function renderSettingsChip({ settingsItems }) {
   if (!settingsItems.length) return '';
   return `
     <div class="chip group-chip settings-chip">
-      ${settingsItems.map(({ entityId, domain, isActive, icon, label, title }) => `
-        <span class="group-seg settings-seg${isActive ? ' on' : ''}" data-entity="${entityId}" data-domain="${domain}" role="button" tabindex="0" aria-label="${title}" title="${title}">
+      ${settingsItems.map(({ entityId, domain, tapAction, isActive, icon, label, title }) => `
+        <span class="group-seg settings-seg${isActive ? ' on' : ''}" data-entity="${entityId}" data-domain="${domain}" data-tap="${tapAction}" role="button" tabindex="0" aria-label="${title}" title="${title}">
           <ha-icon icon="${icon}"></ha-icon>
           <span class="seg-label">${label}</span>
         </span>`).join('')}
@@ -275,10 +284,14 @@ function renderDeviceRoleSections({ ptz, controls, settings, diagnostics }) {
   ].filter(s => s.pill);
 }
 
+// A caption only earns its row once two or more roles share the tab — a
+// device with nothing but settings doesn't need "SETTINGS" spelled out above
+// its one pill.
 function renderRoleSections(roleSections) {
+  const captioned = roleSections.length > 1;
   return roleSections.map(({ role, pill }) => `
     <div class="device-role">
-      <span class="device-role-label">${ROLE_LABELS[role]}</span>
+      ${captioned ? `<span class="device-role-label">${ROLE_LABELS[role]}</span>` : ''}
       ${pill}
     </div>`).join('');
 }
@@ -370,12 +383,18 @@ function renderChartOverlay({ historyMin, historyMax, historyUnit: u, historyHou
     ? `<span class="chart-stat stat-trend trend-${historyTrend}" title="Trending ${TREND_LABEL[historyTrend]} over ${historyHours}h">${TREND_GLYPH[historyTrend]}</span>`
     : '';
 
+  // min/max/period corner stats are opt-in (history_chart.show_stats) — the
+  // chart is ambient background; three always-on numbers over it competed
+  // with the headline temperature. The trend arrow stays: one glyph, one meaning.
+  const stats = hc.show_stats ? `
+      <span class="chart-stat stat-max">↑ ${historyMax.toFixed(1)}${u}</span>
+      <span class="chart-stat stat-period" title="Tracking ${hc.entity_id} — may differ from the averaged value shown above">${historyHours}h</span>
+      <span class="chart-stat stat-min">↓ ${historyMin.toFixed(1)}${u}</span>` : '';
+
   return `
     <div class="chart-overlay">
       ${trendBadge}
-      <span class="chart-stat stat-max">↑ ${historyMax.toFixed(1)}${u}</span>
-      <span class="chart-stat stat-period" title="Tracking ${hc.entity_id} — may differ from the averaged value shown above">${historyHours}h</span>
-      <span class="chart-stat stat-min">↓ ${historyMin.toFixed(1)}${u}</span>
+      ${stats}
       ${thresholdLabels.join('')}
     </div>`;
 }
@@ -385,7 +404,8 @@ export function renderCard(vm) {
   const bgStyle   = vm.lightColor
     ? `background: linear-gradient(135deg, ${vm.lightColor}1a 0%, var(--ha-card-background, var(--card-background-color, transparent)) 60%);`
     : '';
-  const cardClass = [vm.navPath ? 'clickable' : '', hasAlarm ? 'alarm-active' : ''].filter(Boolean).join(' ');
+  const cardClass = [vm.navPath ? 'clickable' : '', hasAlarm ? 'alarm-active' : '', `layout-${vm.layout}`].filter(Boolean).join(' ');
+  const show      = key => !vm.hidden.has(key);
   return `
     <style>${CARD_STYLES}</style>
     <ha-card
@@ -394,14 +414,15 @@ export function renderCard(vm) {
       ${vm.navPath ? `role="button" tabindex="0"` : ''}
       aria-label="${vm.areaName}"
     >
-      ${vm.historyPoints ? sparklineSvg(vm.historyPoints, vm.historyColor, vm.historyChart, vm.historyUnit) : ''}
-      ${renderChartOverlay(vm)}
+      ${vm.historyPoints && show('history') ? sparklineSvg(vm.historyPoints, vm.historyColor, vm.historyChart, vm.historyUnit) : ''}
+      ${show('history') ? renderChartOverlay(vm) : ''}
       <div class="card-content">
-        ${renderCameraPreview(vm)}
+        ${show('camera') ? renderCameraPreview(vm) : ''}
         ${renderHeader(vm)}
-        ${renderEnvRow(vm)}
+        ${show('env') ? renderEnvRow(vm) : ''}
         ${renderChips(vm)}
-        ${renderSectionGroup(vm)}
+        ${renderWeather(vm)}
+        ${show('devices') ? renderSectionGroup(vm) : ''}
         ${renderAlarmBar(vm)}
       </div>
     </ha-card>`;
