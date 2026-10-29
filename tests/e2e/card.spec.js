@@ -179,6 +179,57 @@ test('problem badge — problem binary_sensor on', async ({ page }) => {
   await expect(page.locator('#mount')).toHaveScreenshot('problems.png', SNAP);
 });
 
+test('problem badge — click opens a popup listing each problem entity + reason', async ({ page }) => {
+  await mount(page, CARD, {
+    'binary_sensor.problem': { state: 'on', attributes: { friendly_name: 'Problem sensor', device_class: 'problem' } },
+    'switch.outlet':         { state: 'unavailable', attributes: { friendly_name: 'Outlet' } },
+  });
+  const dialog = page.locator('#mount').locator('.problems-dialog');
+  await expect(dialog).not.toBeVisible();
+  await page.locator('#mount').locator('.status-seg-problem').click();
+  await expect(dialog).toBeVisible();
+  const rows = dialog.locator('.problem-row');
+  await expect(rows).toHaveCount(2);
+  await expect(dialog.locator('.problem-row[data-entity="switch.outlet"] .problem-reason')).toHaveText('Unavailable');
+  await expect(dialog.locator('.problem-row[data-entity="binary_sensor.problem"] .problem-reason')).toHaveText('Problem detected');
+  await expect(page).toHaveScreenshot('problems-dialog.png', SNAP);
+});
+
+test('problem popup — row click closes popup and opens that entity\'s more-info', async ({ page }) => {
+  await mount(page, CARD, {
+    'switch.outlet': { state: 'unavailable', attributes: { friendly_name: 'Outlet' } },
+  });
+  await page.locator('#mount').locator('.status-seg-problem').click();
+  const moreInfo = page.evaluate(() => new Promise(resolve => {
+    document.addEventListener('hass-more-info', e => resolve(e.detail.entityId), { once: true });
+  }));
+  await page.locator('#mount').locator('.problem-row[data-entity="switch.outlet"]').click();
+  expect(await moreInfo).toBe('switch.outlet');
+  await expect(page.locator('#mount').locator('.problems-dialog')).not.toBeVisible();
+});
+
+test('problem popup — Escape and close button both dismiss it', async ({ page }) => {
+  await mount(page, CARD, {
+    'switch.outlet': { state: 'unavailable', attributes: { friendly_name: 'Outlet' } },
+  });
+  const dialog = page.locator('#mount').locator('.problems-dialog');
+  await page.locator('#mount').locator('.status-seg-problem').click();
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await page.locator('#mount').locator('.status-seg-problem').click();
+  await page.locator('#mount').locator('.problems-close').click();
+  await expect(dialog).not.toBeVisible();
+});
+
+test('problem popup — stays open across a re-render', async ({ page }) => {
+  await mount(page, CARD, {
+    'switch.outlet': { state: 'unavailable', attributes: { friendly_name: 'Outlet' } },
+  });
+  await page.locator('#mount').locator('.status-seg-problem').click();
+  await page.evaluate(() => document.querySelector('hass-omnibus-card').setActiveSection('x'));
+  await expect(page.locator('#mount').locator('.problems-dialog')).toBeVisible();
+});
+
 test('problem badge — unavailable entity', async ({ page }) => {
   await mount(page, CARD, {
     'switch.outlet': { state: 'unavailable', attributes: { friendly_name: 'Outlet' } },

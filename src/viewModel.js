@@ -208,6 +208,15 @@ export function buildViewModel(hass, config, historyPoints = null, activeSection
     occupied:            anyOn(c.motions) || anyOn(c.occupancy),
     hasOccupancySensors: c.motions.length > 0 || c.occupancy.length > 0,
     problemCount: c.problems.length,
+    // Listed in the problems popup (see templates.js renderProblemsDialog) —
+    // the header badge alone only said "2", never which entities or why.
+    problemItems: c.problems.map(({ entityId, state }) => ({
+      entityId,
+      icon:   entityIcon(entityId, state),
+      name:   state.attributes?.friendly_name ?? entityId,
+      reason: state.state === 'unavailable' ? 'Unavailable'
+            : state.attributes?.device_class === 'safety' ? 'Unsafe' : 'Problem detected',
+    })),
 
     showBatteryBadge: lowBattery != null && lowBattery.value <= batteryLowThreshold,
     batteryValue:     lowBattery?.value ?? null,

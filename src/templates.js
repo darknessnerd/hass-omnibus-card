@@ -50,7 +50,7 @@ function renderStatusCluster({ showBatteryBadge, batteryValue, batteryIcon: batt
       <ha-icon icon="${batteryIconName}"></ha-icon><span>${batteryValue}%</span>
     </span>`);
   if (problemCount > 0) segs.push(`
-    <span class="group-seg status-seg-problem" title="${problemCount} problem${problemCount !== 1 ? 's' : ''}">
+    <span class="group-seg status-seg-problem" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Show ${problemCount} problem${problemCount !== 1 ? 's' : ''}" title="${problemCount} problem${problemCount !== 1 ? 's' : ''}">
       <ha-icon icon="mdi:alert-circle-outline"></ha-icon>${problemCount > 1 ? `<span>${problemCount}</span>` : ''}
     </span>`);
   if (updateCount > 0) segs.push(`
@@ -324,6 +324,30 @@ function renderSectionGroup({ deviceGroups, collapsibleControls, activeSection }
     </div>`;
 }
 
+// Native <dialog> opened with showModal() (dom.js) — renders in the browser's
+// top layer, so it escapes ha-card's overflow:hidden and the hover transform
+// that would otherwise turn position:fixed into card-relative. Each row opens
+// that entity's more-info.
+function renderProblemsDialog({ problemItems, areaName }) {
+  if (!problemItems.length) return '';
+  return `
+    <dialog class="problems-dialog" aria-label="Problems in ${areaName}">
+      <div class="problems-head">
+        <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+        <span class="problems-title">${problemItems.length} problem${problemItems.length !== 1 ? 's' : ''} · ${areaName}</span>
+        <span class="problems-close" role="button" tabindex="0" aria-label="Close" title="Close"><ha-icon icon="mdi:close"></ha-icon></span>
+      </div>
+      <ul class="problems-list">
+        ${problemItems.map(({ entityId, icon, name, reason }) => `
+          <li class="problem-row" data-entity="${entityId}" role="button" tabindex="0" aria-label="${name} — ${reason}" title="${entityId}">
+            <ha-icon icon="${icon}"></ha-icon>
+            <span class="problem-name">${name}</span>
+            <span class="problem-reason">${reason}</span>
+          </li>`).join('')}
+      </ul>
+    </dialog>`;
+}
+
 function renderAlarmBar({ smokeOn, gasOn, waterOn, moldRisk }) {
   if (!smokeOn && !gasOn && !waterOn && !moldRisk) return '';
   return `
@@ -425,5 +449,6 @@ export function renderCard(vm) {
         ${show('devices') ? renderSectionGroup(vm) : ''}
         ${renderAlarmBar(vm)}
       </div>
+      ${renderProblemsDialog(vm)}
     </ha-card>`;
 }

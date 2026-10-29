@@ -536,9 +536,85 @@ export const CARD_STYLES = `
   .status-seg-battery:hover { background: rgba(244, 67, 54, 0.28); color: var(--error-color, #f44336); }
   .status-seg-battery:hover ha-icon { color: var(--error-color, #f44336); }
 
-  .status-seg-problem { color: var(--warning-color, #ff9800); cursor: default; }
-  .status-seg-problem:hover { background: transparent; color: var(--warning-color, #ff9800); }
+  .status-seg-problem { color: var(--warning-color, #ff9800); }
+  .status-seg-problem:hover { background: rgba(255, 152, 0, 0.28); color: var(--warning-color, #ff9800); }
   .status-seg-problem:hover ha-icon { color: var(--warning-color, #ff9800); }
+
+  /* ── Problems popup (native <dialog>, top layer) ── */
+  .problems-dialog {
+    width: min(92vw, 380px);
+    max-height: 70vh;
+    padding: 0;
+    border: none;
+    border-radius: 16px;
+    background: var(--ha-card-background, var(--card-background-color, #1c1c1c));
+    color: var(--primary-text-color);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+  }
+
+  .problems-dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+
+  .problems-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--divider-color, rgba(128, 128, 128, 0.25));
+    color: var(--warning-color, #ff9800);
+  }
+
+  .problems-title {
+    flex: 1;
+    font-weight: 600;
+    color: var(--primary-text-color);
+  }
+
+  .problems-close {
+    display: inline-flex;
+    padding: 6px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--secondary-text-color);
+  }
+
+  .problems-close:hover { background: var(--secondary-background-color, rgba(128, 128, 128, 0.12)); }
+
+  .problems-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px;
+    overflow-y: auto;
+    max-height: calc(70vh - 56px);
+  }
+
+  .problem-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  .problem-row:hover { background: var(--secondary-background-color, rgba(128, 128, 128, 0.12)); }
+  .problem-row ha-icon { --mdc-icon-size: 20px; color: var(--secondary-text-color); flex-shrink: 0; }
+
+  .problem-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .problem-reason {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--warning-color, #ff9800);
+    white-space: nowrap;
+  }
 
   .status-seg-update { color: var(--primary-color, #03a9f4); }
   .status-seg-update:hover { background: rgba(3, 169, 244, 0.28); color: var(--primary-color, #03a9f4); }

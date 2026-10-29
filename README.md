@@ -76,7 +76,7 @@ area: living_room          entities: [light.x, sensor.y]
 | Safety alarms | Smoke, gas, water — pulsing alarm bar, high priority |
 | Battery badge | A low-battery badge (lowest charge + level-based icon) appears when any battery drops to/below `battery_low_threshold`. Battery sensors only show as chips with `show_diagnostics: true` |
 | Mold risk | Humidity above configurable threshold → amber warning badge |
-| Problem counter | Unavailable entities + problem/tamper binary sensors |
+| Problem counter | Unavailable entities + problem/safety binary sensors. Tap the badge → popup listing each entity with its reason (Unavailable / Problem detected / Unsafe); tap a row → its more-info. Popup stays open across live state updates |
 | Entity chip strip | Interactive chips for remaining entities. Tap toggles `light`/`switch`/`fan`/`input_boolean`/`cover`/`media_player`/`humidifier`/`automation` and runs `scene`/`script`; long-press (or tap on read-only entities, locks, alarm panels) opens more-info. `chip_tap_action: more-info` restores read-only taps. Labels strip the device / area name from `friendly_name` ("Cam Esterno Motion detection" → "Motion detection") |
 | Wall-panel layout | `layout: panel` — same card, sized for a wall-mounted tablet: every tap target ≥ 44px, headline temperature/humidity readable from a distance |
 | Section visibility | `hide: [camera, env, chips, weather, devices, history]` drops whole sections, so one card can be a slim status tile or a full control surface. Safety alarms (smoke/gas/water/mold) can't be hidden |

@@ -69,7 +69,8 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
       if (!e.target.closest('.chip') && !e.target.closest('.env-chip')
           && !e.target.closest('.badge-lights') && !e.target.closest('.status-seg-battery')
           && !e.target.closest('.status-seg-update') && !e.target.closest('.camera-preview')
-          && !e.target.closest('.section-tab')) navigate(navPath);
+          && !e.target.closest('.section-tab') && !e.target.closest('.status-seg-problem')
+          && !e.target.closest('.problems-dialog')) navigate(navPath);
     });
   }
 
@@ -157,6 +158,8 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
     });
   }
 
+  bindProblemsDialog(shadowRoot, host);
+
   const batteryBadge = shadowRoot.querySelector('.status-seg-battery[data-entity]');
   if (batteryBadge) batteryBadge.addEventListener('click', e => { e.stopPropagation(); fireMoreInfo(host, batteryBadge.dataset.entity); });
 
@@ -168,6 +171,31 @@ function bindEvents(shadowRoot, host, { navPath, chipItems }) {
   shadowRoot.querySelectorAll('.chip[data-entity]').forEach(el => bindChipAction(el, host));
 
   bindChartTooltip(shadowRoot);
+}
+
+// Problems popup — open state lives on the host (host._problemsOpen) because
+// every state change rewrites innerHTML, which would silently drop an open
+// dialog mid-read; render() reopens it here while problems remain.
+function bindProblemsDialog(shadowRoot, host) {
+  const dialog = shadowRoot.querySelector('.problems-dialog');
+  const badge  = shadowRoot.querySelector('.status-seg-problem');
+  if (!dialog || !badge) { host._problemsOpen = false; return; }
+
+  const close = () => { host._problemsOpen = false; dialog.close(); };
+  badge.addEventListener('click', e => {
+    e.stopPropagation();
+    host._problemsOpen = true;
+    dialog.showModal();
+  });
+  dialog.addEventListener('cancel', () => { host._problemsOpen = false; });
+  // click on the ::backdrop lands on the <dialog> element itself
+  dialog.addEventListener('click', e => { e.stopPropagation(); if (e.target === dialog) close(); });
+  shadowRoot.querySelector('.problems-close')?.addEventListener('click', close);
+  dialog.querySelectorAll('.problem-row[data-entity]').forEach(row => {
+    row.addEventListener('click', () => { close(); fireMoreInfo(host, row.dataset.entity); });
+  });
+
+  if (host._problemsOpen && !dialog.open) dialog.showModal();
 }
 
 // Wall-panel interaction: a tap acts (toggle a light/switch, run a scene),
